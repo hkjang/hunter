@@ -1,0 +1,789 @@
+import { useEffect, useState } from "react";
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import {
+  ActionIcon,
+  Alert,
+  Avatar,
+  Badge,
+  Button,
+  Group,
+  Menu,
+  Modal,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  IconActivity,
+  IconAdjustments,
+  IconArrowRight,
+  IconBook2,
+  IconChevronDown,
+  IconChevronRight,
+  IconCircleCheck,
+  IconClipboardCheck,
+  IconCloudOff,
+  IconDashboard,
+  IconDatabaseSearch,
+  IconFileAnalytics,
+  IconGitBranch,
+  IconKey,
+  IconLayersIntersect,
+  IconLink,
+  IconListCheck,
+  IconLogout,
+  IconMenu2,
+  IconPlugConnected,
+  IconRadar,
+  IconSearch,
+  IconSettings,
+  IconShieldCheck,
+  IconShieldLock,
+  IconSparkles,
+  IconTargetArrow,
+  IconTerminal2,
+  IconTrophy,
+  IconUser,
+  IconUsers,
+  IconX,
+} from "@tabler/icons-react";
+import {
+  api,
+  type Row,
+  type User,
+  SessionContext,
+  useSession,
+  label,
+  useCan,
+} from "./api";
+import { LoadState } from "./components";
+import {
+  Dashboard,
+  GraphPage,
+  ReportsPage,
+  ContributionsPage,
+  CopilotPage,
+} from "./pages";
+import { ResourcePage } from "./resources";
+import {
+  SettingsPage,
+  ProfilePage,
+  KeysPage,
+  UsersPage,
+  AuditPage,
+} from "./settings";
+export const navGroups = [
+  {
+    title: "워크스페이스",
+    items: [
+      { path: "/dashboard", label: "보안 현황", icon: IconDashboard },
+      { path: "/services", label: "서비스 자산", icon: IconLayersIntersect },
+      { path: "/findings", label: "발견 건", icon: IconShieldCheck },
+      { path: "/remediations", label: "개선 요청", icon: IconLink },
+      { path: "/scans", label: "진단 실행", icon: IconRadar },
+      { path: "/schedules", label: "진단 예약", icon: IconActivity },
+      { path: "/graph", label: "영향 관계도", icon: IconGitBranch },
+      { path: "/scenarios", label: "권한 검증", icon: IconListCheck },
+      { path: "/reports", label: "보고서", icon: IconFileAnalytics },
+      { path: "/contributions", label: "보안 기여", icon: IconTrophy },
+      { path: "/copilot", label: "AI 분석 도우미", icon: IconSparkles },
+      { path: "/approvals", label: "검토 · 승인", icon: IconClipboardCheck },
+    ],
+  },
+  {
+    title: "서비스 관리",
+    admin: true,
+    items: [
+      {
+        path: "/admin/integrations",
+        label: "연동 관리",
+        icon: IconPlugConnected,
+      },
+      {
+        path: "/admin/discovery",
+        label: "자산 발견",
+        icon: IconDatabaseSearch,
+      },
+      { path: "/admin/policies", label: "실행 정책", icon: IconShieldLock },
+      { path: "/admin/scopes", label: "진단 허용 범위", icon: IconTargetArrow },
+      { path: "/admin/auth-profiles", label: "진단 인증", icon: IconKey },
+      {
+        path: "/admin/workers",
+        label: "워커 · 실행 이벤트",
+        icon: IconActivity,
+      },
+      { path: "/admin/users", label: "사용자 · 권한", icon: IconUsers },
+      { path: "/admin/audit", label: "감사 기록", icon: IconBook2 },
+      { path: "/admin/settings", label: "서비스 설정", icon: IconSettings },
+    ],
+  },
+];
+const routeScopes: Record<string, string> = {
+  "/dashboard": "findings:read",
+  "/services": "services:read",
+  "/findings": "findings:read",
+  "/scans": "scans:read",
+  "/schedules": "scans:read",
+  "/scenarios": "services:read",
+  "/graph": "services:read",
+  "/reports": "findings:read",
+  "/contributions": "findings:read",
+  "/remediations": "findings:read",
+  "/copilot": "ai:use",
+  "/approvals": "scans:approve",
+  "/admin/integrations": "integrations:manage",
+  "/admin/discovery": "integrations:manage",
+  "/admin/audit": "audit:read",
+};
+const personalItems = [
+  { path: "/personal/profile", label: "내 프로필", icon: IconUser },
+  { path: "/personal/keys", label: "개인 API 키", icon: IconKey },
+];
+export default function App() {
+  const [user, setUser] = useState<User | null>(null),
+    [ready, setReady] = useState(false),
+    [config, setConfig] = useState<Row>({ version: "1.0.0" });
+  const refreshConfig = () => {
+    api("/api/settings/public")
+      .then(setConfig)
+      .catch(() => {});
+  };
+  useEffect(() => {
+    api<{ user: User }>("/api/auth/me")
+      .then((v) => setUser(v.user))
+      .catch(() => {})
+      .finally(() => setReady(true));
+    refreshConfig();
+    const unauth = () => setUser(null);
+    window.addEventListener("hunter:unauthorized", unauth);
+    return () => window.removeEventListener("hunter:unauthorized", unauth);
+  }, []);
+  useEffect(() => {
+    if (user) refreshConfig();
+  }, [user?.id]);
+  if (!ready)
+    return (
+      <div className="app-loading">
+        <img src="/favicon.svg" width={54} height={54} alt="Hunter" />
+        <LoadState loading error="" />
+      </div>
+    );
+  return (
+    <SessionContext.Provider value={{ user, setUser, config, refreshConfig }}>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+        <Route path="/*" element={user ? <Shell /> : <LoginRedirect />} />
+      </Routes>
+    </SessionContext.Provider>
+  );
+}
+function LoginRedirect() {
+  const location = useLocation();
+  return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+}
+function Login() {
+  const { setUser, refreshConfig } = useSession();
+  const [name, setName] = useState(""),
+    [password, setPassword] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [authConfig, setAuthConfig] = useState<Row>({});
+  const location = useLocation(),
+    navigate = useNavigate();
+  useEffect(() => {
+    api("/api/auth/config")
+      .then(setAuthConfig)
+      .catch((e) => setError(e.message));
+    const oidcError = new URLSearchParams(location.search).get("error");
+    if (oidcError)
+      setError(
+        "SSO 로그인에 실패했습니다. 인증 설정을 확인하거나 로컬 계정으로 로그인해 주세요.",
+      );
+  }, [location.search]);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<{ user: User }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username: name, password }),
+      });
+      const profile = await api<Row>("/api/profile").catch(() => ({}) as Row);
+      const home = ["/dashboard", "/services", "/findings"].includes(
+        profile.preferences?.home_page,
+      )
+        ? profile.preferences.home_page
+        : "/dashboard";
+      setUser({ ...result.user, preferences: profile.preferences });
+      refreshConfig();
+      const from = location.state?.from;
+      navigate(
+        from && from !== "/" && from.startsWith("/") && !from.startsWith("//")
+          ? from
+          : home,
+        { replace: true },
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="login-page">
+      <section className="login-story">
+        <Link to="/" className="brand">
+          <img src="/favicon.svg" alt="" />
+          <span>
+            hunter<span className="brand-dot">.</span>
+          </span>
+        </Link>
+        <div className="login-story-body">
+          <Badge variant="outline" color="lime" radius="xl" size="lg">
+            CONTINUOUS SECURITY VALIDATION
+          </Badge>
+          <h1>
+            발견에서 해결까지.
+            <br />
+            보안의 다음 행동을
+            <br />
+            <span>명확하게.</span>
+          </h1>
+          <p>
+            흩어진 보안 정보를 하나의 흐름으로.
+            <br />
+            사내 서비스의 위험을 발견하고, 검증하고,
+            <br />
+            함께 해결하는 보안 워크스페이스입니다.
+          </p>
+          <div className="radar-art" aria-hidden="true">
+            <div className="radar-ring r1" />
+            <div className="radar-ring r2" />
+            <div className="radar-ring r3" />
+            <div className="radar-line" />
+            <div className="radar-center">
+              <IconShieldCheck size={44} stroke={1.25} />
+            </div>
+            <span className="radar-point p1" />
+            <span className="radar-point p2" />
+            <span className="radar-point p3" />
+            <div className="radar-caption">
+              <span className="pulse-dot" />
+              지속적인 보안 검증
+            </div>
+          </div>
+        </div>
+        <div className="login-story-footer">
+          <IconCloudOff size={17} /> 폐쇄망을 위한 독립적인 보안 플랫폼
+        </div>
+      </section>
+      <section className="login-panel">
+        <div className="login-mobile-brand">
+          <img src="/favicon.svg" alt="Hunter" width={40} /> hunter.
+        </div>
+        <div className="login-form">
+          <span className="eyebrow">WELCOME TO HUNTER</span>
+          <h2>워크스페이스 로그인</h2>
+          <p>계정으로 로그인하고 보안 현황을 확인하세요.</p>
+          {error && (
+            <Alert color="red" mb="lg" title="로그인 안내">
+              {error}
+            </Alert>
+          )}
+          <form onSubmit={submit}>
+            <Stack gap="lg">
+              <TextInput
+                label="사용자 아이디"
+                placeholder="아이디를 입력하세요"
+                autoComplete="username"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <PasswordInput
+                label="비밀번호"
+                placeholder="비밀번호를 입력하세요"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button
+                type="submit"
+                fullWidth
+                size="lg"
+                mt="sm"
+                loading={busy}
+                rightSection={<IconArrowRight size={19} />}
+              >
+                로그인
+              </Button>
+            </Stack>
+          </form>
+          {authConfig.oidc_enabled && (
+            <>
+              <div className="login-divider">또는 사내 계정으로 계속</div>
+              <Button
+                component="a"
+                href="/api/auth/oidc/login"
+                variant="default"
+                fullWidth
+                size="lg"
+                leftSection={<IconShieldLock size={20} />}
+              >
+                Keycloak SSO 로그인
+              </Button>
+            </>
+          )}
+          <div className="login-note">
+            <IconShieldLock size={18} />
+            <span>
+              승인된 사용자만 접근할 수 있습니다.
+              <br />
+              계정 문의는 서비스 관리자에게 연락해 주세요.
+            </span>
+          </div>
+        </div>
+        <footer className="login-footer">
+          <span>© {new Date().getFullYear()} hunter</span>
+          <span>
+            서비스 버전 <b>v{authConfig.version || "1.0.0"}</b>
+          </span>
+        </footer>
+      </section>
+    </div>
+  );
+}
+function Shell() {
+  const { user, setUser, config } = useSession();
+  const location = useLocation(),
+    navigate = useNavigate();
+  const [mobile, setMobile] = useState(false),
+    [searchOpen, setSearchOpen] = useState(false),
+    [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const can = useCan();
+  const allowed = (path: string) =>
+    (path !== "/approvals" || !!config.approval_enabled) &&
+    ((!routeScopes[path] && !path.startsWith("/admin")) ||
+      can(routeScopes[path] || "admin:manage"));
+  const groups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.path)) }))
+    .filter((g) => g.items.length > 0);
+  const entries = [...groups.flatMap((g) => g.items), ...personalItems];
+  const current = entries.find((i) => i.path === location.pathname);
+  useEffect(() => {
+    setMobile(false);
+    document.title = `${current?.label || "Hunter"} · hunter`;
+    const frame = requestAnimationFrame(() => {
+      const nav = document.querySelector<HTMLElement>(".sidebar-nav");
+      const active = nav?.querySelector<HTMLElement>(".nav-item.active");
+      if (!nav || !active) return;
+      const n = nav.getBoundingClientRect(),
+        a = active.getBoundingClientRect();
+      if (a.bottom > n.bottom) nav.scrollTop += a.bottom - n.bottom + 12;
+      else if (a.top < n.top) nav.scrollTop -= n.top - a.top + 12;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, current?.label]);
+  useEffect(() => {
+    function key(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setUser(null);
+    navigate("/login");
+  }
+  return (
+    <div className="app-shell">
+      {mobile && (
+        <div className="mobile-overlay" onClick={() => setMobile(false)} />
+      )}
+      <aside className={`sidebar ${mobile ? "sidebar-open" : ""}`}>
+        <div className="sidebar-brand">
+          <Link to="/dashboard" className="brand">
+            <img src="/favicon.svg" alt="" />
+            <span>
+              hunter<span className="brand-dot">.</span>
+            </span>
+          </Link>
+          <ActionIcon
+            hiddenFrom="md"
+            variant="subtle"
+            color="gray"
+            aria-label="메뉴 닫기"
+            onClick={() => setMobile(false)}
+          >
+            <IconX size={20} />
+          </ActionIcon>
+        </div>
+        <div className="workspace-tag">
+          <div className="workspace-icon">
+            <IconShieldCheck size={19} />
+          </div>
+          <div>
+            <strong>{config.service_name || "Hunter 워크스페이스"}</strong>
+            <span>지속적인 보안 검증</span>
+          </div>
+          <Badge variant="light" color="teal" size="xs">
+            내부망
+          </Badge>
+        </div>
+        <nav className="sidebar-nav" aria-label="주 메뉴">
+          {groups.map((group) => (
+            <div className="nav-group" key={group.title}>
+              <button
+                className="nav-group-title"
+                onClick={() => group.admin && setCollapsed(!collapsed)}
+                aria-expanded={group.admin ? !collapsed : undefined}
+              >
+                {group.title}
+                {group.admin && (
+                  <IconChevronDown
+                    size={14}
+                    style={{
+                      transform: collapsed ? "rotate(-90deg)" : undefined,
+                    }}
+                  />
+                )}
+              </button>
+              {!(group.admin && collapsed) &&
+                group.items
+                  .filter(
+                    (i) => i.path != "/approvals" || config.approval_enabled,
+                  )
+                  .map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `nav-item ${isActive ? "active" : ""}`
+                      }
+                    >
+                      <item.icon size={20} stroke={1.65} />
+                      <span>{item.label}</span>
+                      {item.path === "/copilot" && (
+                        <span className="ai-chip">AI</span>
+                      )}
+                      {item.path === location.pathname && (
+                        <span className="active-dot" />
+                      )}
+                    </NavLink>
+                  ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="sidebar-status">
+            <span className="status-led" />
+            오프라인 운영 준비<span>v{config.version || "1.0.0"}</span>
+          </div>
+          <Menu width={255} position="top-start" shadow="md" offset={12}>
+            <Menu.Target>
+              <UnstyledButton className="profile-trigger">
+                <Avatar color="teal" radius="xl">
+                  {(user?.name || user?.username || "H").slice(0, 1)}
+                </Avatar>
+                <div>
+                  <strong>{user?.name || user?.username}</strong>
+                  <span>{label(user?.role)}</span>
+                </div>
+                <IconChevronDown size={17} />
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>개인화</Menu.Label>
+              <Menu.Item
+                component={Link}
+                to="/personal/profile"
+                leftSection={<IconUser size={17} />}
+              >
+                내 프로필
+              </Menu.Item>
+              <Menu.Item
+                component={Link}
+                to="/personal/keys"
+                leftSection={<IconKey size={17} />}
+              >
+                개인 API 키 관리
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Label>
+                hunter · 서비스 버전 v{config.version || "1.0.0"}
+              </Menu.Label>
+              <Menu.Item
+                color="red"
+                leftSection={<IconLogout size={17} />}
+                onClick={logout}
+              >
+                로그아웃
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <Group gap="sm">
+            <ActionIcon
+              hiddenFrom="md"
+              variant="subtle"
+              color="gray"
+              aria-label="메뉴 열기"
+              onClick={() => setMobile(true)}
+            >
+              <IconMenu2 />
+            </ActionIcon>
+            <span className="topbar-workspace">
+              {location.pathname.startsWith("/admin")
+                ? "서비스 관리"
+                : location.pathname.startsWith("/personal")
+                  ? "개인화"
+                  : "워크스페이스"}
+            </span>
+            <IconChevronRight size={15} color="#a8b1b4" />
+            <strong>{current?.label || "보안 현황"}</strong>
+          </Group>
+          <Group gap="md">
+            <button
+              className="quick-search"
+              onClick={() => setSearchOpen(true)}
+            >
+              <IconSearch size={17} />
+              <span>메뉴 빠른 검색</span>
+              <kbd>⌘ K</kbd>
+            </button>
+            <div className="topbar-date">
+              {new Date().toLocaleDateString("ko-KR", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+            <Avatar
+              size={34}
+              color="teal"
+              radius="xl"
+              className="topbar-avatar"
+            >
+              {(user?.name || "H")[0]}
+            </Avatar>
+          </Group>
+        </header>
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/dashboard"
+              element={
+                <Access required={routeScopes["/dashboard"]}>
+                  <Dashboard />
+                </Access>
+              }
+            />
+            <Route
+              path="/graph"
+              element={
+                <Access required={routeScopes["/graph"]}>
+                  <GraphPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <Access required={routeScopes["/reports"]}>
+                  <ReportsPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/contributions"
+              element={
+                <Access required={routeScopes["/contributions"]}>
+                  <ContributionsPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/copilot"
+              element={
+                <Access required={routeScopes["/copilot"]}>
+                  <CopilotPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/approvals"
+              element={
+                config.approval_enabled ? (
+                  <Access required="scans:approve">
+                    <ResourcePage kind="approvals" />
+                  </Access>
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            {[
+              "services",
+              "findings",
+              "scans",
+              "scenarios",
+              "remediations",
+              "schedules",
+            ].map((p) => (
+              <Route
+                path={`/${p}`}
+                key={p}
+                element={
+                  <Access required={routeScopes[`/${p}`]}>
+                    <ResourcePage key={p} kind={p} />
+                  </Access>
+                }
+              />
+            ))}
+            {[
+              "integrations",
+              "discovery",
+              "policies",
+              "scopes",
+              "auth-profiles",
+              "workers",
+            ].map((p) => (
+              <Route
+                path={`/admin/${p}`}
+                key={p}
+                element={
+                  <Access
+                    required={routeScopes[`/admin/${p}`] || "admin:manage"}
+                  >
+                    <ResourcePage key={p} kind={p} />
+                  </Access>
+                }
+              />
+            ))}
+            <Route
+              path="/admin/settings"
+              element={
+                <Access required="admin:manage">
+                  <SettingsPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <Access required="admin:manage">
+                  <UsersPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/audit"
+              element={
+                <Access required="audit:read">
+                  <AuditPage />
+                </Access>
+              }
+            />
+            <Route path="/personal/profile" element={<ProfilePage />} />
+            <Route path="/personal/keys" element={<KeysPage />} />
+            <Route
+              path="*"
+              element={
+                <Stack align="center" p={60}>
+                  <IconSearch size={50} />
+                  <h1>페이지를 찾을 수 없습니다</h1>
+                  <Text c="dimmed">
+                    주소를 확인하거나 보안 현황으로 돌아가세요.
+                  </Text>
+                  <Button component={Link} to="/dashboard">
+                    보안 현황으로
+                  </Button>
+                </Stack>
+              }
+            />
+          </Routes>
+        </main>
+        <footer className="app-footer">
+          <span>hunter · 지속적인 보안 검증 플랫폼</span>
+          <span>
+            <IconCircleCheck size={14} /> 사내 환경을 위한 안전한 연결
+          </span>
+        </footer>
+      </div>
+      <Modal
+        opened={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        title="메뉴 빠른 검색"
+        size="md"
+      >
+        <TextInput
+          placeholder="메뉴 이름 검색..."
+          value={search}
+          autoFocus
+          onChange={(e) => setSearch(e.target.value)}
+          leftSection={<IconSearch size={18} />}
+        />
+        <Stack gap={4} mt="md">
+          {entries
+            .filter((i) => i.label.toLowerCase().includes(search.toLowerCase()))
+            .map((i) => (
+              <UnstyledButton
+                className="search-result"
+                key={i.path}
+                onClick={() => {
+                  navigate(i.path);
+                  setSearchOpen(false);
+                  setSearch("");
+                }}
+              >
+                <i.icon size={19} />
+                <span>{i.label}</span>
+                <IconChevronRight size={16} />
+              </UnstyledButton>
+            ))}
+        </Stack>
+      </Modal>
+    </div>
+  );
+}
+function Access({
+  children,
+  required,
+}: {
+  children: React.ReactNode;
+  required: string;
+}) {
+  const can = useCan();
+  return can(required) ? (
+    children
+  ) : (
+    <Alert color="orange" title="접근 권한이 필요합니다">
+      이 페이지에 접근할 권한이 없습니다. 서비스 관리자에게 역할 권한을
+      문의하세요.
+    </Alert>
+  );
+}

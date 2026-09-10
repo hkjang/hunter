@@ -1,0 +1,36 @@
+name: Release offline image
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
+      - name: Build and package only the service image
+        run: bash scripts/release.sh "$GITHUB_REF_NAME"
+      - name: Create release notes
+        run: python3 scripts/release-notes.py "$GITHUB_REF_NAME" "dist/hunter-${GITHUB_REF_NAME}.tar.gz" /tmp/hunter-release-notes.md
+      - name: Publish image archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="dist/hunter-${GITHUB_REF_NAME}.tar.gz"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$asset" --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file /tmp/hunter-release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" "$asset" --verify-tag --title "Hunter ${GITHUB_REF_NAME}" --notes-file /tmp/hunter-release-notes.md
+          fi

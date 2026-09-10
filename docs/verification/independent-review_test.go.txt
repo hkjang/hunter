@@ -1,0 +1,95 @@
+package app
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
+	"testing"
+)
+
+func TestReviewAggregateScopes(t *testing.T) {
+	_, s := testApp(t)
+	admin := loginTest(t, s, "admin", "test-password-1234")
+	service := mustRequest(t, s, "POST", "/api/services", map[string]any{"name": "review", "url": "https://review.internal", "environment": "staging"}, admin, 200)
+	sid := str(service, "id")
+	mustRequest(t, s, "POST", "/api/findings", map[string]any{"title": "CONFIDENTIAL-FINDING", "service_id": sid, "severity": "high"}, admin, 200)
+	mustRequest(t, s, "POST", "/api/scans", map[string]any{"service_id": sid, "profile": "import-only"}, admin, 201)
+	key := mustRequest(t, s, "POST", "/api/keys", map[string]any{"name": "services-only", "scopes": []string{"services:read"}, "expires_days": 1}, admin, 201)
+	token := str(key, "token")
+	direct, _, _ := request(t, s, "GET", "/api/findings", nil, token, false)
+	code, body, _ := request(t, s, "GET", "/api/graph", nil, token, false)
+	t.Logf("services-only key findings=%d graph=%d confidential-title-leaked=%v", direct, code, strings.Contains(string(body), "CONFIDENTIAL-FINDING"))
+	if direct != 403 || strings.Contains(string(body), "CONFIDENTIAL-FINDING") {
+		t.Fatal("aggregate scope isolation failed")
+	}
+	key = mustRequest(t, s, "POST", "/api/keys", map[string]any{"name": "findings-only", "scopes": []string{"findings:read"}, "expires_days": 1}, admin, 201)
+	token = str(key, "token")
+	direct, _, _ = request(t, s, "GET", "/api/scans", nil, token, false)
+	code, body, _ = request(t, s, "GET", "/api/dashboard", nil, token, false)
+	var dashboard map[string]any
+	_ = json.Unmarshal(body, &dashboard)
+	t.Logf("findings-only key scans=%d dashboard=%d recent-scans=%d", direct, code, len(array(dashboard["recent_scans"])))
+	if direct != 403 || len(array(dashboard["recent_scans"])) != 0 {
+		t.Fatal("scan aggregate scope isolation failed")
+	}
+}
+func TestReviewStaleRemediationWrite(t *testing.T) {
+	a, s := testApp(t)
+	admin := loginTest(t, s, "admin", "test-password-1234")
+	var sent atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"id":"ticket-1","url":"https://tickets.internal/1"}`)
+	}))
+	defer upstream.Close()
+	service := mustRequest(t, s, "POST", "/api/services", map[string]any{"name": "review", "url": "https://review.internal", "environment": "staging"}, admin, 200)
+	finding := mustRequest(t, s, "POST", "/api/findings", map[string]any{"title": "review finding", "service_id": str(service, "id"), "severity": "high"}, admin, 200)
+	integration := mustRequest(t, s, "POST", "/api/integrations", map[string]any{"name": "outbound", "type": "rest", "endpoint": upstream.URL, "config": map[string]any{"direction": "outbound"}}, admin, 200)
+	rem := mustRequest(t, s, "POST", "/api/remediations", map[string]any{"name": "review fix", "finding_id": str(finding, "id"), "integration_id": str(integration, "id")}, admin, 200)
+	id := str(rem, "id")
+	stale, e := a.resource(context.Background(), "remediations", id)
+	if e != nil {
+		t.Fatal(e)
+	}
+	mustRequest(t, s, "POST", "/api/remediations/"+id+"/dispatch", map[string]any{}, admin, 200)
+	stale.Data["description"] = "PUT loaded before dispatch claim"
+	e = a.persistResource(context.Background(), &stale)
+	t.Logf("stale PUT rejected=%v", e)
+	if e == nil {
+		t.Error("stale write was accepted")
+	}
+	code, body, _ := request(t, s, "POST", "/api/remediations/"+id+"/dispatch", map[string]any{}, admin, true)
+	t.Logf("stale-save-followed-by-dispatch status=%d outgoing-POST-count=%d response=%s", code, sent.Load(), body)
+	if code != 409 || sent.Load() != 1 {
+		t.Fatal("duplicate outbound dispatch occurred")
+	}
+}
+func TestReviewCancelledScanResolvesFinding(t *testing.T) {
+	a, s := testApp(t)
+	admin := loginTest(t, s, "admin", "test-password-1234")
+	service := mustRequest(t, s, "POST", "/api/services", map[string]any{"name": "review", "url": "https://review.internal", "environment": "staging"}, admin, 200)
+	_, _, e := a.ingestFindings(context.Background(), User{ID: str(service, "owner_id")}, str(service, "id"), []map[string]any{{"title": "Missing header", "source": "http-baseline", "rule_id": "x-frame-options", "location": "/", "severity": "low"}}, "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var fid string
+	e = a.DB.QueryRow(context.Background(), "SELECT id FROM resources WHERE kind='findings'").Scan(&fid)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cancelled := domainResource{ID: newID(), Kind: "scans", OwnerID: str(service, "owner_id"), Data: map[string]any{"status": "cancelled", "service_id": str(service, "id")}}
+	if e = a.persistResource(context.Background(), &cancelled); e != nil {
+		t.Fatal(e)
+	}
+	e = a.resolveBaselineFinding(context.Background(), fid, cancelled.ID, "missing-worker", map[string]any{"tested_controls": map[string]bool{"x-frame-options": true}, "path": "/", "http_status": 200})
+	f, _ := a.resource(context.Background(), "findings", fid)
+	t.Logf("cancelled-scan resolve-error=%v resulting-finding-status=%s", e, str(f.Data, "status"))
+	if e == nil || str(f.Data, "status") != "candidate" {
+		t.Fatal("cancelled scan resolved a finding")
+	}
+}

@@ -1,0 +1,15 @@
+.git
+**/node_modules
+web/dist
+internal/webassets/dist
+docs
+.env
+.env.*
+!.env.example
+.tmp
+bin
+dist
+*.tar.gz
+*.log
+test-results
+playwright-report

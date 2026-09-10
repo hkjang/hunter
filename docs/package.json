@@ -1,0 +1,15 @@
+{
+  "name": "hunter-documentation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../scripts/render-guides.mjs",
+    "html": "node ../scripts/render-guides.mjs --html-only",
+    "check": "node ../scripts/check-docs.mjs"
+  },
+  "devDependencies": {
+    "markdown-it": "15.0.1",
+    "playwright": "1.63.0"
+  }
+}

@@ -1,0 +1,17 @@
+node_modules/
+web/dist/
+.env
+.env.*
+!.env.example
+*.tar.gz
+bin/
+test-results/
+playwright-report/
+.tmp/
+*.log
+/internal/webassets/dist/*
+!/internal/webassets/dist/.gitkeep
+/dist/
+/hunter
+__pycache__/
+*.pyc

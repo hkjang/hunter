@@ -1,0 +1,141 @@
+# hunter
+
+**사내 서비스의 발견 → 검증 → 개선 → 재검증을 연결하는 보안 검증 플랫폼.**
+
+Go + React + Mantine + PostgreSQL로 만들었으며 서비스 서버·화면·한국어 폰트를 한 Docker 이미지에 담아 폐쇄망에 배포합니다. 기본 UI는 한국어입니다.
+
+[제품 소개](https://hkjang.github.io/hunter/) · [릴리즈](https://github.com/hkjang/hunter/releases) · [사용자 가이드](docs/guides/user-guide.md) · [관리자 가이드](docs/guides/admin-guide.md) · [전체 화면](https://hkjang.github.io/hunter/screenshots.html)
+
+![Hunter 보안 현황](docs/images/dashboard.png)
+
+## 제공 기능
+
+- 서비스 자산, 망·환경·담당자·중요도, 공격 표면과 관계 그래프
+- 승인된 범위의 실제 HTTP 보안 헤더 진단, 합성 데이터 기반 업무 권한 비교
+- 발견 건·증거·중복 관찰·개선·재검증 관리, 설정한 ITSM·개발 API로 개선 초안 발송
+- 5분~7일 간격의 진단 예약과 같은 이미지를 사용하는 망별 워커 전용 실행
+- Trivy, Nuclei, ZAP, SARIF, Gitleaks와 일반 JSON 결과 가져오기
+- REST·읽기 전용 PostgreSQL 자산 수집, 변경 이벤트 웹훅, 정책을 따르는 재진단
+- Keycloak OIDC discovery, 관리자·개인화 분리, 변경 가능한 역할 권한
+- 개인 API 키 발급·권한 수정·원자적 회전·폐기, REST API와 HTTP MCP
+- OpenAI 호환 사내 AI, 기본 SSE 스트리밍, 최대 262,144 컨텍스트·출력 설정
+- 선택적 팀장 검토·승인, 감사 기록, 긴급 중지, JSON·CSV 보고서
+- 로그인 화면과 프로필 메뉴의 버전, 모바일 탐색, 새로고침 경로 유지
+
+UI는 Mantine을 사용합니다. 접근 가능한 폼·대화상자·표·메뉴를 일관되게 구성하고, 한국어 폰트를 로컬 번들하여 폐쇄망에서도 읽기 편한 화면을 제공합니다.
+
+## 오프라인 설치
+
+PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
+
+~~~sh
+docker load -i hunter-v1.0.0.tar.gz
+cp .env.example .env
+chmod 600 .env
+openssl rand -base64 32
+~~~
+
+`.env`에 아래 네 값만 실제 정보로 설정합니다.
+
+~~~dotenv
+POSTGRES_DSN=postgres://hunter:URL_ENCODED_PASSWORD@postgres.internal:5432/hunter?sslmode=verify-full
+BOOTSTRAP_ADMIN=admin
+BOOTSTRAP_ADMIN_PASSWORD=A_UNIQUE_PASSWORD_AT_LEAST_12_CHARACTERS
+ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
+~~~
+
+~~~sh
+docker compose up -d
+curl --fail http://localhost:8080/api/health
+~~~
+
+기본 포트는 8080입니다. 초기 관리자로 로그인한 뒤 **관리자 → 서비스 설정**에서 서비스 공개 주소, 사내 인증서, OIDC, AI, 세션과 역할 권한을 설정합니다. 초기 관리자는 사용자가 없는 DB에만 생성되며, 암호화 키는 기존 DB와 반드시 동일하게 유지해야 합니다.
+
+**키를 재생성하지 마세요.** DB와 원래 `ENCRYPTION_KEY`를 함께 복구할 수 있도록 안전하게 보관하세요. 운영 설치, HTTPS, 백업·복구와 업그레이드는 [관리자 가이드](docs/guides/admin-guide.md)에 설명되어 있습니다.
+
+## 인증과 연동
+
+Keycloak에는 `https://hunter.internal/api/auth/oidc/callback`을 redirect URI로 등록합니다. Hunter 관리자 화면에 realm issuer, client ID, client secret을 저장하면 discovery로 연결합니다. 플랫폼 SSO와 진단 대상 테스트 계정은 별도 인증 프로파일로 관리합니다.
+
+개인 키는 **개인화 → 개인 API 키**에서 발급합니다. 키의 실제 권한은 소유자의 현재 역할 권한과 키에 설정한 범위의 교집합입니다.
+
+~~~sh
+curl 'https://hunter.internal/api/services' \
+  -H 'Authorization: Bearer YOUR_HUNTER_KEY'
+~~~
+
+- OpenAPI: `/api/openapi.json`
+- MCP: `POST /mcp`, 개인 Bearer 키 인증
+- 도구: `hunter_list_services`, `hunter_list_findings`, `hunter_request_scan`
+- AI: `POST /api/ai/chat`, SSE 스트리밍
+
+MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동적 등록을 제공하지 않습니다. AI 최대 설정은 연결한 실제 모델의 지원 한도에 따라 조정합니다.
+
+## 진단 범위
+
+진단에는 **명시적으로 승인한 서비스와 유효한 범위**가 필요합니다. 팀장 승인 기능은 관리자 설정으로 켜거나 끌 수 있으며, 이 기능을 꺼도 대상 승인·정책 검사는 유지됩니다.
+
+서비스의 HTTP 진단은 제한된 헤더 점검과 정의한 읽기 전용 권한 시나리오입니다. Nuclei·Trivy·ZAP·Semgrep·Gitleaks 바이너리와 취약점 DB를 번들하지 않습니다. 외부 도구는 조직이 승인한 실행 환경에서 운영하고 JSON 결과를 수입합니다.
+
+전체 소스 자동 수정·병합, 범용 공격 실행, 자동 보상 지급 등은 제공 범위에 포함하지 않습니다. 구체적인 제공·확장 범위는 [관리자 가이드](docs/guides/admin-guide.md)의 첫 장에서 확인하세요.
+
+첫 릴리즈의 목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 이 한도를 넘는 전체 이력 집계와 대규모 페이지 조회는 후속 확장이 필요합니다.
+
+## 개발
+
+Go 1.26, Node.js 26, PostgreSQL을 준비합니다. 빌드 구간에는 의존성 다운로드가 필요하며 완성된 서비스 이미지의 런타임에는 인터넷 접속이 필요하지 않습니다.
+
+~~~sh
+npm --prefix web ci
+npm --prefix web run build
+mkdir -p internal/webassets/dist
+cp -a web/dist/. internal/webassets/dist/
+go test ./...
+go build ./cmd/hunter
+~~~
+
+DB 통합 테스트는 테스트 전용 PostgreSQL DSN을 `HUNTER_TEST_DSN`으로 지정한 테스트 프로세스에서 실행합니다. 이 변수는 운영 서비스 환경변수가 아닙니다. 운영 DB를 테스트에 사용하지 않습니다.
+
+~~~sh
+HUNTER_TEST_DSN='postgres://hunter:password@localhost:5432/hunter_test?sslmode=disable' go test -race ./...
+~~~
+
+## 가이드와 실제 화면
+
+| 가이드 | Markdown | HTML | PDF |
+| --- | --- | --- | --- |
+| 사용자 | [읽기](docs/guides/user-guide.md) | [보기](https://hkjang.github.io/hunter/guides/user-guide.html) | [다운로드](docs/guides/user-guide.pdf) |
+| 관리자 | [읽기](docs/guides/admin-guide.md) | [보기](https://hkjang.github.io/hunter/guides/admin-guide.html) | [다운로드](docs/guides/admin-guide.pdf) |
+
+실제 앱에서 캡처한 모든 화면은 `docs/images`와 [제품 화면 갤러리](https://hkjang.github.io/hunter/screenshots.html)에 있습니다. 문서용 예시 데이터는 운영 시작 시 자동 등록되지 않습니다.
+
+~~~sh
+npm --prefix docs ci
+npm --prefix docs exec -- playwright install chromium
+node scripts/sync-doc-assets.mjs
+node scripts/render-guides.mjs
+node scripts/check-docs.mjs
+~~~
+
+## 릴리즈
+
+버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
+
+| 항목 | 형식 | v1.0.0 예시 |
+| --- | --- | --- |
+| Docker 이미지 | hunter:v버전 | hunter:v1.0.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.0.0.tar.gz |
+
+~~~sh
+bash scripts/release.sh 1.0.0
+~~~
+
+GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.
+
+홍보 페이지와 가이드는 `docs` 아래에 있으며 GitHub Pages로 별도 배포합니다. 정적 HTML, 로컬 자산, 검색 메타데이터, FAQ 구조화 데이터, sitemap과 llms.txt를 포함합니다.
+
+## 보안과 라이선스
+
+범위가 명시된 독립 재현 결과와 재실행 소스는 [보안 회귀 검증 기록](docs/security-review.md)에서 확인할 수 있습니다.
+
+취약점 제보와 운영 통제는 [SECURITY.md](SECURITY.md)를 참고하세요. 소스는 [MIT License](LICENSE)로 제공합니다.

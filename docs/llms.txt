@@ -1,0 +1,20 @@
+# Hunter
+> Hunter는 Go + React + PostgreSQL 기반의 폐쇄망 운영 가능한 사내 보안 검증 플랫폼입니다.
+
+## 공식 자료
+- [프로젝트 소개](https://hkjang.github.io/hunter/)
+- [전체 실제 화면](https://hkjang.github.io/hunter/screenshots.html)
+- [사용자 가이드](https://hkjang.github.io/hunter/guides/user-guide.md)
+- [관리자 가이드](https://hkjang.github.io/hunter/guides/admin-guide.md)
+- [소스 코드](https://github.com/hkjang/hunter)
+- [릴리즈](https://github.com/hkjang/hunter/releases)
+
+## 핵심 사실
+- 프로젝트명 hunter, 버전 1.0.0.
+- 배포 이미지 hunter:v1.0.0, 서비스 이미지 압축 파일 hunter-v1.0.0.tar.gz.
+- PostgreSQL은 별도 사내 서비스.
+- 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
+- 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
+- 팀장 승인은 선택. 네트워크 진단 대상의 명시적 승인과 유효 범위는 항상 필요.
+- 외부 진단 엔진은 번들하지 않으며 승인된 외부 실행 결과를 수입.
+- AI 분석은 스트리밍이며 임의 도구 실행을 수행하지 않음.

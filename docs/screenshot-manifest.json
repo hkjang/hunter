@@ -1,0 +1,146 @@
+[
+  {
+    "name": "login",
+    "path": "images/login.png",
+    "title": "로그인",
+    "description": "로컬 계정과 SSO 로그인, 서비스 버전"
+  },
+  {
+    "name": "dashboard",
+    "path": "images/dashboard.png",
+    "title": "보안 현황",
+    "description": "서비스와 발견 건의 위험도, 최근 진단"
+  },
+  {
+    "name": "services",
+    "path": "images/services.png",
+    "title": "서비스 자산",
+    "description": "서비스·환경·망·담당자와 공격 표면"
+  },
+  {
+    "name": "findings",
+    "path": "images/findings.png",
+    "title": "발견 건",
+    "description": "증거, 위험도, 개선과 재검증 상태"
+  },
+  {
+    "name": "scans",
+    "path": "images/scans.png",
+    "title": "진단 작업",
+    "description": "승인된 진단 요청과 실제 실행 이력"
+  },
+  {
+    "name": "schedules",
+    "path": "images/schedules.png",
+    "title": "진단 예약",
+    "description": "현재 권한과 범위를 확인하는 주기적 진단"
+  },
+  {
+    "name": "graph",
+    "path": "images/graph.png",
+    "title": "관계 그래프",
+    "description": "등록 서비스·구성요소·발견 건의 관계"
+  },
+  {
+    "name": "scenarios",
+    "path": "images/scenarios.png",
+    "title": "권한 검증",
+    "description": "역할별 합성 데이터 접근 비교"
+  },
+  {
+    "name": "remediations",
+    "path": "images/remediations.png",
+    "title": "개선 요청",
+    "description": "개선 초안과 외부 시스템 발송"
+  },
+  {
+    "name": "reports",
+    "path": "images/reports.png",
+    "title": "보고서",
+    "description": "위험 현황과 JSON·CSV 내보내기"
+  },
+  {
+    "name": "contributions",
+    "path": "images/contributions.png",
+    "title": "기여 현황",
+    "description": "검토된 보안 기여 점수"
+  },
+  {
+    "name": "copilot",
+    "path": "images/copilot.png",
+    "title": "AI 분석 도우미",
+    "description": "사내 모델과 기본 스트리밍 대화"
+  },
+  {
+    "name": "approvals",
+    "path": "images/approvals.png",
+    "title": "검토·승인",
+    "description": "관리자가 활성화한 경우의 팀장 검토"
+  },
+  {
+    "name": "admin-integrations",
+    "path": "images/admin-integrations.png",
+    "title": "연동 관리",
+    "description": "REST·PostgreSQL·웹훅·외부 결과"
+  },
+  {
+    "name": "admin-discovery",
+    "path": "images/admin-discovery.png",
+    "title": "자동발견 후보",
+    "description": "사내 카탈로그에서 수집한 등록 후보"
+  },
+  {
+    "name": "admin-policies",
+    "path": "images/admin-policies.png",
+    "title": "실행 정책",
+    "description": "진단 실행 한도와 보호 정책"
+  },
+  {
+    "name": "admin-scopes",
+    "path": "images/admin-scopes.png",
+    "title": "진단 허용 범위",
+    "description": "허용 대상·경로·대역과 만료"
+  },
+  {
+    "name": "admin-auth-profiles",
+    "path": "images/admin-auth-profiles.png",
+    "title": "인증 프로파일",
+    "description": "대상 서비스의 테스트 인증"
+  },
+  {
+    "name": "admin-workers",
+    "path": "images/admin-workers.png",
+    "title": "워커·이벤트",
+    "description": "내장 워커 상태와 변경 이벤트"
+  },
+  {
+    "name": "admin-users",
+    "path": "images/admin-users.png",
+    "title": "사용자 관리",
+    "description": "사용자·역할·팀·비활성화"
+  },
+  {
+    "name": "admin-audit",
+    "path": "images/admin-audit.png",
+    "title": "감사 기록",
+    "description": "수행자·대상·행위·시각"
+  },
+  {
+    "name": "admin-settings",
+    "path": "images/admin-settings.png",
+    "title": "서비스 설정",
+    "description": "서비스 전체의 운영 설정"
+  },
+  {
+    "name": "personal-profile",
+    "path": "images/personal-profile.png",
+    "title": "내 프로필",
+    "description": "표시 이름·시작 화면·비밀번호"
+  },
+  {
+    "name": "personal-keys",
+    "path": "images/personal-keys.png",
+    "title": "개인 API 키",
+    "description": "발급·권한 수정·회전·폐기"
+  }
+]

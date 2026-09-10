@@ -1,0 +1,50 @@
+name: Verify
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: hunter_test
+          POSTGRES_USER: hunter
+          POSTGRES_PASSWORD: hunter-ci-test-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U hunter -d hunter_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: npm ci && npm run build
+        working-directory: web
+      - name: Embed frontend assets
+        run: mkdir -p internal/webassets/dist && cp -a web/dist/. internal/webassets/dist/
+      - run: go vet ./...
+      - run: go test -race ./...
+        env:
+          HUNTER_TEST_DSN: postgres://hunter:hunter-ci-test-password@localhost:5432/hunter_test?sslmode=disable
+      - run: go build ./cmd/hunter
+      - name: Verify deployment scripts
+        run: |
+          bash -n scripts/release.sh
+          python3 -m py_compile scripts/release-notes.py
+          node scripts/check-docs.mjs
+      - name: Build runtime image
+        run: docker build --build-arg VERSION="$(cat VERSION)" --tag hunter:ci .
