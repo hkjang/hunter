@@ -1112,6 +1112,19 @@ export function ResourcePage({ kind }: { kind: string }) {
       setOpened(true);
     }
   }, [kind, params, cfg.fields]);
+  useEffect(() => {
+    const scan = params.get("scan");
+    if (kind !== "scans" || !scan) return;
+    const controller = new AbortController();
+    void api<Row>(`/api/scans/${encodeURIComponent(scan)}`, {
+      signal: controller.signal,
+    })
+      .then(setDetail)
+      .catch((e) => {
+        if (!controller.signal.aborted) showError(e);
+      });
+    return () => controller.abort();
+  }, [kind, params]);
   function create() {
     setEdit(null);
     setValues(initialValues(cfg.fields));

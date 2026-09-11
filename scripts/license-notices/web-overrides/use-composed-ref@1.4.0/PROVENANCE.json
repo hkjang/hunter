@@ -1,0 +1,25 @@
+{
+  "name": "use-composed-ref",
+  "version": "1.4.0",
+  "source_url": "https://github.com/Andarist/use-composed-ref/blob/ea2c9d969f2f90a349f4c99338b806423824cea2/package.json",
+  "source_ref": "ea2c9d969f2f90a349f4c99338b806423824cea2",
+  "reason": "The exact published gitHead and package version declare MIT without providing a standalone license/copyright notice. Preserve original metadata and README and supply the unmodified SPDX MIT standard template separately; see NOTICE.txt. SPDX text is pinned to v3.26.0 and file SHA-256.",
+  "files": [
+    {
+      "path": "LICENSE-MIT.txt",
+      "sha256": "6d7c9e9d7d12c8d3753bdb24417b84819ba4d6c2f025c37948113d86dc81eef9"
+    },
+    {
+      "path": "NOTICE.txt",
+      "sha256": "ebe6e648435c6811e4b75df462691a5c08831198e6eac16072b6c30ecbdfaa27"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f1bb61c939b089aa90f631b513f14c7d2eaff3093395634365243127f2ba8547"
+    },
+    {
+      "path": "README.md",
+      "sha256": "68a8b163a5ebfc8b9e82188cd1acc0a55b4301ab549591d98f7588b703380575"
+    }
+  ]
+}

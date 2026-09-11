@@ -40,9 +40,11 @@ for(const name of ['user-guide','admin-guide']){
 }
 const manifest=JSON.parse(await readFile(resolve(docs,'screenshot-manifest.json'),'utf8'));
 for(const screen of manifest){
-  const path=resolve(docs,screen.path);
-  if(!existsSync(path))failures.push('화면 캡처 누락: '+screen.path);
-  else {const info=await stat(path);if(info.size<5000)failures.push('화면 캡처가 비정상적으로 작음: '+screen.path);}
+  for(const source of [screen.path,screen.mobile_path].filter(Boolean)){
+    const path=resolve(docs,source);
+    if(!existsSync(path))failures.push('화면 캡처 누락: '+source);
+    else {const info=await stat(path);if(info.size<5000)failures.push('화면 캡처가 비정상적으로 작음: '+source);}
+  }
 }
 if(failures.length){console.error(failures.join('\n'));process.exit(1);}
 console.log('문서 링크, JSON-LD, 한국어·모바일 메타데이터, PDF 2개, 실제 화면 '+manifest.length+'개 확인 완료.');

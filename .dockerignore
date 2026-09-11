@@ -7,6 +7,7 @@ docs
 .env.*
 !.env.example
 .tmp
+**/.tmp
 bin
 dist
 *.tar.gz

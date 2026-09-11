@@ -3,144 +3,217 @@
     "name": "login",
     "path": "images/login.png",
     "title": "로그인",
-    "description": "로컬 계정과 SSO 로그인, 서비스 버전"
+    "description": "로컬 계정과 SSO 로그인, 서비스 버전",
+    "mobile_path": "images/mobile-login.png"
   },
   {
     "name": "dashboard",
     "path": "images/dashboard.png",
     "title": "보안 현황",
-    "description": "서비스와 발견 건의 위험도, 최근 진단"
+    "description": "서비스와 발견 건의 위험도, 최근 진단",
+    "mobile_path": "images/mobile-dashboard.png"
   },
   {
     "name": "services",
     "path": "images/services.png",
     "title": "서비스 자산",
-    "description": "서비스·환경·망·담당자와 공격 표면"
+    "description": "서비스·환경·망·담당자와 공격 표면",
+    "mobile_path": "images/mobile-services.png"
   },
   {
     "name": "findings",
     "path": "images/findings.png",
     "title": "발견 건",
-    "description": "증거, 위험도, 개선과 재검증 상태"
+    "description": "증거, 위험도, 개선과 재검증 상태",
+    "mobile_path": "images/mobile-findings.png"
   },
   {
     "name": "scans",
     "path": "images/scans.png",
     "title": "진단 작업",
-    "description": "승인된 진단 요청과 실제 실행 이력"
+    "description": "승인된 진단 요청과 실제 실행 이력",
+    "mobile_path": "images/mobile-scans.png"
   },
   {
     "name": "schedules",
     "path": "images/schedules.png",
     "title": "진단 예약",
-    "description": "현재 권한과 범위를 확인하는 주기적 진단"
+    "description": "현재 권한과 범위를 확인하는 주기적 진단",
+    "mobile_path": "images/mobile-schedules.png"
   },
   {
     "name": "graph",
     "path": "images/graph.png",
     "title": "관계 그래프",
-    "description": "등록 서비스·구성요소·발견 건의 관계"
+    "description": "등록 서비스·구성요소·발견 건의 관계",
+    "mobile_path": "images/mobile-graph.png"
   },
   {
     "name": "scenarios",
     "path": "images/scenarios.png",
     "title": "권한 검증",
-    "description": "역할별 합성 데이터 접근 비교"
+    "description": "역할별 합성 데이터 접근 비교",
+    "mobile_path": "images/mobile-scenarios.png"
   },
   {
     "name": "remediations",
     "path": "images/remediations.png",
     "title": "개선 요청",
-    "description": "개선 초안과 외부 시스템 발송"
+    "description": "개선 초안과 외부 시스템 발송",
+    "mobile_path": "images/mobile-remediations.png"
   },
   {
     "name": "reports",
     "path": "images/reports.png",
     "title": "보고서",
-    "description": "위험 현황과 JSON·CSV 내보내기"
+    "description": "위험 현황과 JSON·CSV 내보내기",
+    "mobile_path": "images/mobile-reports.png"
   },
   {
     "name": "contributions",
     "path": "images/contributions.png",
     "title": "기여 현황",
-    "description": "검토된 보안 기여 점수"
+    "description": "검토된 보안 기여 점수",
+    "mobile_path": "images/mobile-contributions.png"
   },
   {
     "name": "copilot",
     "path": "images/copilot.png",
     "title": "AI 분석 도우미",
-    "description": "사내 모델과 기본 스트리밍 대화"
+    "description": "사내 모델과 기본 스트리밍 대화",
+    "mobile_path": "images/mobile-copilot.png"
+  },
+  {
+    "name": "agents",
+    "path": "images/agents.png",
+    "title": "에이전트 진단",
+    "description": "서비스별 목표와 실행 상태, 새 에이전트 실행",
+    "mobile_path": "images/mobile-agents.png"
+  },
+  {
+    "name": "agent-detail",
+    "path": "images/agent-detail.png",
+    "title": "에이전트 실행 상세",
+    "description": "목표·응답·도구·실행 기록·연결 진단과 중지",
+    "mobile_path": "images/mobile-agent-detail.png"
   },
   {
     "name": "approvals",
     "path": "images/approvals.png",
     "title": "검토·승인",
-    "description": "관리자가 활성화한 경우의 팀장 검토"
+    "description": "관리자가 활성화한 경우의 팀장 검토",
+    "mobile_path": "images/mobile-approvals.png"
   },
   {
     "name": "admin-integrations",
     "path": "images/admin-integrations.png",
     "title": "연동 관리",
-    "description": "REST·PostgreSQL·웹훅·외부 결과"
+    "description": "REST·PostgreSQL·웹훅·외부 결과",
+    "mobile_path": "images/mobile-admin-integrations.png"
   },
   {
     "name": "admin-discovery",
     "path": "images/admin-discovery.png",
     "title": "자동발견 후보",
-    "description": "사내 카탈로그에서 수집한 등록 후보"
+    "description": "사내 카탈로그에서 수집한 등록 후보",
+    "mobile_path": "images/mobile-admin-discovery.png"
   },
   {
     "name": "admin-policies",
     "path": "images/admin-policies.png",
     "title": "실행 정책",
-    "description": "진단 실행 한도와 보호 정책"
+    "description": "진단 실행 한도와 보호 정책",
+    "mobile_path": "images/mobile-admin-policies.png"
   },
   {
     "name": "admin-scopes",
     "path": "images/admin-scopes.png",
     "title": "진단 허용 범위",
-    "description": "허용 대상·경로·대역과 만료"
+    "description": "허용 대상·경로·대역과 만료",
+    "mobile_path": "images/mobile-admin-scopes.png"
   },
   {
     "name": "admin-auth-profiles",
     "path": "images/admin-auth-profiles.png",
     "title": "인증 프로파일",
-    "description": "대상 서비스의 테스트 인증"
+    "description": "대상 서비스의 테스트 인증",
+    "mobile_path": "images/mobile-admin-auth-profiles.png"
   },
   {
     "name": "admin-workers",
     "path": "images/admin-workers.png",
     "title": "워커·이벤트",
-    "description": "내장 워커 상태와 변경 이벤트"
+    "description": "내장 워커 상태와 변경 이벤트",
+    "mobile_path": "images/mobile-admin-workers.png"
   },
   {
     "name": "admin-users",
     "path": "images/admin-users.png",
     "title": "사용자 관리",
-    "description": "사용자·역할·팀·비활성화"
+    "description": "사용자·역할·팀·비활성화",
+    "mobile_path": "images/mobile-admin-users.png"
   },
   {
     "name": "admin-audit",
     "path": "images/admin-audit.png",
     "title": "감사 기록",
-    "description": "수행자·대상·행위·시각"
+    "description": "수행자·대상·행위·시각",
+    "mobile_path": "images/mobile-admin-audit.png"
   },
   {
     "name": "admin-settings",
     "path": "images/admin-settings.png",
     "title": "서비스 설정",
-    "description": "서비스 전체의 운영 설정"
+    "description": "서비스 전체의 운영 설정",
+    "mobile_path": "images/mobile-admin-settings.png"
   },
   {
     "name": "personal-profile",
     "path": "images/personal-profile.png",
     "title": "내 프로필",
-    "description": "표시 이름·시작 화면·비밀번호"
+    "description": "표시 이름·시작 화면·비밀번호",
+    "mobile_path": "images/mobile-personal-profile.png"
   },
   {
     "name": "personal-keys",
     "path": "images/personal-keys.png",
     "title": "개인 API 키",
-    "description": "발급·권한 수정·회전·폐기"
+    "description": "발급·권한 수정·회전·폐기",
+    "mobile_path": "images/mobile-personal-keys.png"
+  },
+  {
+    "name": "agent-detail-overview",
+    "path": "images/agent-detail-overview.png",
+    "title": "목표와 결과",
+    "description": "에이전트 실행 목표와 최종 결과",
+    "mobile_path": "images/mobile-agent-detail-overview.png"
+  },
+  {
+    "name": "agent-detail-messages",
+    "path": "images/agent-detail-messages.png",
+    "title": "에이전트 응답",
+    "description": "실시간 응답과 모델의 설명",
+    "mobile_path": "images/mobile-agent-detail-messages.png"
+  },
+  {
+    "name": "agent-detail-tools",
+    "path": "images/agent-detail-tools.png",
+    "title": "도구 호출",
+    "description": "실제로 호출한 Hunter 도구와 결과",
+    "mobile_path": "images/mobile-agent-detail-tools.png"
+  },
+  {
+    "name": "agent-detail-logs",
+    "path": "images/agent-detail-logs.png",
+    "title": "실행 기록",
+    "description": "시간순 이벤트와 실행 상태 전환",
+    "mobile_path": "images/mobile-agent-detail-logs.png"
+  },
+  {
+    "name": "agent-detail-scans",
+    "path": "images/agent-detail-scans.png",
+    "title": "연결된 진단",
+    "description": "에이전트가 요청한 진단의 실제 상태",
+    "mobile_path": "images/mobile-agent-detail-scans.png"
   }
 ]

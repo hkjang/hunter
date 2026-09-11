@@ -173,6 +173,7 @@ func (a *App) Routes() http.Handler {
 	a.registerSettings(m)
 	a.registerKeys(m)
 	a.registerAI(m)
+	a.registerAgents(m)
 	a.registerMCP(m)
 	a.registerDomain(m)
 	a.registerRemediation(m)

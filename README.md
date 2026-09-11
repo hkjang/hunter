@@ -19,6 +19,7 @@ Go + React + Mantine + PostgreSQL로 만들었으며 서비스 서버·화면·�
 - Keycloak OIDC discovery, 관리자·개인화 분리, 변경 가능한 역할 권한
 - 개인 API 키 발급·권한 수정·원자적 회전·폐기, REST API와 HTTP MCP
 - OpenAI 호환 사내 AI, 기본 SSE 스트리밍, 최대 262,144 컨텍스트·출력 설정
+- PentAGI MIT 코어 기반 에이전트 진단: 계획·위임·실행·재시도·성찰·요약, Hunter 도구와 현재 권한 안에서 수행
 - 선택적 팀장 검토·승인, 감사 기록, 긴급 중지, JSON·CSV 보고서
 - 로그인 화면과 프로필 메뉴의 버전, 모바일 탐색, 새로고침 경로 유지
 
@@ -29,7 +30,7 @@ UI는 Mantine을 사용합니다. 접근 가능한 폼·대화상자·표·메�
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
 
 ~~~sh
-docker load -i hunter-v1.0.0.tar.gz
+docker load -i hunter-v1.1.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -81,6 +82,14 @@ MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동
 
 첫 릴리즈의 목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 이 한도를 넘는 전체 이력 집계와 대규모 페이지 조회는 후속 확장이 필요합니다.
 
+## 에이전트 진단
+
+1.1.0의 **에이전트 진단**은 PentAGI의 고정 커밋에서 가져온 계획·위임·실행·재시도·성찰·대화 요약 코어를 사용합니다. 관리자 설정에서 기능을 켜고 사내 AI 연결을 구성하면 서비스별 작업을 요청하고, 상세 화면에서 작업·도구 호출·실시간 진행과 중지 상태를 확인합니다. 실패한 실행은 새 실행으로 다시 시도합니다.
+
+기본값은 비활성화이며 실제 진단 요청도 별도 허용이 필요합니다. 에이전트에는 서비스 조회, 발견 건 조회, 진단 요청·결과 조회, 후보 등록, 기억 저장·검색의 일곱 Hunter 도구만 연결합니다. 일반 PostgreSQL과 기존 네 환경변수·서비스 이미지 하나를 사용하며, 원본 Docker 실행기·클라우드 검색·원격 텔레메트리를 초기화하지 않습니다.
+
+[코어 출처와 라이선스·통합 경계](docs/architecture/pentagi-integration.md)에 원본 커밋, 보존한 고지와 구현의 연결 범위를 기록합니다. 최종 이미지의 라이선스 자료는 `/usr/share/licenses/hunter/`에 포함합니다.
+
 ## 개발
 
 Go 1.26, Node.js 26, PostgreSQL을 준비합니다. 빌드 구간에는 의존성 다운로드가 필요하며 완성된 서비스 이미지의 런타임에는 인터넷 접속이 필요하지 않습니다.
@@ -121,13 +130,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.0.0 예시 |
+| 항목 | 형식 | v1.1.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.0.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.0.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.1.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.1.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.0.0
+bash scripts/release.sh 1.1.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

@@ -75,6 +75,8 @@ import {
   CopilotPage,
 } from "./pages";
 import { ResourcePage } from "./resources";
+import { AgentsPage, AgentRunPage } from "./agents";
+import { agentReadScopes, canReadAgents } from "./agent-permissions";
 import {
   SettingsPage,
   ProfilePage,
@@ -91,6 +93,7 @@ export const navGroups = [
       { path: "/findings", label: "발견 건", icon: IconShieldCheck },
       { path: "/remediations", label: "개선 요청", icon: IconLink },
       { path: "/scans", label: "진단 실행", icon: IconRadar },
+      { path: "/agents", label: "에이전트 진단", icon: IconSparkles },
       { path: "/schedules", label: "진단 예약", icon: IconActivity },
       { path: "/graph", label: "영향 관계도", icon: IconGitBranch },
       { path: "/scenarios", label: "권한 검증", icon: IconListCheck },
@@ -133,6 +136,7 @@ const routeScopes: Record<string, string> = {
   "/services": "services:read",
   "/findings": "findings:read",
   "/scans": "scans:read",
+  "/agents": "agents:read",
   "/schedules": "scans:read",
   "/scenarios": "services:read",
   "/graph": "services:read",
@@ -152,7 +156,7 @@ const personalItems = [
 export default function App() {
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.0.0" });
+    [config, setConfig] = useState<Row>({ version: "1.1.0" });
   const refreshConfig = () => {
     api("/api/settings/public")
       .then(setConfig)
@@ -361,7 +365,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.0.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.1.0"}</b>
           </span>
         </footer>
       </section>
@@ -379,13 +383,18 @@ function Shell() {
   const can = useCan();
   const allowed = (path: string) =>
     (path !== "/approvals" || !!config.approval_enabled) &&
+    (path !== "/agents" || canReadAgents(can)) &&
     ((!routeScopes[path] && !path.startsWith("/admin")) ||
       can(routeScopes[path] || "admin:manage"));
   const groups = navGroups
     .map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.path)) }))
     .filter((g) => g.items.length > 0);
   const entries = [...groups.flatMap((g) => g.items), ...personalItems];
-  const current = entries.find((i) => i.path === location.pathname);
+  const current = entries.find(
+    (i) =>
+      i.path === location.pathname ||
+      location.pathname.startsWith(`${i.path}/`),
+  );
   useEffect(() => {
     setMobile(false);
     document.title = `${current?.label || "Hunter"} · hunter`;
@@ -497,7 +506,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.0.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.1.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -530,7 +539,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.0.0"}
+                hunter · 서비스 버전 v{config.version || "1.1.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -631,6 +640,22 @@ function Shell() {
               element={
                 <Access required={routeScopes["/copilot"]}>
                   <CopilotPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/agents"
+              element={
+                <Access required={agentReadScopes}>
+                  <AgentsPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/agents/:id"
+              element={
+                <Access required={agentReadScopes}>
+                  <AgentRunPage />
                 </Access>
               }
             />
@@ -775,15 +800,23 @@ function Access({
   required,
 }: {
   children: React.ReactNode;
-  required: string;
+  required: string | readonly string[];
 }) {
   const can = useCan();
-  return can(required) ? (
+  return (
+    Array.isArray(required) ? required.every(can) : can(required as string)
+  ) ? (
     children
   ) : (
     <Alert color="orange" title="접근 권한이 필요합니다">
       이 페이지에 접근할 권한이 없습니다. 서비스 관리자에게 역할 권한을
       문의하세요.
+      {Array.isArray(required) && (
+        <Text size="sm" mt="sm">
+          에이전트 기록에는 서비스·발견 건·진단 결과가 포함됩니다. 에이전트,
+          서비스, 발견 건, 진단 조회 권한이 모두 필요합니다.
+        </Text>
+      )}
     </Alert>
   );
 }

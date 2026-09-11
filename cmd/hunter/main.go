@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var version = "1.0.0"
+var version = "1.1.0"
 
 func main() {
 	workerOnly := flag.Bool("worker-only", false, "run the network worker without the web control server")
@@ -40,6 +40,7 @@ func main() {
 	}
 	a.StartScheduler(ctx)
 	a.StartMaintenance(ctx)
+	a.StartAgents(ctx)
 	srv := &http.Server{Addr: ":8080", Handler: a.Routes(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	go func() {
 		<-ctx.Done()

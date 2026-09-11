@@ -3499,3 +3499,466 @@ body {
     min-height: 190px;
   }
 }
+
+/* Persistent agent execution workspace. */
+.agent-intro {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  border: 1px solid #d9e8e4;
+  border-radius: 14px;
+  background: linear-gradient(110deg, #f0f8f4, #f8fbfa);
+}
+.agent-intro-icon {
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #dcefe6;
+  color: #22745a;
+}
+.agent-intro h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #173c35;
+  letter-spacing: -0.4px;
+}
+.agent-intro p {
+  margin: 0;
+  color: #566f68;
+  font-size: 16px;
+  line-height: 1.7;
+}
+.agent-intro > .mantine-Badge-root {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.agent-run-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.agent-run-link strong {
+  display: block;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  font-weight: 600;
+}
+.agent-run-link small {
+  display: block;
+  font-size: 13px;
+  color: #667781;
+  margin-top: 5px;
+}
+.agent-run-link:hover strong,
+.agent-back-link a:hover {
+  color: #08795d;
+}
+.agent-footer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #647780;
+  margin: 20px 0 0;
+  overflow-wrap: anywhere;
+}
+.agent-footer-note > svg {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.agent-back-link {
+  margin-bottom: 22px;
+}
+.agent-back-link a {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: #647780;
+  text-decoration: none;
+  font-size: 16px;
+}
+.agent-run-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 24px;
+  flex-wrap: wrap;
+}
+.agent-run-statusbar > p {
+  overflow-wrap: anywhere;
+}
+.agent-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6c7981;
+}
+.agent-connection i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8b959e;
+}
+.agent-connection.connected {
+  color: #257b5f;
+}
+.agent-connection.connected i {
+  background: #24a779;
+  box-shadow: 0 0 0 3px #24a77915;
+}
+.agent-metric {
+  border: 1px solid #e4e9e8;
+  border-radius: 12px;
+  padding: 20px;
+}
+.agent-metric svg {
+  color: #5a8377;
+}
+.agent-metric strong {
+  display: block;
+  font-size: 25px;
+  line-height: 1.4;
+  letter-spacing: -0.7px;
+  margin-top: 12px;
+  color: #1d3839;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.agent-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.75fr) minmax(0, 1.8fr);
+  align-items: start;
+  gap: 24px;
+}
+.agent-task-pane,
+.agent-detail-main,
+.agent-task-pane .content-card {
+  min-width: 0;
+}
+.agent-task-pane .content-card {
+  padding: 22px;
+}
+.agent-task-pane h2 {
+  font-size: 18px;
+}
+.agent-task-list .mantine-Accordion-item {
+  border-color: #e3ebe6;
+  background: #fff;
+  border-radius: 9px;
+}
+.agent-task-list .mantine-Accordion-control {
+  padding: 14px 12px;
+}
+.agent-task-list .mantine-Accordion-label {
+  padding: 0;
+}
+.agent-task-list .mantine-Accordion-content {
+  padding: 0 12px 16px;
+}
+.agent-task-title {
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.agent-task-list .mantine-Badge-root {
+  flex-shrink: 0;
+}
+.agent-task-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: #f0f6f3;
+  color: #397b62;
+  font: inherit;
+  font-size: 16px;
+  padding: 8px 10px;
+  cursor: pointer;
+  margin: 12px 0;
+  text-align: left;
+}
+.agent-task-filter.selected {
+  background: #dcefe4;
+}
+.agent-task-filter:hover {
+  background: #e6f1eb;
+}
+.agent-subtask {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 0 0 6px;
+}
+.agent-subtask > div {
+  flex: 1;
+  min-width: 0;
+}
+.agent-subtask-dot {
+  background: #d1dce0;
+  border: 3px solid #f0f5f5;
+  box-sizing: content-box;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.agent-subtask-dot.complete {
+  background: #2b9d76;
+  border-color: #e7f4ed;
+}
+.agent-detail-main {
+  border: 1px solid #e1e8e6;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.agent-detail-tabs {
+  padding: 10px 16px 0;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+.agent-detail-tabs .mantine-Tabs-tab {
+  white-space: nowrap;
+  padding: 14px 13px;
+  font-size: 16px;
+}
+.agent-tab-panel {
+  padding: 26px;
+}
+.agent-tab-panel h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #213e3c;
+}
+.agent-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.85;
+  color: #354a51;
+}
+.agent-goal {
+  padding: 20px;
+  border: 1px solid #e8eeec;
+  border-radius: 9px;
+  background: #f8faf9;
+}
+.agent-task-result,
+.agent-subtask .agent-text {
+  font-size: 14px;
+  margin-top: 12px;
+  color: #63716f;
+}
+.agent-tool-card {
+  min-width: 0;
+  border-color: #e1e8e6;
+}
+.agent-tool-card p {
+  overflow-wrap: anywhere;
+}
+.agent-tool-card .mantine-Code-root,
+.agent-event-data .mantine-Code-root,
+.agent-tab-panel .mantine-Code-root {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.8;
+  max-height: 450px;
+  overflow: auto;
+}
+.agent-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.agent-message > div:last-child {
+  min-width: 0;
+  flex: 1;
+}
+.agent-message-avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #edf5ef;
+  color: #318262;
+}
+.agent-message .agent-text {
+  margin-top: 12px;
+}
+.agent-log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.agent-log-toolbar .mantine-TextInput-root,
+.agent-log-toolbar .mantine-Select-root {
+  flex: 1;
+  min-width: 170px;
+}
+.agent-log-stream {
+  max-height: 650px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #bacfc5 transparent;
+  padding-right: 5px;
+}
+.agent-log-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #edf1ef;
+}
+.agent-log-item:first-child {
+  padding-top: 0;
+}
+.agent-log-item .agent-text {
+  margin-top: 10px;
+}
+.agent-log-item.delta .agent-text {
+  color: #5f7077;
+}
+.agent-event-data {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.agent-event-data summary {
+  font-size: 16px;
+  color: #457967;
+  cursor: pointer;
+  width: fit-content;
+  padding: 5px 0;
+}
+.agent-event-data .mantine-Code-root {
+  margin-top: 8px;
+}
+@media (max-width: 1200px) {
+  .agent-detail-layout {
+    grid-template-columns: 1fr;
+  }
+  .agent-task-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  .agent-task-list .mantine-Accordion-item + .mantine-Accordion-item {
+    margin-top: 0;
+  }
+}
+@media (max-width: 600px) {
+  .agent-intro {
+    padding: 20px;
+    gap: 14px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .agent-intro > div {
+    flex: 1;
+    min-width: 170px;
+  }
+  .agent-intro > .mantine-Badge-root {
+    margin-left: 62px;
+  }
+  .agent-intro h2 {
+    font-size: 18px;
+  }
+  .agent-intro-icon {
+    width: 48px;
+    height: 48px;
+  }
+  .agent-tab-panel {
+    padding: 20px 16px;
+  }
+  .agent-task-pane .content-card {
+    padding: 20px 16px;
+  }
+  .agent-task-list {
+    grid-template-columns: 1fr;
+  }
+  .agent-detail-tabs {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .agent-detail-tabs .mantine-Tabs-tab {
+    padding: 14px 12px;
+    font-size: 16px;
+  }
+  .agent-log-toolbar {
+    align-items: stretch;
+  }
+  .agent-log-toolbar > * {
+    width: 100%;
+  }
+  .agent-message {
+    gap: 10px;
+  }
+  .agent-message-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  .agent-metric {
+    padding: 18px;
+  }
+  .agent-metric strong {
+    font-size: 25px;
+  }
+  .agent-run-link strong {
+    max-width: 320px;
+  }
+}
+
+.agent-form-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 16px;
+  border: 1px solid #e0ebe5;
+  border-radius: 8px;
+  background: #f7faf8;
+  color: #43785f;
+}
+.agent-form-note > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.agent-workspace .mantine-Button-root,
+.agent-modal .mantine-Button-root,
+.agent-settings .mantine-Button-root,
+.agent-workspace .mantine-Input-input,
+.agent-modal .mantine-Input-input,
+.agent-settings .mantine-Input-input,
+.agent-modal .mantine-InputWrapper-label,
+.agent-settings .mantine-InputWrapper-label,
+.agent-settings .mantine-Switch-label {
+  font-size: 16px !important;
+}
+.agent-workspace .page-heading h1 {
+  overflow-wrap: anywhere;
+}
+.agent-workspace .mantine-Alert-body {
+  min-width: 0;
+}
+.agent-workspace .mantine-Alert-message > .mantine-Button-root {
+  display: flex;
+  margin-top: 14px;
+  margin-left: 0;
+}

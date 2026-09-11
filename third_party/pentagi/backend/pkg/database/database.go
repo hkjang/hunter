@@ -1,0 +1,136 @@
+package database
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	obs "pentagi/pkg/observability"
+
+	"github.com/jinzhu/gorm"
+	"github.com/sirupsen/logrus"
+)
+
+func NullStringToPtrString(s sql.NullString) *string {
+	if s.Valid {
+		return &s.String
+	}
+	return nil
+}
+
+func PtrStringToNullString(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: *s, Valid: true}
+}
+
+func StringToNullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
+func Int64ToNullInt64(i *int64) sql.NullInt64 {
+	if i == nil {
+		return sql.NullInt64{Valid: false}
+	}
+	return sql.NullInt64{Int64: *i, Valid: true}
+}
+
+func Uint64ToNullInt64(i *uint64) sql.NullInt64 {
+	if i == nil {
+		return sql.NullInt64{Int64: 0, Valid: false}
+	}
+	return sql.NullInt64{Int64: int64(*i), Valid: true}
+}
+
+func NullInt64ToInt64(i sql.NullInt64) *int64 {
+	if i.Valid {
+		return &i.Int64
+	}
+	return nil
+}
+
+func TimeToNullTime(t time.Time) sql.NullTime {
+	return sql.NullTime{Time: t, Valid: !t.IsZero()}
+}
+
+func PtrTimeToNullTime(t *time.Time) sql.NullTime {
+	if t == nil {
+		return sql.NullTime{Valid: false}
+	}
+	return sql.NullTime{Time: *t, Valid: true}
+}
+
+func SanitizeUTF8(msg string) string {
+	if msg == "" {
+		return ""
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(msg))
+
+	for i := 0; i < len(msg); {
+		if msg[i] == '\x00' {
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(msg[i:])
+		if r == utf8.RuneError && size == 1 {
+			// Invalid UTF-8 byte, replace with Unicode replacement character
+			builder.WriteRune(utf8.RuneError)
+			i += size
+		} else {
+			builder.WriteRune(r)
+			i += size
+		}
+	}
+
+	return builder.String()
+}
+
+type GormLogger struct{}
+
+func (*GormLogger) Print(v ...interface{}) {
+	ctx, span := obs.Observer.NewSpan(context.TODO(), obs.SpanKindInternal, "gorm.print")
+	defer span.End()
+
+	switch v[0] {
+	case "sql":
+		query := fmt.Sprintf("%v", v[3])
+		values := v[4].([]interface{})
+		for i, val := range values {
+			query = strings.Replace(query, fmt.Sprintf("$%d", i+1), fmt.Sprintf("'%v'", val), 1)
+		}
+		logrus.WithContext(ctx).WithFields(
+			logrus.Fields{
+				"component":     "pentagi-gorm",
+				"type":          "sql",
+				"rows_returned": v[5],
+				"src":           v[1],
+				"values":        v[4],
+				"duration":      v[2],
+			},
+		).Info(query)
+	case "log":
+		logrus.WithContext(ctx).WithFields(logrus.Fields{"component": "pentagi-gorm"}).Info(v[2])
+	case "info":
+		// do not log validators
+	}
+}
+
+// NewGorm creates a GORM instance backed by the provided *sql.DB.
+// Passing an existing db ensures GORM shares the same connection pool as
+// the sqlc Queries client, so the two clients together consume at most
+// DBMaxOpenConns connections instead of doubling the Postgres load.
+func NewGorm(db *sql.DB, debug bool) (*gorm.DB, error) {
+	orm, err := gorm.Open("postgres", db)
+	if err != nil {
+		return nil, err
+	}
+	orm.SetLogger(&GormLogger{})
+	orm.LogMode(debug)
+	return orm, nil
+}

@@ -4016,6 +4016,496 @@
           }
         }
       }
+    },
+    "/api/agent-runs": {
+      "get": {
+        "summary": "에이전트 실행 목록",
+        "operationId": "listAgentRuns",
+        "tags": [
+          "에이전트 진단"
+        ],
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 최신 생성순으로 최대 1,000개를 반환합니다. 목록에는 prompt/result/scans가 없고 tasks는 null입니다.",
+        "x-required-scope": "agents:read",
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "접근 가능한 실행 목록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 1000,
+                  "items": {
+                    "$ref": "#/components/schemas/AgentRun"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "세션 또는 API 키 인증 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "필수 권한 누락 또는 브라우저 변경 요청의 CSRF·출처 검사 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 또는 저장소 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "승인된 서비스의 에이전트 실행 등록",
+        "operationId": "createAgentRun",
+        "tags": [
+          "에이전트 진단"
+        ],
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 관리자 에이전트·AI 활성화, 유효한 서비스·진단 범위 승인, 긴급 중지 해제가 필요합니다. 사용자당 queued/running/waiting_approval/stopping 실행은 최대 3개입니다. 모델 및 도구 실행은 서버 큐에서 진행하며 SSE 연결 종료가 작업을 재시작하지 않습니다. 진단 도구 호출에는 scans:write, 발견 후보 등록에는 findings:write와 해당 관리자 허용 설정이 별도로 필요합니다.",
+        "x-required-scope": "agents:write",
+        "x-required-scopes": [
+          "agents:write",
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read",
+          "ai:use"
+        ],
+        "parameters": [
+          {
+            "name": "X-Hunter-CSRF",
+            "in": "header",
+            "required": false,
+            "description": "브라우저 세션을 사용하는 변경 요청은 1이 필요합니다. API 키 인증에는 적용하지 않습니다.",
+            "schema": {
+              "type": "string",
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "실행이 대기열에 등록되었습니다. 실행 상세를 반환합니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "진단 목표 또는 승인 범위가 올바르지 않음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "접근 가능한 서비스를 찾을 수 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "에이전트·AI 비활성화 또는 긴급 중지",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "사용자당 진행 중인 실행 한도 초과",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "세션 또는 API 키 인증 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "필수 권한 누락 또는 브라우저 변경 요청의 CSRF·출처 검사 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 또는 저장소 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-runs/{id}": {
+      "get": {
+        "summary": "에이전트 실행 상세",
+        "operationId": "getAgentRun",
+        "tags": [
+          "에이전트 진단"
+        ],
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 작업 계획·사용량·연결 진단·마지막 이벤트 커서를 제공합니다. prompt와 result는 서버에서 복호화한 뒤 마스킹된 텍스트로 반환됩니다.",
+        "x-required-scope": "agents:read",
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "에이전트 실행 식별자",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "실행 상세",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "실행이 없거나 접근 권한이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "세션 또는 API 키 인증 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "필수 권한 누락 또는 브라우저 변경 요청의 CSRF·출처 검사 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 또는 저장소 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-runs/{id}/stop": {
+      "post": {
+        "summary": "에이전트 실행 및 하위 진단 중지",
+        "operationId": "stopAgentRun",
+        "tags": [
+          "에이전트 진단"
+        ],
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 대기 중인 실행은 cancelled, 진행 중인 실행은 우선 stopping 상태가 됩니다. 연결된 대기·실행 진단과 미결 승인도 취소합니다. 최종 상태는 상세 조회 또는 SSE로 확인하세요.",
+        "x-required-scope": "agents:write",
+        "x-required-scopes": [
+          "agents:write",
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "에이전트 실행 식별자",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Hunter-CSRF",
+            "in": "header",
+            "required": false,
+            "description": "브라우저 세션을 사용하는 변경 요청은 1이 필요합니다. API 키 인증에는 적용하지 않습니다.",
+            "schema": {
+              "type": "string",
+              "const": "1"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "중지 요청을 반영한 실행 상세",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "실행이 없거나 접근 권한이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "이미 종료된 실행",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "세션 또는 API 키 인증 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "필수 권한 누락 또는 브라우저 변경 요청의 CSRF·출처 검사 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 또는 저장소 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-runs/{id}/events": {
+      "get": {
+        "summary": "에이전트 실행 이벤트 스트림",
+        "operationId": "streamAgentRunEvents",
+        "tags": [
+          "에이전트 진단"
+        ],
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. event: agent.event의 data는 AgentEvent JSON입니다. 이벤트 id를 after 또는 Last-Event-ID로 전달하면 이후 이벤트부터 재생하며 둘을 함께 보내면 더 큰 값을 사용합니다. 음수·잘못된 커서는 0으로 처리합니다. 종결된 실행의 저장 이벤트를 모두 보낸 뒤 event: done, data: {}를 보내고 종료합니다. 실행 중에는 주기적으로 heartbeat 주석을 보냅니다. 연결 중에도 현재 권한·키 유효성을 재검사하며 권한이 없어지면 연결을 종료합니다. 재연결은 기존 실행을 다시 실행하지 않습니다.",
+        "x-required-scope": "agents:read",
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "에이전트 실행 식별자",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "마지막으로 처리한 이벤트 id"
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SSE 재연결 커서. 숫자로 해석하며 after보다 클 때 사용합니다."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE 이벤트 스트림. 완성된 안전한 문자열을 점진적으로 보내므로 민감 값 또는 미완성 줄은 일시 보류될 수 있습니다.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "no-cache, no-store"
+              },
+              "X-Accel-Buffering": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "no"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "id: 17\nevent: agent.event\ndata: {\"id\":17,\"run_id\":\"run-id\",\"created_at\":\"2026-09-12T00:00:00Z\",\"type\":\"message.delta\",\"message\":\"승인 범위를 확인했습니다.\\n\"}\n\nevent: done\ndata: {}\n\n"
+              }
+            },
+            "x-sse-events": {
+              "agent.event": {
+                "$ref": "#/components/schemas/AgentEvent"
+              },
+              "done": {
+                "type": "object",
+                "maxProperties": 0
+              }
+            }
+          },
+          "404": {
+            "description": "실행이 없거나 접근 권한이 없음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "세션 또는 API 키 인증 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "필수 권한 누락 또는 브라우저 변경 요청의 CSRF·출처 검사 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 또는 저장소 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4679,6 +5169,424 @@
           "service_id"
         ],
         "additionalProperties": true
+      },
+      "AgentRunRequest": {
+        "type": "object",
+        "required": [
+          "service_id",
+          "prompt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "description": "접근 가능한 승인된 서비스 식별자. 모델이 실행 중 다른 서비스를 선택할 수 없습니다."
+          },
+          "scope_id": {
+            "type": "string",
+            "description": "승인 범위 식별자. 생략하면 해당 서비스의 사용 가능한 승인 범위를 서버가 선택합니다."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000,
+            "x-max-bytes": 32000,
+            "description": "한국어 진단 목표. 공백만 입력할 수 없으며 실제 서버 제한은 UTF-8 32,000바이트입니다. 저장 전 민감정보를 마스킹합니다."
+          }
+        }
+      },
+      "AgentRunLimits": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "실행 생성 당시 관리자 설정과 AI 설정의 스냅샷. 사용자가 실행 요청 본문으로 재정의할 수 없습니다. 실행 중 현재 권한과 제한을 다시 확인합니다.",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "max_iterations": {
+            "type": "integer",
+            "minimum": 6,
+            "maximum": 100,
+            "description": "각 원본 역할 에이전트 루프의 반복 한도"
+          },
+          "max_model_calls": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 200,
+            "description": "실행 전체의 모델 호출 한도"
+          },
+          "max_tool_calls": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "실행 전체의 Hunter 도구 호출 한도"
+          },
+          "timeout_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 262144,
+            "description": "모델 응답 출력 토큰 한도. 입력과 합해 컨텍스트 예산 안에 있어야 합니다."
+          },
+          "context_window": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 262144
+          },
+          "model": {
+            "type": "string",
+            "description": "관리자가 지정한 모델"
+          },
+          "allow_diagnosis": {
+            "type": "boolean"
+          },
+          "allow_candidates": {
+            "type": "boolean"
+          },
+          "memory_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentSubtask": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "원본 하위작업 상태: created, running, waiting, finished, failed"
+          }
+        }
+      },
+      "AgentTask": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "원본 작업 상태: created, running, waiting, finished, failed"
+          },
+          "result": {
+            "type": "string"
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSubtask"
+            }
+          }
+        }
+      },
+      "AgentLinkedScan": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "실행이 요청한 기존 Hunter 진단. 판단 불가·실패·승인 대기는 정상 진단 완료가 아닙니다.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "http-baseline",
+              "authorization"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AgentRun": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "owner_id",
+          "service_id",
+          "service_name",
+          "scope_id",
+          "title",
+          "status",
+          "limits",
+          "model_calls",
+          "tool_calls",
+          "input_tokens",
+          "output_tokens",
+          "cancel_requested",
+          "created_at",
+          "updated_at",
+          "engine",
+          "upstream_commit",
+          "allowed_actions"
+        ],
+        "description": "에이전트 실행. completed는 에이전트 작업의 완료이며 취약점 확인 또는 해결을 의미하지 않습니다. 에이전트는 발견 후보만 기록할 수 있습니다. stopped/paused 체인의 이어서 실행 API는 제공하지 않으며 새 POST 요청으로 재시도합니다.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting_approval",
+              "stopping",
+              "completed",
+              "failed",
+              "cancelled",
+              "inconclusive"
+            ],
+            "description": "waiting_approval은 관리자 설정이 켜진 경우의 진단 승인 대기입니다. 추가 입력 요구·작업 임대 만료·시간 초과 등으로 판단할 수 없으면 inconclusive가 됩니다."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "상세 응답에서만 제공되는 마스킹된 진단 목표"
+          },
+          "result": {
+            "type": "string",
+            "description": "상세 응답에서만 제공되는 마스킹된 최종 분석 결과"
+          },
+          "error": {
+            "type": "string",
+            "description": "종료 또는 오류 사유"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/AgentRunLimits"
+          },
+          "tasks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentTask"
+            },
+            "description": "상세 응답은 작업 배열, 목록 응답은 null입니다."
+          },
+          "model_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tool_calls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cancel_requested": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "engine": {
+            "type": "string",
+            "const": "pentagi"
+          },
+          "upstream_commit": {
+            "type": "string",
+            "const": "ea665308baaff015b226f308438a68d929d0f29b"
+          },
+          "allowed_actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "stop",
+                "retry"
+              ]
+            },
+            "description": "현재 권한과 상태에 따른 UI 동작. retry는 새 실행 POST 요청을 뜻하며 별도의 retry/resume 경로는 없습니다."
+          },
+          "last_event_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "상세 조회 시 확인한 마지막 영속 이벤트 커서"
+          },
+          "scans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentLinkedScan"
+            },
+            "description": "상세 응답에서만 제공되는 연결된 Hunter 진단"
+          }
+        }
+      },
+      "AgentEvent": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "run_id",
+          "created_at",
+          "type"
+        ],
+        "description": "SSE agent.event의 JSON payload. 이벤트 데이터와 메시지는 마스킹되며 내부 모델 reasoning 원문은 제공하지 않습니다.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "재연결에 사용하는 단조 증가 이벤트 커서"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "run.updated",
+              "task.updated",
+              "subtask.updated",
+              "message.delta",
+              "tool.started",
+              "tool.completed",
+              "log",
+              "usage",
+              "message",
+              "message_result",
+              "delegation"
+            ],
+            "description": "실행·작업·도구·메시지·사용량 이벤트. 알 수 없는 추가 이벤트 유형은 클라이언트에서 안전하게 무시할 수 있습니다."
+          },
+          "role": {
+            "type": "string",
+            "description": "primary_agent, generator, refiner, searcher, coder, adviser 등 역할"
+          },
+          "message": {
+            "type": "string",
+            "description": "마스킹된 메시지 또는 안전한 스트리밍 문자열 조각"
+          },
+          "tool_name": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "task_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "subtask_id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "result": {},
+              "arguments": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "subtasks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AgentSubtask"
+                }
+              },
+              "input_tokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "output_tokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "scan_id": {
+                "type": "string"
+              },
+              "message_id": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

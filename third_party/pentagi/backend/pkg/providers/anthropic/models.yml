@@ -1,0 +1,122 @@
+# Claude 5 / 4 series - Most capable models for advanced security operations
+- name: claude-fable-5
+  description: Anthropic's most capable widely released model for long-running agents and the most demanding reasoning workloads. Adaptive thinking is always on (budget thinking and an explicit disable are rejected); sampling parameters are not supported.
+  thinking: true
+  reasoning:
+    mode: adaptive-only
+    efforts: [low, medium, high, xhigh, max]
+  release_date: 2026-06-09
+  price:
+    input: 10.0
+    output: 50.0
+    cache_read: 1.0
+    cache_write: 12.5
+
+- name: claude-opus-5
+  description: Anthropic's flagship model for complex agentic coding and enterprise work, succeeding Opus 4.8. Adaptive thinking is on by default (a change from Opus 4.8, which defaulted off) but can still be explicitly disabled; manual budget thinking is rejected and sampling parameters are not supported.
+  thinking: true
+  reasoning:
+    mode: adaptive-only
+    efforts: [low, medium, high, xhigh, max]
+  release_date: 2026-07-24
+  price:
+    input: 5.0
+    output: 25.0
+    cache_read: 0.5
+    cache_write: 6.25
+
+- name: claude-sonnet-5
+  description: Best combination of speed and intelligence for coding, agents, and professional work at scale. Adaptive thinking only (manual budget thinking is rejected); sampling parameters are not supported.
+  thinking: true
+  reasoning:
+    mode: adaptive-only
+    efforts: [low, medium, high, xhigh, max]
+  release_date: 2026-07-01
+  price:
+    input: 3.0
+    output: 15.0
+    cache_read: 0.3
+    cache_write: 3.75
+
+- name: claude-opus-4-8
+  description: Anthropic Opus 4.8 - flagship model for coding, agents, and deep reasoning in enterprise security workflows. Adaptive thinking only (manual budget thinking is rejected); sampling parameters are not supported.
+  thinking: true
+  reasoning:
+    mode: adaptive-only
+    efforts: [low, medium, high, xhigh, max]
+  release_date: 2026-05-28
+  price:
+    input: 5.0
+    output: 25.0
+    cache_read: 0.5
+    cache_write: 6.25
+
+- name: claude-opus-4-7
+  description: Anthropic Opus 4.7 for advanced software engineering, long-running agentic tasks, and rigorous security analysis. Adaptive thinking only (manual budget thinking is rejected); sampling parameters are not supported.
+  thinking: true
+  reasoning:
+    mode: adaptive-only
+    efforts: [low, medium, high, xhigh, max]
+  release_date: 2026-04-16
+  price:
+    input: 5.0
+    output: 25.0
+    cache_read: 0.5
+    cache_write: 6.25
+
+- name: claude-opus-4-6
+  description: The most intelligent model for building autonomous agents and advanced coding. Unmatched capabilities in complex exploit development, sophisticated penetration testing automation, multi-stage attack simulation, and intelligent security research. Features extended and adaptive thinking for maximum reasoning depth in critical security operations.
+  thinking: true
+  reasoning:
+    mode: adaptive
+    efforts: [low, medium, high, max]
+  release_date: 2026-02-05
+  price:
+    input: 5.0
+    output: 25.0
+    cache_read: 0.5
+    cache_write: 6.25
+
+- name: claude-sonnet-4-6
+  description: Best combination of speed and intelligence with adaptive thinking support. Exceptional for balanced penetration testing workflows requiring both rapid execution and sophisticated reasoning. Optimized for multi-phase security assessments, intelligent vulnerability analysis, and real-time threat hunting with advanced tool coordination.
+  thinking: true
+  reasoning:
+    mode: adaptive
+    efforts: [low, medium, high, max]
+  release_date: 2026-02-17
+  price:
+    input: 3.0
+    output: 15.0
+    cache_read: 0.3
+    cache_write: 3.75
+
+- name: claude-haiku-4-5
+  description: Fast and efficient model with exceptional function calling and low latency. Ideal for high-frequency security scanning, rapid vulnerability detection, real-time monitoring, and bulk automated testing where speed is paramount. Strong tool orchestration capabilities at minimal cost.
+  thinking: false
+  release_date: 2025-10-15
+  price:
+    input: 1.0
+    output: 5.0
+    cache_read: 0.1
+    cache_write: 1.25
+
+# Legacy models - Still supported but consider migrating to newer versions
+- name: claude-sonnet-4-5
+  description: State-of-the-art reasoning model with superior analytical depth and enhanced tool integration (superseded by sonnet-4-6). Premier choice for sophisticated penetration testing, advanced threat analysis, complex exploit development, and autonomous security research requiring deep reasoning and precise tool orchestration.
+  thinking: true
+  release_date: 2025-09-29
+  price:
+    input: 3.0
+    output: 15.0
+    cache_read: 0.3
+    cache_write: 3.75
+
+- name: claude-opus-4-5
+  description: Ultimate reasoning model with unparalleled analytical depth and comprehensive security expertise (superseded by opus-4-6). Designed for critical security research, advanced zero-day discovery, sophisticated red team operations, and complex autonomous penetration testing requiring maximum intelligence and reasoning capability.
+  thinking: true
+  release_date: 2025-11-24
+  price:
+    input: 5.0
+    output: 25.0
+    cache_read: 0.5
+    cache_write: 6.25

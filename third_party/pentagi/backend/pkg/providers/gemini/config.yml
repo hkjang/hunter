@@ -1,0 +1,159 @@
+simple:
+  model: gemini-3.1-flash-lite
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  price:
+    input: 0.25
+    output: 1.5
+    cache_read: 0.025
+
+simple_json:
+  model: gemini-3.1-flash-lite
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 4096
+  json: true
+  price:
+    input: 0.25
+    output: 1.5
+    cache_read: 0.025
+
+primary_agent:
+  model: gemini-3.1-pro-preview
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: medium
+  price:
+    input: 2.0
+    output: 12.0
+    cache_read: 0.2
+
+assistant:
+  model: gemini-3.1-pro-preview
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: medium
+  price:
+    input: 2.0
+    output: 12.0
+    cache_read: 0.2
+
+generator:
+  model: gemini-3.1-pro-preview
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 32768
+  reasoning:
+    effort: medium
+  price:
+    input: 2.0
+    output: 12.0
+    cache_read: 0.2
+
+refiner:
+  model: gemini-3.1-pro-preview
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 20480
+  reasoning:
+    effort: medium
+  price:
+    input: 2.0
+    output: 12.0
+    cache_read: 0.2
+
+adviser:
+  model: gemini-3.1-pro-preview
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  reasoning:
+    effort: medium
+  price:
+    input: 2.0
+    output: 12.0
+    cache_read: 0.2
+
+reflector:
+  model: gemini-3.5-flash-lite
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  price:
+    input: 0.3
+    output: 2.5
+    cache_read: 0.03
+
+searcher:
+  model: gemini-3.5-flash-lite
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  price:
+    input: 0.3
+    output: 2.5
+    cache_read: 0.03
+
+enricher:
+  model: gemini-3.5-flash-lite
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  price:
+    input: 0.3
+    output: 2.5
+    cache_read: 0.03
+
+coder:
+  model: gemini-3.6-flash
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 20480
+  reasoning:
+    effort: low
+  price:
+    input: 1.5
+    output: 7.5
+    cache_read: 0.15
+
+installer:
+  model: gemini-3.6-flash
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 16384
+  reasoning:
+    effort: low
+  price:
+    input: 1.5
+    output: 7.5
+    cache_read: 0.15
+
+pentester:
+  model: gemini-3.6-flash
+  temperature: 1.0
+  top_p: 0.95
+  n: 1
+  max_tokens: 8192
+  reasoning:
+    effort: low
+  price:
+    input: 1.5
+    output: 7.5
+    cache_read: 0.15

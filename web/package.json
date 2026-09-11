@@ -1,12 +1,13 @@
 {
   "name": "hunter-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hunter Korean security validation workspace",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "license": "MIT",
   "type": "module",

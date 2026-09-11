@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
@@ -67,6 +68,7 @@ const settingGroups: [string, string, any][] = [
   ["general", "기본 정보", IconSettings],
   ["oidc", "SSO · 로그인", IconShieldCheck],
   ["ai", "AI 분석", IconSparkles],
+  ["agents", "에이전트 진단", IconAdjustments],
   ["workflow", "검토 · 승인", IconAdjustments],
   ["security", "보안 · 세션", IconLock],
   ["roles", "역할 · 권한", IconUsers],
@@ -158,6 +160,76 @@ const settingFields: Record<string, Field[]> = {
         "입력과 출력을 합산한 모델 한도입니다. 긴 요청은 모델의 실제 한도에 영향을 받습니다.",
     },
   ],
+  agents: [
+    {
+      key: "enabled",
+      label: "PentAGI 에이전트 진단 사용",
+      type: "switch",
+      default: false,
+      description:
+        "기존 AI 설정의 모델, 토큰 한도와 TLS 설정을 사용합니다. 실행에는 에이전트 실행 권한과 AI 사용 권한이 모두 필요합니다.",
+    },
+    {
+      key: "max_iterations",
+      label: "에이전트별 최대 반복 횟수",
+      type: "number",
+      default: 24,
+      min: 6,
+      max: 100,
+      description:
+        "각 역할 에이전트의 개별 반복 루프에 적용합니다. 모델 호출 총량은 실행당 최대 모델 호출 설정으로 제한합니다.",
+    },
+    {
+      key: "max_model_calls",
+      label: "실행당 최대 모델 호출",
+      type: "number",
+      default: 60,
+      min: 5,
+      max: 200,
+    },
+    {
+      key: "max_tool_calls",
+      label: "Hunter 도구 호출 한도",
+      type: "number",
+      default: 40,
+      min: 1,
+      max: 200,
+      description:
+        "실행당 Hunter 도구 7종의 호출만 집계합니다. 코어 내부의 역할 위임 호출과 구분합니다.",
+    },
+    {
+      key: "timeout_minutes",
+      label: "실행 제한 시간 (분)",
+      type: "number",
+      default: 15,
+      min: 1,
+      max: 60,
+    },
+    {
+      key: "allow_diagnosis",
+      label: "허용된 실제 진단 요청",
+      type: "switch",
+      default: false,
+      description:
+        "서비스의 유효한 허용 범위와 실행 정책을 통과한 진단만 생성합니다. 검토 절차는 검토 · 승인 설정을 따릅니다.",
+    },
+    {
+      key: "allow_candidates",
+      label: "발견 후보 기록 허용",
+      type: "switch",
+      default: true,
+      description:
+        "발견 내용을 후보로 기록합니다. 취약점 확정이나 해결 처리는 자동 수행하지 않습니다.",
+    },
+    {
+      key: "memory_enabled",
+      label: "실행 메모리 사용",
+      type: "switch",
+      default: true,
+      description:
+        "허용된 범위에서 이전 작업의 기억 저장과 조회 도구를 사용합니다.",
+    },
+  ],
   workflow: [
     {
       key: "approval_enabled",
@@ -197,9 +269,17 @@ const settingFields: Record<string, Field[]> = {
 };
 export function SettingsPage() {
   const { data, loading, error, reload } = useData<Row>("/api/settings");
-  const { refreshConfig } = useSession();
-  const [tab, setTab] = useState<string | null>("general"),
-    [values, setValues] = useState<Row>({}),
+  const { refreshConfig, config } = useSession();
+  const [params, setParams] = useSearchParams();
+  const tab = settingGroups.some(([key]) => key === params.get("tab"))
+    ? params.get("tab")!
+    : "general";
+  function setTab(value: string) {
+    const next = new URLSearchParams(params);
+    next.set("tab", value);
+    setParams(next, { replace: true });
+  }
+  const [values, setValues] = useState<Row>({}),
     [busy, setBusy] = useState(false);
   useEffect(() => {
     if (data) {
@@ -251,7 +331,9 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
-          <Paper className="settings-panel">
+          <Paper
+            className={`settings-panel${tab === "agents" ? " agent-settings" : ""}`}
+          >
             <div className="settings-panel-head">
               <span className="settings-section-icon">
                 {tab === "ai" ? (
@@ -348,9 +430,9 @@ export function SettingsPage() {
                 title="기본 스트리밍 · 사람 중심의 분석"
               >
                 <Text size="sm">
-                  AI 응답은 SSE로 실시간 표시합니다. AI는 발견 내용을 설명하고
-                  개선안을 제안하며, 임의 진단 실행이나 취약점 자동 확정은
-                  수행하지 않습니다.
+                  AI 응답은 SSE로 실시간 표시합니다. 분석 도우미는 발견 내용을
+                  설명하고 개선안을 제안합니다. 에이전트 진단은 별도 설정에서
+                  활성화하며 허용된 도구와 실행 한도를 적용합니다.
                 </Text>
                 {data.ai?.api_key_configured && (
                   <>
@@ -373,6 +455,29 @@ export function SettingsPage() {
                     />
                   </>
                 )}
+              </Alert>
+            )}
+            {tab === "agents" && (
+              <Alert
+                color="teal"
+                mt="xl"
+                title="PentAGI 코어 · 제한된 도구 실행"
+              >
+                <Text size="sm">
+                  작업 분해와 역할 위임에 PentAGI MIT 코어를 사용합니다. 서비스
+                  정보, 발견 건 조회, 허용된 진단 요청과 결과 조회, 후보 기록,
+                  기억 저장·조회의 7개 도구를 제공합니다.
+                </Text>
+                <Text size="sm" mt="sm">
+                  기존에 저장한 역할 설정에는 새 권한이 자동 추가되지 않을 수
+                  있습니다. 역할 · 권한에서 에이전트·서비스·발견 건·진단 조회
+                  권한을 모두 확인하세요. 실행에는 에이전트 실행 권한과 AI 사용
+                  권한도 필요합니다.
+                </Text>
+                <Text size="sm" c="dimmed" mt="md">
+                  출처: vxcontrol/pentagi · MIT License · 커밋{" "}
+                  {config.agent_upstream_commit || "서버 출처 정보 확인 중"}
+                </Text>
               </Alert>
             )}
             {tab === "workflow" && (

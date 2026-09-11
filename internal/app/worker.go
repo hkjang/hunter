@@ -84,6 +84,9 @@ func (a *App) requestScan(ctx context.Context, u User, input map[string]any, sch
 		m["schedule_occurrence"] = occurrence
 	}
 	m["credential_key_id"] = u.KeyID
+	if runID, ok := ctx.Value(agentRunContextKey{}).(string); ok && runID != "" {
+		m["agent_run_id"] = runID
+	}
 	if profile == "import-only" {
 		m["logs"] = []string{"스캐너가 내보낸 JSON 결과를 /api/imports에서 수입하세요. 외부 엔진은 실행되지 않았습니다."}
 	}
@@ -358,6 +361,11 @@ func (a *App) executeScan(parent context.Context, workerID, id string) {
 		}
 		if stop || !live || !userEnabled {
 			return errors.New("진단이 중지되었거나 요청자 계정이 비활성화되었습니다")
+		}
+		if runID := str(scan.Data, "agent_run_id"); runID != "" {
+			if err := a.checkAgentChild(ctx, runID); err != nil {
+				return err
+			}
 		}
 		owner, err := a.scheduleOwner(ctx, scan)
 		if err != nil {

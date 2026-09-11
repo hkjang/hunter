@@ -2,3 +2,7 @@
 *.png -text
 *.pdf -text
 *.woff2 -text
+# Preserve audited upstream bytes, including their original whitespace.
+third_party/pentagi/** -text -whitespace
+scripts/license-notices/overrides/** -text -whitespace
+scripts/license-notices/web-overrides/** -text -whitespace

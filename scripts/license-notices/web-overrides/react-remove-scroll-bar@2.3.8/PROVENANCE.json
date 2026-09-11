@@ -1,0 +1,17 @@
+{
+  "name": "react-remove-scroll-bar",
+  "version": "2.3.8",
+  "source_url": "https://github.com/theKashey/react-remove-scroll-bar/blob/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
+  "source_ref": "8ca9ba5ea52de03308fe8ced94f7b159a44d28ff",
+  "reason": "The published package declares MIT but omits LICENSE. Published gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf is not available in the public repository. This is the original license subsequently added in the official repository, pinned here; no exact-source-commit equivalence is asserted. Package metadata is preserved.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84"
+    },
+    {
+      "path": "package.json",
+      "sha256": "e372f857ce05f266137c65293436b5380fec42ac311e6acb9378ed78b98d75d0"
+    }
+  ]
+}

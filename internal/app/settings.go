@@ -12,16 +12,17 @@ import (
 	"strings"
 )
 
-var allScopes = []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "integrations:manage", "admin:manage", "audit:read", "ai:use"}
+var allScopes = []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "agents:read", "agents:write", "integrations:manage", "admin:manage", "audit:read", "ai:use"}
 
 func defaultSettings() map[string]map[string]any {
 	return map[string]map[string]any{
 		"general":  {"service_name": "hunter", "public_url": "http://localhost:8080"},
 		"oidc":     {"enabled": false, "issuer": "", "client_id": "", "client_secret": "", "default_role": "viewer"},
 		"ai":       {"enabled": false, "base_url": "", "api_key": "", "model": "", "max_tokens": 8192, "context_window": 262144},
+		"agents":   {"enabled": false, "max_iterations": 24, "max_model_calls": 60, "max_tool_calls": 40, "timeout_minutes": 15, "allow_diagnosis": false, "allow_candidates": true, "memory_enabled": true},
 		"workflow": {"approval_enabled": false},
 		"security": {"session_hours": 12, "key_max_days": 90, "trusted_ca_pem": ""},
-		"roles":    {"admin": allScopes, "lead": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "ai:use"}, "analyst": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "ai:use"}, "viewer": []string{"services:read", "findings:read", "scans:read"}},
+		"roles":    {"admin": allScopes, "lead": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "agents:read", "agents:write", "ai:use"}, "analyst": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "agents:read", "agents:write", "ai:use"}, "viewer": []string{"services:read", "findings:read", "scans:read"}},
 	}
 }
 
@@ -109,7 +110,8 @@ func (a *App) registerSettings(m *http.ServeMux) {
 		}
 		flow, _ := a.setting(r.Context(), "workflow")
 		ai, _ := a.setting(r.Context(), "ai")
-		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": ai["enabled"]})
+		agents, _ := a.setting(r.Context(), "agents")
+		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": ai["enabled"], "agents_enabled": agents["enabled"], "agent_upstream_commit": "ea665308baaff015b226f308438a68d929d0f29b"})
 	}))
 	m.HandleFunc("GET /api/settings", a.protect("admin:manage", func(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{}
@@ -232,6 +234,13 @@ func validateSettings(group string, v map[string]any) error {
 		}
 		if asBool(v["enabled"]) && (!validURL(asString(v["base_url"])) || asString(v["model"]) == "") {
 			return fmt.Errorf("AI API 기본 주소와 모델을 입력해 주세요")
+		}
+	case "agents":
+		for key, limit := range map[string][2]int{"max_iterations": {6, 100}, "max_model_calls": {5, 200}, "max_tool_calls": {1, 200}, "timeout_minutes": {1, 60}} {
+			n := asInt(v[key])
+			if n < limit[0] || n > limit[1] {
+				return fmt.Errorf("%s 값은 %d~%d 범위여야 합니다", key, limit[0], limit[1])
+			}
 		}
 	case "workflow":
 		if _, ok := v["approval_enabled"].(bool); !ok {

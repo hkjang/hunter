@@ -60,7 +60,10 @@ func (a *App) initDomain(ctx context.Context) error {
 	CREATE TABLE IF NOT EXISTS policy_versions (id bigserial PRIMARY KEY,policy_id text NOT NULL,changed_by text NOT NULL,data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
 	CREATE INDEX IF NOT EXISTS policy_versions_policy ON policy_versions(policy_id,id);
 	INSERT INTO domain_runtime(id) VALUES(1) ON CONFLICT DO NOTHING;`)
-	return err
+	if err != nil {
+		return err
+	}
+	return a.initAgents(ctx)
 }
 
 func (a *App) registerDomain(mux *http.ServeMux) {
@@ -587,6 +590,9 @@ func (a *App) deleteDomain(w http.ResponseWriter, r *http.Request, kind string) 
 			key = "authorized_profile_id"
 		}
 		err = a.DB.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM resources WHERE (data->>$1=$2 OR data->>'unauthorized_profile_id'=$2) AND id<>$2)`, key, v.ID).Scan(&used)
+		if err == nil && !used && (kind == "services" || kind == "scopes") {
+			err = a.DB.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM agent_runs WHERE service_id=$1 OR scope_id=$1)`, v.ID).Scan(&used)
+		}
 		if err != nil || used {
 			fail(w, 409, "다른 항목에서 참조하고 있습니다. 연결 항목을 먼저 정리하세요")
 			return

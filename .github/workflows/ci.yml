@@ -32,15 +32,21 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: npm ci && npm run build
+      - run: npm ci && npm test && npm run build
         working-directory: web
       - name: Embed frontend assets
         run: mkdir -p internal/webassets/dist && cp -a web/dist/. internal/webassets/dist/
+      - name: Verify pinned PentAGI source
+        run: node scripts/verify-pentagi.mjs
       - run: go vet ./...
       - run: go test -race ./...
         env:
           HUNTER_TEST_DSN: postgres://hunter:hunter-ci-test-password@localhost:5432/hunter_test?sslmode=disable
       - run: go build ./cmd/hunter
+      - name: Collect redistribution notices
+        run: go run ./scripts/license-notices -out dist/licenses
+      - name: Collect bundled npm redistribution notices
+        run: node scripts/collect-web-licenses.mjs dist/npm-licenses
       - name: Verify deployment scripts
         run: |
           bash -n scripts/release.sh

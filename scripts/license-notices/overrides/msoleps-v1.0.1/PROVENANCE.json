@@ -1,0 +1,8 @@
+{
+  "module": "github.com/richardlehane/msoleps",
+  "version": "v1.0.1",
+  "source": "msoleps.go",
+  "source_sha256": "85f03ae8ca4a0b8a3eb67ff644f4c2bd627d90d47d4d3f20e82088d9b67b7de6",
+  "source_url": "https://github.com/richardlehane/msoleps/blob/v1.0.1/msoleps.go",
+  "license_url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+}

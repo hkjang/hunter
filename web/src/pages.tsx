@@ -1,3 +1,4 @@
+import { canReadAgents } from "./agent-permissions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -1245,6 +1246,16 @@ export function CopilotPage() {
         description="사내 AI와 함께 발견 건을 이해하고, 근거를 확인하며, 다음 개선을 준비하세요."
         action={
           <Group>
+            {canReadAgents(can) && (
+              <Button
+                component={Link}
+                to="/agents"
+                variant="light"
+                leftSection={<IconSparkles size={17} />}
+              >
+                에이전트 진단
+              </Button>
+            )}
             <Badge
               variant="light"
               color={config.ai_enabled ? "teal" : "gray"}
