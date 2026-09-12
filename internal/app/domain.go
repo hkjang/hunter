@@ -406,6 +406,9 @@ func (a *App) validateResource(ctx context.Context, u User, v *domainResource, o
 			}
 		}
 	case "findings":
+		if err := validateFindingOpsResource(m); err != nil {
+			return err
+		}
 		if strings.TrimSpace(str(m, "title")) == "" || str(m, "service_id") == "" {
 			return errors.New("발견 제목과 서비스가 필요합니다")
 		}

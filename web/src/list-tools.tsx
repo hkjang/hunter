@@ -80,6 +80,7 @@ export function ListTools<T>({
   failed?: boolean;
 }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const [opened, setOpened] = useState(false),
     [name, setName] = useState(""),
     [error, setError] = useState(""),
@@ -234,7 +235,7 @@ export function ListTools<T>({
                               view.columns.map((column) => column.key),
                               Object.keys(view.filters),
                             ),
-                            { preventScrollReset: true },
+                            { preventScrollReset: true, state: location.state },
                           );
                           setOpened(false);
                         }}

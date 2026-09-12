@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "hunter API",
-    "version": "1.0.0",
-    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다."
+    "version": "1.4.0",
+    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다."
   },
   "servers": [
     {
@@ -2902,10 +2902,23 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "general",
+                "oidc",
+                "ai",
+                "agents",
+                "workflow",
+                "security",
+                "roles",
+                "sla",
+                "risk",
+                "inventory"
+              ]
             }
           }
-        ]
+        ],
+        "description": "설정 그룹: general, oidc, ai, agents, workflow, security, roles, sla, risk, inventory. SLA 기본 비활성, 수동 조치 기한 우선. 위험 점수는 심각도와 별도이며 자동 상태 변경에 사용하지 않습니다. inventory.review_licenses는 라이선스 식별자 정확 일치 목록입니다."
       }
     },
     "/api/profile/password": {
@@ -4506,6 +4519,927 @@
           }
         }
       }
+    },
+    "/api/finding-queue": {
+      "get": {
+        "summary": "조치함: 권한 범위 전체의 우선순위·SLA·공통 원인",
+        "operationId": "get_api_finding_queue",
+        "description": "서버 검색·집계·페이지. 기본 최신 5000개 제한을 사용하지 않습니다. mine은 owner_id 기준이며 임의 담당자 이름으로 권한을 부여하지 않습니다. 수동 due_date 우선, SLA 활성화 시 생성일+심각도별 일수를 계산합니다. KEV/EPSS 미반입 또는 EPSS 미일치는 null입니다. 공통 원인은 CVE+구성요소가 모두 일치하는 후보이며 자동 병합하지 않습니다.",
+        "x-required-scope": "findings:read",
+        "x-required-scopes": [
+          "findings:read",
+          "services:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingQueue"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "overdue",
+                "due_soon",
+                "unassigned"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                25,
+                50,
+                100
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/findings/{id}/activity": {
+      "get": {
+        "summary": "발견 건 댓글과 허용된 활동 조회",
+        "operationId": "get_api_findings_id_activity",
+        "description": "부모 발견 건 접근 범위 적용. 댓글과 기존 관찰·검증·선별 감사 기록이며 모든 필드의 완전한 변경 이력을 의미하지 않습니다.",
+        "x-required-scope": "findings:read",
+        "x-required-scopes": [
+          "findings:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "발견 건 댓글 작성",
+        "operationId": "post_api_findings_id_activity",
+        "description": "비밀정보 마스킹 후 암호화 저장. 감사에는 댓글 원문을 남기지 않습니다. 댓글은 공백을 제외한 내용이 있어야 하며 16000바이트 이하입니다.",
+        "x-required-scope": "findings:write",
+        "x-required-scopes": [
+          "findings:write"
+        ],
+        "responses": {
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "body"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intelligence": {
+      "get": {
+        "summary": "오프라인 위협 정보 반입 현황",
+        "operationId": "get_api_intelligence",
+        "description": "",
+        "x-required-scope": "admin:manage",
+        "x-required-scopes": [
+          "admin:manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intelligence/import": {
+      "post": {
+        "summary": "KEV JSON 또는 EPSS CSV 반입",
+        "operationId": "post_api_intelligence_import",
+        "description": "32 MiB·50만 행 이하. 외부 통신 없이 검증 후 형식별 자료를 트랜잭션으로 교체합니다. 기준일 역행은 409, 형식·점수·CVE 오류는 400이며 기존 자료를 보존합니다. SHA256은 제출 자료 바이트의 식별값이며 공급자 서명 확인을 뜻하지 않습니다.",
+        "x-required-scope": "admin:manage",
+        "x-required-scopes": [
+          "admin:manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "kev",
+                      "epss"
+                    ]
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "source_date": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "required": [
+                  "format",
+                  "content",
+                  "source_date"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sboms": {
+      "get": {
+        "summary": "접근 가능한 서비스별 SBOM 이력",
+        "operationId": "get_api_sboms",
+        "description": "",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SBOM"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/sboms/import": {
+      "post": {
+        "summary": "SBOM 반입",
+        "operationId": "post_api_sboms_import",
+        "description": "CycloneDX 1.4/1.5/1.6 또는 SPDX 2.2/2.3 JSON의 구성요소·의존관계 부분을 정규화합니다. 전체 규격 검증기가 아닙니다. 문서 8 MiB, 구성요소 1~10000개, 의존관계 100000개. 동일 서비스·SHA256은 기존 문서를 duplicate=true로 반환합니다. 임의 supplier properties와 원본 파일은 저장하지 않습니다. label은 UTF-8 200바이트 이하여야 합니다.",
+        "x-required-scope": "services:write",
+        "x-required-scopes": [
+          "services:write"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SBOM"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "service_id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "document": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "service_id",
+                  "document"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sboms/{id}": {
+      "get": {
+        "summary": "SBOM 구성요소·의존관계 상세",
+        "operationId": "get_api_sboms_id",
+        "description": "현재 부모 서비스 접근을 매번 확인합니다. findings:read 없는 키에는 연결 발견 건을 제공하지 않습니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SBOM"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "SBOM 이력 삭제",
+        "operationId": "delete_api_sboms_id",
+        "description": "",
+        "x-required-scope": "services:write",
+        "x-required-scopes": [
+          "services:write"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/sboms/{id}/compare": {
+      "get": {
+        "summary": "동일 서비스 SBOM 버전 비교",
+        "operationId": "get_api_sboms_id_compare",
+        "description": "단일 구성요소 식별이 가능한 버전·라이선스 차이는 changed로, 다중 버전으로 일대일 대응이 불분명하면 added/removed로 표시합니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SBOMComparison"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "baseline",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/components": {
+      "get": {
+        "summary": "서비스별 최신 SBOM 구성요소와 영향 서비스",
+        "operationId": "get_api_components",
+        "description": "현재 접근 가능한 서비스별 최신 문서만 집계합니다. 발견 건은 findings:read와 정확한 purl 또는 이름@버전 일치가 필요합니다. 라이선스 미기재·미해석 복합식·관리자 지정 식별자는 검토 대상으로 표시하며 법적 판정은 하지 않습니다. 이름@버전이 같은데 문서 내 생태계·purl 식별이 서로 다르면 모호한 이름 연결을 제외합니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SBOMComponent"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "as_of": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "findings_visible": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/campaigns": {
+      "get": {
+        "summary": "접근 가능한 진단 캠페인",
+        "operationId": "get_api_campaigns",
+        "description": "",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read",
+          "scans:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Campaign"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "캠페인 초안 등록",
+        "operationId": "post_api_campaigns",
+        "description": "모든 대상 서비스의 현재 접근 범위가 필요합니다. 등록 자체는 진단을 실행하지 않습니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read",
+          "scans:read",
+          "scans:write"
+        ],
+        "responses": {
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "targets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/components/schemas/CampaignTarget"
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "targets"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{id}": {
+      "get": {
+        "summary": "캠페인 실제 진단 상태",
+        "operationId": "get_api_campaigns_id",
+        "description": "",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read",
+          "scans:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/campaigns/{id}/start": {
+      "post": {
+        "summary": "정책 검사 후 캠페인 원자적 시작",
+        "operationId": "post_api_campaigns_id_start",
+        "description": "최대 20개 대상의 정책 검사 후 하나의 트랜잭션으로 진단·대기열·선택적 승인·캠페인 연결을 생성합니다. 반복 호출은 기존 실행을 반환합니다. 정책 검토 중 실패하면 일부 실행을 남기지 않습니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read",
+          "scans:read",
+          "scans:write"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Campaign"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/campaigns/{id}/compare": {
+      "get": {
+        "summary": "동일 조건의 완료 캠페인 결과 비교",
+        "operationId": "get_api_campaigns_id_compare",
+        "description": "실제 내장 진단에서 저장한 불변 관찰 결과와 정책·엔진·대상 조건을 비교합니다. 외부 import-only, 과거 스냅샷 없음, 미완료, 조건 불일치는 comparable=false와 사유를 반환합니다. not_seen을 해결 처리하지 않습니다.",
+        "x-required-scope": "services:read",
+        "x-required-scopes": [
+          "services:read",
+          "scans:read",
+          "findings:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignComparison"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "baseline",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/operations": {
+      "get": {
+        "summary": "관리자 운영 준비 상태",
+        "operationId": "get_api_operations",
+        "description": "DB·대기열·활성 워커·긴급 중지·설정 여부·위협 자료·SBOM 갱신 상태. 외부 서비스에 연결 시험을 보내지 않습니다.",
+        "x-required-scope": "admin:manage",
+        "x-required-scopes": [
+          "admin:manage"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalReadiness"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·상태 또는 처리 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5587,6 +6521,585 @@
             }
           }
         }
+      },
+      "SBOMComponent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "bom_ref": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "purl": {
+            "type": "string"
+          },
+          "licenses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "license_review": {
+            "type": "boolean"
+          },
+          "dependency_count": {
+            "type": "integer"
+          },
+          "findings_count": {
+            "type": "integer"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "services": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "licenses"
+        ]
+      },
+      "SBOM": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "cyclonedx",
+              "spdx"
+            ]
+          },
+          "spec_version": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "component_count": {
+            "type": "integer"
+          },
+          "dependency_count": {
+            "type": "integer"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SBOMComponent"
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string"
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "findings_visible": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SBOMComparison": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/SBOM"
+          },
+          "current": {
+            "$ref": "#/components/schemas/SBOM"
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SBOMComponent"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SBOMComponent"
+            }
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "identity": {
+                  "type": "string"
+                },
+                "before": {
+                  "$ref": "#/components/schemas/SBOMComponent"
+                },
+                "after": {
+                  "$ref": "#/components/schemas/SBOMComponent"
+                }
+              }
+            }
+          }
+        }
+      },
+      "FindingQueue": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FindingQueueItem"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "page_size": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "groups_limit": {
+            "type": "integer"
+          },
+          "sla_policy": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "summary_scope": {
+            "type": "string"
+          }
+        }
+      },
+      "CampaignTarget": {
+        "type": "object",
+        "properties": {
+          "service_id": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "http-baseline",
+              "authorization",
+              "import-only"
+            ]
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_id",
+          "profile"
+        ]
+      },
+      "Campaign": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignTarget"
+            }
+          },
+          "scans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CampaignComparison": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/Campaign"
+          },
+          "current": {
+            "$ref": "#/components/schemas/Campaign"
+          },
+          "comparable": {
+            "type": "boolean"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "persisting": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "not_seen": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "OperationalReadiness": {
+        "type": "object",
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "string"
+          },
+          "emergency": {
+            "type": "boolean"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "ok",
+                    "warning",
+                    "error"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "FindingQueueItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          },
+          "team": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "assignee": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "cve": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "object",
+            "properties": {
+              "score": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low",
+                  "info"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "method": {
+                "type": "string",
+                "const": "hunter-priority-v1"
+              }
+            },
+            "required": [
+              "score",
+              "level",
+              "reasons",
+              "method"
+            ]
+          },
+          "sla": {
+            "type": "object",
+            "properties": {
+              "due_date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "manual",
+                  "policy",
+                  "none"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "overdue",
+                  "due_soon",
+                  "on_track",
+                  "not_set",
+                  "invalid"
+                ]
+              },
+              "remaining_days": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          },
+          "intelligence": {
+            "type": "object",
+            "properties": {
+              "kev": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "epss": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "percentile": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "source_date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "stale": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "kev_source_date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "epss_source_date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              },
+              "kev_imported_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "epss_imported_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "service_id",
+          "priority",
+          "sla",
+          "intelligence"
+        ],
+        "additionalProperties": true
       }
     },
     "securitySchemes": {

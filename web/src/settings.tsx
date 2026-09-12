@@ -89,10 +89,106 @@ const settingGroups: [string, string, any][] = [
   ["ai", "AI 분석", IconSparkles],
   ["agents", "에이전트 진단", IconAdjustments],
   ["workflow", "검토 · 승인", IconAdjustments],
+  ["sla", "조치 기한 · SLA", IconAdjustments],
+  ["risk", "조치 우선순위", IconShieldCheck],
+  ["inventory", "소프트웨어 구성", IconSettings],
   ["security", "보안 · 세션", IconLock],
   ["roles", "역할 · 권한", IconUsers],
 ];
 const settingFields: Record<string, Field[]> = {
+  sla: [
+    {
+      key: "enabled",
+      label: "심각도별 기본 조치 기한 사용",
+      type: "switch",
+      default: false,
+      description:
+        "개별 기한이 없는 발견 건에 적용합니다. 기한 경과는 발견 건 상태를 자동 변경하지 않습니다.",
+    },
+    ...(
+      [
+        ["critical", "심각", 7],
+        ["high", "높음", 30],
+        ["medium", "보통", 90],
+        ["low", "낮음", 180],
+        ["info", "정보", 0],
+      ] as const
+    ).map(([key, label, days]) => ({
+      key: `${key}_days`,
+      label: `${label} 조치 기한 (일)`,
+      type: "number" as const,
+      default: days,
+      min: 0,
+      max: 3650,
+      description: "0이면 이 심각도의 기본 기한을 적용하지 않습니다.",
+    })),
+    {
+      key: "due_soon_days",
+      label: "기한 임박 표시 (남은 일수)",
+      type: "number",
+      default: 7,
+      min: 0,
+      max: 3650,
+    },
+  ],
+  risk: [
+    {
+      key: "kev_boost",
+      label: "KEV 목록 일치 가산점",
+      type: "number",
+      default: 25,
+      min: 0,
+      max: 100,
+      description:
+        "반입한 KEV 자료와 CVE가 일치할 때 조치 우선순위에 반영합니다.",
+    },
+    {
+      key: "epss_threshold",
+      label: "EPSS 가산 기준",
+      type: "number",
+      default: 0.1,
+      min: 0,
+      max: 1,
+      description:
+        "0~1 범위. 0.1은 10%를 뜻합니다. 자료가 없으면 가산하지 않습니다.",
+    },
+    {
+      key: "epss_boost",
+      label: "EPSS 기준 충족 가산점",
+      type: "number",
+      default: 10,
+      min: 0,
+      max: 100,
+    },
+    {
+      key: "stale_after_days",
+      label: "위협 정보 갱신 판단 기준 (일)",
+      type: "number",
+      default: 30,
+      min: 1,
+      max: 3650,
+      description:
+        "오래된 정보는 조치함과 위협 정보 반입 화면에 별도로 표시합니다.",
+    },
+  ],
+  inventory: [
+    {
+      key: "stale_after_days",
+      label: "SBOM 갱신 검토 기준 (일)",
+      type: "number",
+      default: 30,
+      min: 1,
+      max: 3650,
+    },
+    {
+      key: "review_licenses",
+      label: "검토 대상 라이선스",
+      type: "tags",
+      default: [],
+      description:
+        "예: GPL-3.0-only. 기록된 값과 정확히 일치하면 검토 대상으로 표시합니다. 라이선스 누락·복합 표현식·사용자 정의 식별자도 검토 대상으로 분류하며 법적 적합성을 자동 판정하지 않습니다.",
+    },
+  ],
   general: [
     {
       key: "service_name",

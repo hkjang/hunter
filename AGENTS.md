@@ -21,6 +21,9 @@
 | --- | --- |
 | `cmd/hunter/main.go` | 환경변수, 서버·워커 실행, 버전 주입 |
 | `internal/app` | Go HTTP API, 인증·권한, 설정, 자산·발견 건·진단·연동 |
+| `internal/app/campaigns.go` | 캠페인 원자적 시작·현재 부모 권한·불변 관측 비교 |
+| `internal/app/finding_ops*.go` | 조치함·SLA·위협 정보 반입·암호화 댓글과 회귀 검사 |
+| `internal/app/sbom.go`, `operations.go` | SBOM 구성·비교·영향 범위와 관리자 운영 점검 |
 | `internal/app/agents.go` | 에이전트 실행 API, 조회·생성·중지·SSE |
 | `internal/app/agents_runner.go` | 원본 코어와 Hunter 실행 수명·한도 연결 |
 | `internal/app/agents_llm.go` | 스트리밍 모델 호출과 도구 호출 조각 조립 |
@@ -30,6 +33,7 @@
 | `third_party/pentagi` | 고정 원본 코어, 라이선스, 출처·파일 해시 |
 | `web/src` | React·TypeScript·Mantine 화면과 한국어 문구 |
 | `web/src/agents.tsx` | 에이전트 목록·상세 다섯 탭 |
+| `web/src/triage.tsx`, `software.tsx`, `campaigns.tsx`, `operations.tsx` | 조치·SBOM·캠페인·운영과 현재 권한 적용 |
 | `web/src/agent-events.ts`, `use-agent-run.ts` | SSE 이벤트 병합·재연결 |
 | `web/src/list-view.ts`, `use-list-view.tsx` | 검색·정렬·페이지 처리, URL 목록 상태와 공통 컨트롤 |
 | `web/src/list-tools.tsx`, `saved-list-views.ts` | 사용자·메뉴별 목록 보기, 결과 수·조건 해제·표 표시 설정 |
@@ -75,6 +79,8 @@
 - 쿠키 인증 변경 요청은 기존 Origin 검사와 `X-Hunter-CSRF` 규칙을 유지합니다.
 - 비밀값을 설정 조회·감사·오류·스크린샷에 노출하지 않고 기존 암호화·마스킹 경로를 사용합니다.
 - 비밀번호와 개인 키 원문을 DB나 로그에 저장하지 않습니다.
+- 캠페인은 생성자 우회 없이 모든 현재 부모 서비스에 접근해야 하며 비교에는 findings:read도 필요합니다.
+- 조치함·SBOM·캠페인 집계에서 기존 잘린 일반 목록을 전체 데이터로 합산하지 않습니다.
 - 실제 자격 증명, 환경변수 값, `.tmp`의 테스트 비밀을 코드·문서·커밋에 옮기지 않습니다.
 
 ## 5. PentAGI 원본 보존
@@ -112,6 +118,9 @@
 - 대상 DNS·주소·경로·리다이렉트·요청량 검사를 우회하는 새 도구나 연동을 만들지 않습니다.
 - 외부 REST 발송은 명시적 발송 경로와 중복 방지를 유지하고, 불확실한 결과를 자동 재발송하지 않습니다.
 - 외부 스캐너 JSON 수입과 실제 내장 HTTP·권한 진단의 제공 범위를 정확히 설명합니다.
+- 캠페인 시작은 정책 준비 후 트랜잭션에서 일괄 삽입합니다. 풀 조회와 잠금 대기의 연결 고갈을 피합니다.
+- 실행 스냅샷을 덮어쓰지 않으며 외부 수입·실패·조건 변경·이전 실행을 비교해 자동 해결하지 않습니다.
+- KEV·EPSS·SBOM은 한도를 검증해 반입하고 EPSS null과 0, 라이선스 검토와 적합성 확정을 구분합니다.
 
 ## 7. 개발과 회귀 검증
 
@@ -130,7 +139,7 @@ go build ./cmd/hunter
 
 - `gofmt`는 변경한 Hunter Go 파일에만 적용합니다. `gofmt -w .` 같은 원본 포함 일괄 실행은 피합니다.
 - 새 파일도 명시적으로 포맷하고 원본 bridge를 수정했다면 그 파일만 별도로 포맷합니다.
-- 1.1.0 기준 Go 테스트 함수는 46개, 프런트엔드 테스트는 10개입니다. 숫자보다 실제 검증 범위를 확인합니다.
+- 현재 테스트 수와 실패·건너뜀 여부를 실행 결과로 확인하고 변경된 실패 경로의 회귀 검증을 포함합니다.
 - 인증·키·팀 격리·승인·재검증·예약·중지·스트리밍 변경에는 해당 실패 경로의 회귀 검증을 수행합니다.
 - 동작과 무관한 문구·단순 스타일 변경에 구현을 그대로 반복하는 테스트를 추가하지 않습니다.
 - PostgreSQL 테스트는 `HUNTER_TEST_DSN`이 없으면 건너뛸 수 있습니다. skip을 DB 검증 통과로 보고하지 않습니다.

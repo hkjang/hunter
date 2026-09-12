@@ -1,3 +1,4 @@
+import { FindingActivity } from "./triage";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -1108,6 +1109,7 @@ export function ResourcePage({ kind }: { kind: string }) {
     const next = new URLSearchParams(params);
     next.delete("item");
     next.delete("scan");
+    next.delete("detail_tab");
     setDetail(null);
     setParams(next, { replace: true, preventScrollReset: true });
   }
@@ -2007,39 +2009,71 @@ export function ResourcePage({ kind }: { kind: string }) {
                 정보 수정
               </Button>
             )}
-            {Object.entries(detail)
-              .filter(
-                ([k]) =>
-                  !["secret", "password", "token", "api_key", "id"].includes(
-                    k,
-                  ) && !k.endsWith("_encrypted"),
-              )
-              .map(([key, value]) => (
-                <div className="detail-field" key={key}>
-                  <Text size="sm" c="dimmed" fw={500} mb={5}>
-                    {fieldLabels[key] || key}
-                  </Text>
-                  {typeof value === "object" ? (
-                    <Code block>{JSON.stringify(value, null, 2)}</Code>
-                  ) : (
-                    <Text
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {key === "service_id"
-                        ? serviceMap[value as string] || String(value)
-                        : key.endsWith("_at")
-                          ? dateText(value)
-                          : label(value)}
-                    </Text>
-                  )}
-                </div>
-              ))}
-            <Text size="xs" c="dimmed">
-              식별자 {detail.id}
-            </Text>
+            <Tabs
+              value={
+                kind === "findings" && params.get("detail_tab") === "activity"
+                  ? "activity"
+                  : "overview"
+              }
+              onChange={(value) => {
+                const next = new URLSearchParams(params);
+                if (value === "activity") next.set("detail_tab", "activity");
+                else next.delete("detail_tab");
+                setParams(next, { preventScrollReset: true });
+              }}
+              keepMounted={false}
+            >
+              {kind === "findings" && (
+                <Tabs.List mb="md">
+                  <Tabs.Tab value="overview">발견 정보</Tabs.Tab>
+                  <Tabs.Tab value="activity">활동 · 댓글</Tabs.Tab>
+                </Tabs.List>
+              )}
+              <Tabs.Panel value="overview">
+                {Object.entries(detail)
+                  .filter(
+                    ([k]) =>
+                      ![
+                        "secret",
+                        "password",
+                        "token",
+                        "api_key",
+                        "id",
+                      ].includes(k) && !k.endsWith("_encrypted"),
+                  )
+                  .map(([key, value]) => (
+                    <div className="detail-field" key={key}>
+                      <Text size="sm" c="dimmed" fw={500} mb={5}>
+                        {fieldLabels[key] || key}
+                      </Text>
+                      {typeof value === "object" ? (
+                        <Code block>{JSON.stringify(value, null, 2)}</Code>
+                      ) : (
+                        <Text
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {key === "service_id"
+                            ? serviceMap[value as string] || String(value)
+                            : key.endsWith("_at")
+                              ? dateText(value)
+                              : label(value)}
+                        </Text>
+                      )}
+                    </div>
+                  ))}
+                <Text size="xs" c="dimmed">
+                  식별자 {detail.id}
+                </Text>
+              </Tabs.Panel>
+              {kind === "findings" && (
+                <Tabs.Panel value="activity">
+                  <FindingActivity key={detail.id} findingId={detail.id} />
+                </Tabs.Panel>
+              )}
+            </Tabs>
           </Stack>
         )}
       </Drawer>

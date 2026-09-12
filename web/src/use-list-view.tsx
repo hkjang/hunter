@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import {
   ActionIcon,
   Button,
@@ -47,6 +47,7 @@ export function useListView<T>({
   filters?: Record<string, (row: T, value: string) => boolean>;
 }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const presentation = useListPreferences();
   // Keep consecutive changes in the same event (clear/search/filter) atomic;
   // useSearchParams callbacks do not queue updates like React state setters.
@@ -65,7 +66,11 @@ export function useListView<T>({
   ) {
     const next = patchListParams(latest.current, changes, resetPage);
     latest.current = next;
-    setParams(next, { replace, preventScrollReset: true });
+    setParams(next, {
+      replace,
+      preventScrollReset: true,
+      state: location.state,
+    });
   }
   const matched = rows.filter((row) => {
     if (

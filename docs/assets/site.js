@@ -1,4 +1,4 @@
-const captions = {dashboard:'보안 현황', services:'서비스 자산', findings:'발견 건','agent-detail':'에이전트 진단','admin-settings':'관리자 설정','personal-keys':'개인 API 키'};
+const captions = {dashboard:'보안 현황', services:'서비스 자산', findings:'발견 건',triage:'조치함',software:'소프트웨어 명세','campaign-compare':'캠페인 비교','agent-detail':'에이전트 진단','admin-settings':'관리자 설정','personal-keys':'개인 API 키'};
 const dialog = document.querySelector('#image-dialog');
 const image = document.querySelector('#main-screen');
 for(const button of document.querySelectorAll('[data-screen]')){

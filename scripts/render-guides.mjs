@@ -9,7 +9,7 @@ const MarkdownIt=require('markdown-it');
 const markdown=new MarkdownIt({html:false,linkify:true,typographer:true});
 const htmlOnly=process.argv.includes('--html-only');
 const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-const entries=[['user-guide','사용자 가이드','일상 업무, 발견 건, 진단, 개인화와 API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, Keycloak, AI, 권한, 연동, 정책과 백업 운영 절차']];
+const entries=[['user-guide','사용자 가이드','조치함·SBOM·캠페인 비교, 발견 건·진단·개인화·API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, SLA·위협 정보·운영 점검, Keycloak·AI·권한·정책·백업 절차']];
 const routes=[
 ['login','로그인','로컬 계정과 SSO 로그인, 서비스 버전'],
 ['dashboard','보안 현황','서비스와 발견 건의 위험도, 최근 진단'],
@@ -17,6 +17,16 @@ const routes=[
 ['quick-navigation-search','빠른 이동 검색','한글 메뉴명·영어 별칭·초성으로 메뉴 찾기'],
 ['services','서비스 자산','서비스·환경·망·담당자와 공격 표면'],
 ['findings','발견 건','증거, 위험도, 개선과 재검증 상태'],
+['triage','조치함','SLA·위험 점수·위협 정보와 공통 원인 후보'],
+['finding-activity','발견 건 활동','댓글·감사 사건·관찰·재검증 정보'],
+['software','소프트웨어 명세','서비스별 CycloneDX·SPDX SBOM 반입 이력'],
+['software-detail','소프트웨어 명세 상세','구성요소·의존 관계·라이선스 검토와 발견 건'],
+['software-compare','소프트웨어 명세 비교','같은 서비스의 구성요소·버전 변화'],
+['campaigns','진단 캠페인','목적별 대상 구성과 실제 진단 이력'],
+['campaign-detail','캠페인 상세','개별 대상 실행과 진행 상태'],
+['campaign-compare','캠페인 결과 비교','동일 조건 내장 실행의 신규·반복·미관측'],
+['intelligence','위협 정보','관리자 KEV·EPSS 반입과 자료 기준일'],
+['operations','운영 점검','DB·큐·워커·자료 갱신의 읽기 전용 점검'],
 ['list-saved-view','저장한 보기','합성 API 자료: 사용자·메뉴별 목록 조건 저장'],
 ['list-display-settings','표 표시 설정','합성 API 자료: 행 간격과 표 전체 펼치기'],
 ['form-validation','입력 오류 안내','모의 저장 실패: 입력 내용 보존과 폼 안의 오류 안내'],
@@ -40,6 +50,9 @@ const routes=[
 ['admin-users','사용자 관리','사용자·역할·팀·비활성화'],
 ['admin-audit','감사 기록','수행자·대상·행위·시각'],
 ['admin-settings','서비스 설정','서비스 전체의 운영 설정'],
+['admin-settings-sla','조치 기한 설정','SLA 활성화·심각도별 일수·임박 기준'],
+['admin-settings-risk','위험 우선순위 설정','KEV·EPSS 가산점과 자료 노후화 기준'],
+['admin-settings-inventory','명세 검토 설정','SBOM 갱신 기준과 검토 라이선스 목록'],
 ['personal-profile','내 프로필','표시 이름·시작 화면·비밀번호'],
 ['personal-keys','개인 API 키','발급·권한 수정·회전·폐기']
 ];
@@ -72,7 +85,7 @@ for(const [name,title,description] of entries) {
   console.log('HTML 생성: '+name);
 }
 const cards=items=>items.map(([slug,title,description])=>'<figure class="gallery-card"><a href="images/'+slug+'.png"><img src="images/'+slug+'.png" alt="Hunter '+escape(title)+' 실제 화면" width="1512" height="1050" loading="lazy"></a><figcaption><strong>'+escape(title)+'</strong><span>'+escape(description)+'</span>'+(existsSync(resolve(root,'docs/images/mobile-'+slug+'.png'))?'<a href="images/mobile-'+slug+'.png">모바일 화면 보기 →</a>':'')+'</figcaption></figure>').join('');
-await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 로그인, 자산, 진단, 발견 건, 관리자 설정과 개인화 전체 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
+await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 조치함, SBOM, 위협 정보, 캠페인 비교부터 로그인·관리자 설정·개인화까지 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 위협 정보·SBOM·조치함 자료도 설명용 합성 데이터입니다. 캠페인 비교는 승인된 자체 HTTP 대상에 제한 진단을 실제 실행한 예시이며 전체 취약점 탐지 성능을 뜻하지 않습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
 await writeFile(resolve(root,'docs/screenshot-manifest.json'),JSON.stringify([...routes,...agentTabs].map(([name,title,description])=>({name,path:'images/'+name+'.png',title,description,...(existsSync(resolve(root,'docs/images/mobile-'+name+'.png'))?{mobile_path:'images/mobile-'+name+'.png'}:{})})),null,2)+'\n');
 if(htmlOnly) process.exit(0);
 const {chromium}=require('playwright');

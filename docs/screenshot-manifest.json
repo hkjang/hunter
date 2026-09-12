@@ -42,6 +42,76 @@
     "mobile_path": "images/mobile-findings.png"
   },
   {
+    "name": "triage",
+    "path": "images/triage.png",
+    "title": "조치함",
+    "description": "SLA·위험 점수·위협 정보와 공통 원인 후보",
+    "mobile_path": "images/mobile-triage.png"
+  },
+  {
+    "name": "finding-activity",
+    "path": "images/finding-activity.png",
+    "title": "발견 건 활동",
+    "description": "댓글·감사 사건·관찰·재검증 정보",
+    "mobile_path": "images/mobile-finding-activity.png"
+  },
+  {
+    "name": "software",
+    "path": "images/software.png",
+    "title": "소프트웨어 명세",
+    "description": "서비스별 CycloneDX·SPDX SBOM 반입 이력",
+    "mobile_path": "images/mobile-software.png"
+  },
+  {
+    "name": "software-detail",
+    "path": "images/software-detail.png",
+    "title": "소프트웨어 명세 상세",
+    "description": "구성요소·의존 관계·라이선스 검토와 발견 건",
+    "mobile_path": "images/mobile-software-detail.png"
+  },
+  {
+    "name": "software-compare",
+    "path": "images/software-compare.png",
+    "title": "소프트웨어 명세 비교",
+    "description": "같은 서비스의 구성요소·버전 변화",
+    "mobile_path": "images/mobile-software-compare.png"
+  },
+  {
+    "name": "campaigns",
+    "path": "images/campaigns.png",
+    "title": "진단 캠페인",
+    "description": "목적별 대상 구성과 실제 진단 이력",
+    "mobile_path": "images/mobile-campaigns.png"
+  },
+  {
+    "name": "campaign-detail",
+    "path": "images/campaign-detail.png",
+    "title": "캠페인 상세",
+    "description": "개별 대상 실행과 진행 상태",
+    "mobile_path": "images/mobile-campaign-detail.png"
+  },
+  {
+    "name": "campaign-compare",
+    "path": "images/campaign-compare.png",
+    "title": "캠페인 결과 비교",
+    "description": "동일 조건 내장 실행의 신규·반복·미관측",
+    "mobile_path": "images/mobile-campaign-compare.png"
+  },
+  {
+    "name": "intelligence",
+    "path": "images/intelligence.png",
+    "title": "위협 정보",
+    "description": "관리자 KEV·EPSS 반입과 자료 기준일",
+    "mobile_path": "images/mobile-intelligence.png"
+  },
+  {
+    "name": "operations",
+    "path": "images/operations.png",
+    "title": "운영 점검",
+    "description": "DB·큐·워커·자료 갱신의 읽기 전용 점검",
+    "mobile_path": "images/mobile-operations.png"
+  },
+  {
     "name": "list-saved-view",
     "path": "images/list-saved-view.png",
     "title": "저장한 보기",
@@ -201,6 +271,27 @@
     "title": "서비스 설정",
     "description": "서비스 전체의 운영 설정",
     "mobile_path": "images/mobile-admin-settings.png"
+  },
+  {
+    "name": "admin-settings-sla",
+    "path": "images/admin-settings-sla.png",
+    "title": "조치 기한 설정",
+    "description": "SLA 활성화·심각도별 일수·임박 기준",
+    "mobile_path": "images/mobile-admin-settings-sla.png"
+  },
+  {
+    "name": "admin-settings-risk",
+    "path": "images/admin-settings-risk.png",
+    "title": "위험 우선순위 설정",
+    "description": "KEV·EPSS 가산점과 자료 노후화 기준",
+    "mobile_path": "images/mobile-admin-settings-risk.png"
+  },
+  {
+    "name": "admin-settings-inventory",
+    "path": "images/admin-settings-inventory.png",
+    "title": "명세 검토 설정",
+    "description": "SBOM 갱신 기준과 검토 라이선스 목록",
+    "mobile_path": "images/mobile-admin-settings-inventory.png"
   },
   {
     "name": "personal-profile",

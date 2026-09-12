@@ -81,6 +81,16 @@ func (a *App) mcp(w http.ResponseWriter, r *http.Request) {
 		list := []map[string]any{}
 		if slices.Contains(u.Scopes, "services:read") {
 			list = append(list, mcpTool("hunter_list_services", "접근 가능한 사내 서비스 조회", "services:read", map[string]any{}, []string{}))
+			list = append(list, mcpTool("hunter_list_components", "서비스별 최신 SBOM의 구성요소와 정확히 일치하는 발견 건 조회. 발견 건은 추가 조회 권한이 있을 때만 포함합니다", "services:read", map[string]any{"service_id": map[string]string{"type": "string"}, "q": map[string]string{"type": "string"}}, []string{}))
+			if slices.Contains(u.Scopes, "findings:read") {
+				list = append(list, mcpTool("hunter_finding_queue", "접근 가능한 미조치 발견 건의 우선순위·근거·SLA·위협 정보 조회", "findings:read", map[string]any{"view": map[string]any{"type": "string", "enum": []string{"all", "mine", "overdue", "due_soon", "unassigned"}}, "q": map[string]string{"type": "string"}, "page": map[string]any{"type": "integer", "minimum": 1}, "size": map[string]any{"type": "integer", "enum": []int{10, 25, 50, 100}}}, []string{}))
+			}
+			if slices.Contains(u.Scopes, "scans:read") {
+				list = append(list, mcpTool("hunter_list_campaigns", "접근 가능한 서비스 집합의 진단 캠페인과 실제 실행 상태 조회", "scans:read", map[string]any{}, []string{}))
+				if slices.Contains(u.Scopes, "findings:read") {
+					list = append(list, mcpTool("hunter_compare_campaigns", "동일 조건의 완료된 캠페인 결과 비교. 미관측은 해결을 의미하지 않습니다", "scans:read", map[string]any{"current_id": map[string]string{"type": "string"}, "baseline_id": map[string]string{"type": "string"}}, []string{"current_id", "baseline_id"}))
+				}
+			}
 		}
 		if slices.Contains(u.Scopes, "findings:read") {
 			list = append(list, mcpTool("hunter_list_findings", "접근 가능한 발견 건 및 개선 상태 조회", "findings:read", map[string]any{}, []string{}))
@@ -106,6 +116,12 @@ func (a *App) mcp(w http.ResponseWriter, r *http.Request) {
 			scope = "findings:read"
 		case "hunter_request_scan":
 			scope = "scans:write"
+		case "hunter_list_components":
+			scope = "services:read"
+		case "hunter_finding_queue":
+			scope = "findings:read"
+		case "hunter_list_campaigns", "hunter_compare_campaigns":
+			scope = "scans:read"
 		default:
 			errReply(-32602, "알 수 없는 도구입니다")
 			return
@@ -114,11 +130,24 @@ func (a *App) mcp(w http.ResponseWriter, r *http.Request) {
 			errReply(-32003, "도구 권한이 없습니다")
 			return
 		}
+		if (p.Name == "hunter_finding_queue" || p.Name == "hunter_list_campaigns" || p.Name == "hunter_compare_campaigns") && !slices.Contains(u.Scopes, "services:read") || p.Name == "hunter_compare_campaigns" && !slices.Contains(u.Scopes, "findings:read") {
+			errReply(-32003, "도구의 추가 조회 권한이 없습니다")
+			return
+		}
 		var result any
 		var e error
-		if p.Name == "hunter_request_scan" {
+		switch p.Name {
+		case "hunter_request_scan":
 			result, e = a.RequestScan(r.Context(), u, p.Arguments)
-		} else {
+		case "hunter_list_components":
+			result, e = a.Components(r.Context(), u, str(p.Arguments, "service_id"), str(p.Arguments, "q"))
+		case "hunter_finding_queue":
+			result, e = a.FindingQueue(r.Context(), u, FindingQueueOptions{View: str(p.Arguments, "view"), Query: str(p.Arguments, "q"), Page: number(p.Arguments, "page", 1), Size: number(p.Arguments, "size", 25)})
+		case "hunter_list_campaigns":
+			result, e = a.ListCampaigns(r.Context(), u)
+		case "hunter_compare_campaigns":
+			result, e = a.CompareCampaigns(r.Context(), u, str(p.Arguments, "current_id"), str(p.Arguments, "baseline_id"))
+		default:
 			kind := "services"
 			if p.Name == "hunter_list_findings" {
 				kind = "findings"

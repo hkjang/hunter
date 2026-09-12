@@ -84,6 +84,10 @@ import {
   CopilotPage,
 } from "./pages";
 import { ResourcePage } from "./resources";
+import { TriagePage } from "./triage";
+import { SoftwarePage, SoftwareDetailPage } from "./software";
+import { CampaignsPage, CampaignDetailPage } from "./campaigns";
+import { IntelligencePage, OperationsPage } from "./operations";
 import { AgentsPage, AgentRunPage } from "./agents";
 import { agentReadScopes, canReadAgents } from "./agent-permissions";
 import {
@@ -98,10 +102,13 @@ export const navGroups = [
     title: "워크스페이스",
     items: [
       { path: "/dashboard", label: "보안 현황", icon: IconDashboard },
+      { path: "/triage", label: "조치함", icon: IconClipboardCheck },
       { path: "/services", label: "서비스 자산", icon: IconLayersIntersect },
+      { path: "/software", label: "소프트웨어 구성", icon: IconDatabaseSearch },
       { path: "/findings", label: "발견 건", icon: IconShieldCheck },
       { path: "/remediations", label: "개선 요청", icon: IconLink },
       { path: "/scans", label: "진단 실행", icon: IconRadar },
+      { path: "/campaigns", label: "진단 캠페인", icon: IconTargetArrow },
       { path: "/agents", label: "에이전트 진단", icon: IconSparkles },
       { path: "/schedules", label: "진단 예약", icon: IconActivity },
       { path: "/graph", label: "영향 관계도", icon: IconGitBranch },
@@ -134,13 +141,22 @@ export const navGroups = [
         label: "워커 · 실행 이벤트",
         icon: IconActivity,
       },
+      {
+        path: "/admin/intelligence",
+        label: "위협 정보 반입",
+        icon: IconShieldCheck,
+      },
+      { path: "/admin/operations", label: "운영 점검", icon: IconActivity },
       { path: "/admin/users", label: "사용자 · 권한", icon: IconUsers },
       { path: "/admin/audit", label: "감사 기록", icon: IconBook2 },
       { path: "/admin/settings", label: "서비스 설정", icon: IconSettings },
     ],
   },
 ];
-const routeScopes: Record<string, string> = {
+const routeScopes: Record<string, string | readonly string[]> = {
+  "/triage": ["findings:read", "services:read"],
+  "/software": "services:read",
+  "/campaigns": ["scans:read", "services:read"],
   "/dashboard": "findings:read",
   "/services": "services:read",
   "/findings": "findings:read",
@@ -166,7 +182,7 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.3.0" });
+    [config, setConfig] = useState<Row>({ version: "1.4.0" });
   const refreshConfig = () => {
     api("/api/settings/public")
       .then(setConfig)
@@ -400,7 +416,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.3.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.4.0"}</b>
           </span>
         </footer>
       </section>
@@ -443,7 +459,9 @@ function Shell() {
     (path !== "/approvals" || !!config.approval_enabled) &&
     (path !== "/agents" || canReadAgents(can)) &&
     ((!routeScopes[path] && !path.startsWith("/admin")) ||
-      can(routeScopes[path] || "admin:manage"));
+      [routeScopes[path] || "admin:manage"]
+        .flat()
+        .every((scope) => can(scope)));
   const groups = navGroups
     .map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.path)) }))
     .filter((g) => g.items.length > 0);
@@ -619,7 +637,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.3.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.4.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -655,7 +673,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.3.0"}
+                hunter · 서비스 버전 v{config.version || "1.4.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -734,6 +752,62 @@ function Shell() {
         >
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/triage"
+              element={
+                <Access required={routeScopes["/triage"]}>
+                  <TriagePage />
+                </Access>
+              }
+            />
+            <Route
+              path="/software"
+              element={
+                <Access required={routeScopes["/software"]}>
+                  <SoftwarePage />
+                </Access>
+              }
+            />
+            <Route
+              path="/software/:id"
+              element={
+                <Access required={routeScopes["/software"]}>
+                  <SoftwareDetailPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/campaigns"
+              element={
+                <Access required={routeScopes["/campaigns"]}>
+                  <CampaignsPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/campaigns/:id"
+              element={
+                <Access required={routeScopes["/campaigns"]}>
+                  <CampaignDetailPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/intelligence"
+              element={
+                <Access required="admin:manage">
+                  <IntelligencePage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/operations"
+              element={
+                <Access required="admin:manage">
+                  <OperationsPage />
+                </Access>
+              }
+            />
             <Route
               path="/dashboard"
               element={

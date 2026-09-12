@@ -13,6 +13,10 @@ Go + React + Mantine + PostgreSQL로 만들었으며 서비스 서버·화면·�
 - 서비스 자산, 망·환경·담당자·중요도, 공격 표면과 관계 그래프
 - 승인된 범위의 실제 HTTP 보안 헤더 진단, 합성 데이터 기반 업무 권한 비교
 - 발견 건·증거·중복 관찰·개선·재검증 관리, 설정한 ITSM·개발 API로 개선 초안 발송
+- 조치함·SLA 기한·KEV/EPSS 오프라인 반입과 근거가 있는 운영 우선순위
+- CycloneDX·SPDX SBOM 반입, 구성요소·영향 서비스·버전 비교와 라이선스 검토 표시
+- 서비스별 발견 건을 유지하는 공통 원인 후보, 암호화 댓글과 협업 이력
+- 여러 진단을 묶는 캠페인, 동일 조건의 내장 완료 실행 비교, 관리자 운영 점검
 - 5분~7일 간격의 진단 예약과 같은 이미지를 사용하는 망별 워커 전용 실행
 - Trivy, Nuclei, ZAP, SARIF, Gitleaks와 일반 JSON 결과 가져오기
 - REST·읽기 전용 PostgreSQL 자산 수집, 변경 이벤트 웹훅, 정책을 따르는 재진단
@@ -27,12 +31,16 @@ Go + React + Mantine + PostgreSQL로 만들었으며 서비스 서버·화면·�
 
 UI는 Mantine을 사용합니다. 접근 가능한 폼·대화상자·표·메뉴를 일관되게 구성하고, 한국어 폰트를 로컬 번들하여 폐쇄망에서도 읽기 편한 화면을 제공합니다.
 
+v1.4.0은 소프트웨어 명세·위협 정보 반입에서 조치 우선순위, 협업, 캠페인 재검증까지 연결합니다. [조사와 채택 범위](docs/research-v140.md)는 네 공식 프로젝트의 문서·GitHub 이슈에 근거하며, 새 운영 기능은 Hunter 자체 코드입니다. 기존 PentAGI 원본 코어는 그대로 보존합니다.
+
+캠페인 비교의 **미관측은 해결을 뜻하지 않습니다**. 신뢰할 실행 조건이 없는 외부 반입·이전 버전 결과는 비교하지 않습니다. EPSS 정보 없음은 0과 다르며, SBOM 라이선스 표시는 조직의 검토 규칙에 따른 것으로 법적 적합성 판정이 아닙니다.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
 
 ~~~sh
-docker load -i hunter-v1.3.0.tar.gz
+docker load -i hunter-v1.4.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -69,7 +77,7 @@ curl 'https://hunter.internal/api/services' \
 
 - OpenAPI: `/api/openapi.json`
 - MCP: `POST /mcp`, 개인 Bearer 키 인증
-- 도구: `hunter_list_services`, `hunter_list_findings`, `hunter_request_scan`
+- 도구: 기존 서비스·발견 조회와 진단 요청에 더해 `hunter_finding_queue`, `hunter_list_components`, `hunter_list_campaigns`, `hunter_compare_campaigns`를 제공합니다. [관리자 가이드의 MCP 권한 표](docs/guides/admin-guide.md#152-mcp-연결)를 참고하세요.
 - AI: `POST /api/ai/chat`, SSE 스트리밍
 
 MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동적 등록을 제공하지 않습니다. AI 최대 설정은 연결한 실제 모델의 지원 한도에 따라 조정합니다.
@@ -82,7 +90,7 @@ MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동
 
 전체 소스 자동 수정·병합, 범용 공격 실행, 자동 보상 지급 등은 제공 범위에 포함하지 않습니다. 구체적인 제공·확장 범위는 [관리자 가이드](docs/guides/admin-guide.md)의 첫 장에서 확인하세요.
 
-목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 에이전트 목록과 감사 기록은 최신 1,000건까지 조회합니다. 목록의 검색·정렬·페이지 이동은 이 조회 자료 안에서 작동하며, 한도에 도달하면 화면에 검색 범위를 표시합니다. 이 한도를 넘는 전체 이력 집계와 서버 페이지 조회는 후속 확장이 필요합니다.
+기존 일반 목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 에이전트 목록과 감사 기록은 최신 1,000건까지 조회합니다. 목록의 검색·정렬·페이지 이동은 이 조회 자료 안에서 작동하며, 한도에 도달하면 화면에 검색 범위를 표시합니다. 이 한도를 넘는 기존 일반 목록의 전체 이력 집계와 서버 페이지 조회는 후속 확장이 필요합니다. v1.4 조치함은 예외로, 전체 접근 범위의 검색·집계·페이지를 서버에서 처리합니다. SBOM·캠페인도 별도 저장소와 조회 경로를 사용합니다.
 
 ## 목록과 빠른 이동
 
@@ -142,13 +150,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.3.0 예시 |
+| 항목 | 형식 | v1.4.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.3.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.3.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.4.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.4.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.3.0
+bash scripts/release.sh 1.4.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

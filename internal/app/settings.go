@@ -15,7 +15,7 @@ import (
 var allScopes = []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "agents:read", "agents:write", "integrations:manage", "admin:manage", "audit:read", "ai:use"}
 
 func defaultSettings() map[string]map[string]any {
-	return map[string]map[string]any{
+	out := map[string]map[string]any{
 		"general":  {"service_name": "hunter", "public_url": "http://localhost:8080"},
 		"oidc":     {"enabled": false, "issuer": "", "client_id": "", "client_secret": "", "default_role": "viewer"},
 		"ai":       {"enabled": false, "base_url": "", "api_key": "", "model": "", "max_tokens": 8192, "context_window": 262144},
@@ -24,6 +24,11 @@ func defaultSettings() map[string]map[string]any {
 		"security": {"session_hours": 12, "key_max_days": 90, "trusted_ca_pem": ""},
 		"roles":    {"admin": allScopes, "lead": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "scans:approve", "agents:read", "agents:write", "ai:use"}, "analyst": []string{"services:read", "services:write", "findings:read", "findings:write", "scans:read", "scans:write", "agents:read", "agents:write", "ai:use"}, "viewer": []string{"services:read", "findings:read", "scans:read"}},
 	}
+	for group, values := range findingOpsDefaultSettings() {
+		out[group] = values
+	}
+	out["inventory"] = map[string]any{"stale_after_days": 30, "review_licenses": []string{}}
+	return out
 }
 
 var secretFields = map[string][]string{"oidc": {"client_secret"}, "ai": {"api_key"}}
@@ -217,6 +222,10 @@ func validateSettings(group string, v map[string]any) error {
 	}
 
 	switch group {
+	case "sla", "risk":
+		return validateFindingOpsSettings(group, v)
+	case "inventory":
+		return validateInventorySettings(v)
 	case "general":
 		if strings.TrimSpace(asString(v["service_name"])) == "" || !validURL(asString(v["public_url"])) {
 			return fmt.Errorf("서비스 이름과 유효한 서비스 주소를 입력해 주세요")

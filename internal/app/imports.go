@@ -253,6 +253,7 @@ func (a *App) ingestFindings(ctx context.Context, u User, serviceID string, find
 	}
 	defer tx.Rollback(ctx)
 	created, updated := 0, 0
+	snapshot := []map[string]any{}
 	// Serialize same-service imports so duplicate observations are never lost.
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, serviceID); err != nil {
 		return 0, 0, err
@@ -299,12 +300,19 @@ func (a *App) ingestFindings(ctx context.Context, u User, serviceID string, find
 			}
 			updated++
 		} else if errors.Is(err, pgx.ErrNoRows) {
+			id = newID()
 			raw, _ := json.Marshal(m)
-			if _, err = tx.Exec(ctx, `INSERT INTO resources(id,kind,owner_id,data) VALUES($1,'findings',$2,$3)`, newID(), u.ID, raw); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO resources(id,kind,owner_id,data) VALUES($1,'findings',$2,$3)`, id, u.ID, raw); err != nil {
 				return created, updated, err
 			}
 			created++
 		} else {
+			return created, updated, err
+		}
+		snapshot = append(snapshot, map[string]any{"id": id, "fingerprint": m["fingerprint"], "service_id": serviceID, "title": m["title"], "severity": m["severity"], "source": m["source"], "rule_id": m["rule_id"], "component": m["component"], "cve": m["cve"], "location": m["location"]})
+	}
+	if scanID != "" {
+		if err := a.recordScanObservations(ctx, tx, scanID, serviceID, snapshot); err != nil {
 			return created, updated, err
 		}
 	}

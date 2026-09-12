@@ -1,0 +1,117 @@
+.workflow-table {
+  min-width: 0;
+}
+.workflow-table .table-toolbar {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.workflow-table td {
+  vertical-align: top;
+}
+.workflow-table a,
+.workflow-link {
+  color: #08776e;
+  font-weight: 600;
+  text-decoration: none;
+}
+.workflow-table a:hover,
+.workflow-link:hover {
+  text-decoration: underline;
+}
+.workflow-table td p,
+.workflow-table td a {
+  overflow-wrap: anywhere;
+}
+.workflow-metric {
+  min-width: 0;
+}
+.workflow-tabs {
+  margin: 24px 0;
+}
+.workflow-tabs [role="tablist"] {
+  flex-wrap: wrap;
+}
+.workflow-tabs [role="tab"] {
+  font-size: 16px;
+}
+.workflow-panel {
+  padding: 24px;
+  border: 1px solid #e2e9eb;
+}
+.workflow-kv {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+  gap: 10px 20px;
+}
+.workflow-kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.workflow-kv dt {
+  color: #586c75;
+}
+.workflow-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.workflow-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.workflow-activity {
+  padding: 16px 0;
+  border-bottom: 1px solid #e4eaec;
+}
+.workflow-queue-scroll {
+  overflow: auto;
+  max-height: 650px;
+  scrollbar-color: #98b5b5 #eef4f4;
+}
+.workflow-queue-scroll:focus-visible {
+  outline: 3px solid #08776e;
+  outline-offset: 3px;
+}
+.workflow-queue-scroll table {
+  min-width: 1080px;
+}
+.workflow-queue-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f5f8f9;
+}
+.workflow-caption {
+  color: #586c75;
+  font-size: 13px;
+}
+.workflow-queue-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workflow-callout {
+  border-left: 3px solid #0b8b7f;
+  padding: 12px 16px;
+  background: #f0f8f6;
+  border-radius: 6px;
+}
+@media (max-width: 600px) {
+  .workflow-panel {
+    padding: 16px;
+  }
+  .workflow-kv {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .workflow-kv dd {
+    margin-bottom: 10px;
+  }
+  .workflow-tabs [role="tab"] {
+    padding: 12px 10px;
+  }
+  .workflow-queue-views > button {
+    flex: 1 1 44%;
+  }
+}

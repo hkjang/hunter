@@ -1,6 +1,19 @@
 export type NavigationEntry = { path: string; label: string; group?: string };
 export type NavigationHistory = { favorites: string[]; recent: string[] };
 export const navigationAliases: Record<string, string[]> = {
+  "/triage": ["triage", "queue", "risk", "조치", "위험", "기한", "sla"],
+  "/software": [
+    "software",
+    "sbom",
+    "component",
+    "dependency",
+    "구성",
+    "의존성",
+    "라이선스",
+  ],
+  "/campaigns": ["campaigns", "campaign", "compare", "캠페인", "결과 비교"],
+  "/admin/intelligence": ["intelligence", "kev", "epss", "위협 정보", "반입"],
+  "/admin/operations": ["operations", "health", "운영", "점검"],
   "/dashboard": ["dashboard", "home", "홈", "대시보드", "현황"],
   "/services": ["services", "assets", "자산", "서비스"],
   "/findings": ["findings", "vulnerability", "취약점", "발견"],

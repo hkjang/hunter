@@ -20,6 +20,33 @@ func (a *App) RequestScan(ctx context.Context, u User, input map[string]any) (ma
 }
 
 func (a *App) requestScan(ctx context.Context, u User, input map[string]any, scheduleID, occurrence string) (map[string]any, error) {
+	prepared, err := a.prepareScan(ctx, u, input, scheduleID, occurrence)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := a.DB.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	out, err := a.insertPreparedScan(ctx, tx, u, prepared)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+type preparedScan struct {
+	ID   string
+	Data map[string]any
+}
+
+// Policy reads happen before taking a transaction connection. Waiting campaign
+// writers must not exhaust the pool while the lock holder requests a second one.
+func (a *App) prepareScan(ctx context.Context, u User, input map[string]any, scheduleID, occurrence string) (*preparedScan, error) {
 	s, err := a.resource(ctx, "services", str(input, "service_id"))
 	if err != nil || !a.canAccess(ctx, u, s) {
 		return nil, errors.New("접근 가능한 서비스가 필요합니다")
@@ -65,14 +92,12 @@ func (a *App) requestScan(ctx context.Context, u User, input map[string]any, sch
 		}
 	}
 	status := "queued"
-	jobStatus := "ready"
 	cfg, err := a.setting(ctx, "workflow")
 	if err != nil {
 		return nil, errors.New("워크플로 설정을 불러올 수 없습니다")
 	}
 	if boolean(cfg, "approval_enabled") {
 		status = "pending_approval"
-		jobStatus = "blocked"
 	}
 	if profile == "import-only" {
 		status = "awaiting_import"
@@ -90,12 +115,39 @@ func (a *App) requestScan(ctx context.Context, u User, input map[string]any, sch
 	if profile == "import-only" {
 		m["logs"] = []string{"스캐너가 내보낸 JSON 결과를 /api/imports에서 수입하세요. 외부 엔진은 실행되지 않았습니다."}
 	}
-	raw, _ := json.Marshal(m)
-	tx, err := a.DB.Begin(ctx)
-	if err != nil {
+
+	return &preparedScan{ID: id, Data: m}, nil
+}
+
+func (a *App) insertPreparedScan(ctx context.Context, tx pgx.Tx, u User, prepared *preparedScan) (map[string]any, error) {
+	m := cloneMap(prepared.Data)
+	id := prepared.ID
+	profile := str(m, "profile")
+	var emergency bool
+	if err := tx.QueryRow(ctx, `SELECT emergency FROM domain_runtime WHERE id=1 FOR SHARE`).Scan(&emergency); err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	if emergency {
+		return nil, errors.New("긴급 중지가 활성화되어 있습니다")
+	}
+	var serviceID string
+	if err := tx.QueryRow(ctx, `SELECT id FROM resources WHERE id=$1 AND kind='services' AND ($2 OR owner_id=$3 OR ($4<>'' AND data->>'team'=$4)) FOR SHARE`, str(m, "service_id"), elevated(u), u.ID, leadTeam(u)).Scan(&serviceID); err != nil {
+		return nil, errors.New("접근 가능한 서비스가 필요합니다")
+	}
+	var approvalEnabled bool
+	if err := tx.QueryRow(ctx, `SELECT coalesce((SELECT value->>'approval_enabled'='true' FROM settings WHERE key='workflow'),false)`).Scan(&approvalEnabled); err != nil {
+		return nil, err
+	}
+	status, jobStatus := "queued", "ready"
+	if approvalEnabled {
+		status, jobStatus = "pending_approval", "blocked"
+	}
+	if profile == "import-only" {
+		status = "awaiting_import"
+	}
+	m["status"] = status
+	var err error
+	raw, _ := json.Marshal(m)
 	var created, updated time.Time
 	if err = tx.QueryRow(ctx, `INSERT INTO resources(id,kind,owner_id,data) VALUES($1,'scans',$2,$3) RETURNING created_at,updated_at`, id, u.ID, raw).Scan(&created, &updated); err != nil {
 		return nil, err
@@ -105,14 +157,11 @@ func (a *App) requestScan(ctx context.Context, u User, input map[string]any, sch
 			return nil, err
 		}
 		if status == "pending_approval" {
-			approval, _ := json.Marshal(map[string]any{"name": str(s.Data, "name") + " 진단 검토", "scan_id": id, "service_id": s.ID, "status": "pending", "requested_by": u.ID})
+			approval, _ := json.Marshal(map[string]any{"name": str(m, "service_name") + " 진단 검토", "scan_id": id, "service_id": str(m, "service_id"), "status": "pending", "requested_by": u.ID})
 			if _, err = tx.Exec(ctx, `INSERT INTO resources(id,kind,owner_id,data) VALUES($1,'approvals',$2,$3)`, newID(), u.ID, approval); err != nil {
 				return nil, err
 			}
 		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
 	}
 	m["id"] = id
 	m["owner_id"] = u.ID
@@ -445,7 +494,7 @@ func (a *App) executeScan(parent context.Context, workerID, id string) {
 		a.finishScan(parent, workerID, id, "inconclusive", result, append(logs, "실행 상태가 변경되어 결과 확정을 중지했습니다"))
 		return
 	}
-	inserted, updated, err := a.ingestFindings(ctx, User{ID: scan.OwnerID}, s.ID, findings, id)
+	inserted, updated, err := a.ingestFindings(withScanObservationContext(ctx, p.Fingerprint, a.Version), User{ID: scan.OwnerID}, s.ID, findings, id)
 	if err != nil {
 		a.finishScan(parent, workerID, id, "inconclusive", result, append(logs, "관찰 결과 저장 실패"))
 		return

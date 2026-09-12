@@ -102,6 +102,11 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
+	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns} {
+		if err = init(ctx); err != nil {
+			return nil, err
+		}
+	}
 	return a, nil
 }
 func jsonResponse(w http.ResponseWriter, status int, v any) {
@@ -176,6 +181,10 @@ func (a *App) Routes() http.Handler {
 	a.registerAgents(m)
 	a.registerMCP(m)
 	a.registerDomain(m)
+	a.registerFindingOps(m)
+	a.registerSBOM(m)
+	a.registerCampaigns(m)
+	a.registerOperations(m)
 	a.registerRemediation(m)
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "API를 찾을 수 없습니다") })
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-<url><loc>https://hkjang.github.io/hunter/</loc></url>
-<url><loc>https://hkjang.github.io/hunter/screenshots.html</loc></url>
-<url><loc>https://hkjang.github.io/hunter/guides/user-guide.html</loc></url>
-<url><loc>https://hkjang.github.io/hunter/guides/admin-guide.html</loc></url>
+<url><loc>https://hkjang.github.io/hunter/</loc><lastmod>2026-09-12</lastmod></url>
+<url><loc>https://hkjang.github.io/hunter/screenshots.html</loc><lastmod>2026-09-12</lastmod></url>
+<url><loc>https://hkjang.github.io/hunter/guides/user-guide.html</loc><lastmod>2026-09-12</lastmod></url>
+<url><loc>https://hkjang.github.io/hunter/guides/admin-guide.html</loc><lastmod>2026-09-12</lastmod></url>
 </urlset>

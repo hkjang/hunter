@@ -1,5 +1,5 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.3.0</title><meta name="description" content="폐쇄망 설치, Keycloak, AI, 권한, 연동, 정책과 백업 운영 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp">15. REST API와 MCP</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
-<p><strong>버전 1.3.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.4.0</title><meta name="description" content="폐쇄망 설치, SLA·위협 정보·운영 점검, Keycloak·AI·권한·정책·백업 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp">15. REST API와 MCP</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
+<p><strong>버전 1.4.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
 <p>이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.</p>
 <p><a href="../index.html">프로젝트 소개</a> · <a href="user-guide.html">사용자 가이드</a> · <a href="admin-guide.html">HTML</a> · <a href="admin-guide.pdf">PDF</a> · <a href="../screenshots.html">전체 화면</a></p>
 <blockquote>
@@ -8,7 +8,7 @@
 <h2 id="1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</h2>
 <h3 id="1-1-구성">1.1 구성</h3>
 <p>Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.</p>
-<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.3.0 → 사내 PostgreSQL
+<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.4.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -56,7 +56,23 @@
 </tr>
 <tr>
 <td>업무</td>
-<td>발견 건 상태, 사유·만료가 있는 위험 수용, 지원되는 재검증</td>
+<td>발견 건 상태, SLA·조치함·암호화 댓글, 사유·만료가 있는 위험 수용, 재검증</td>
+</tr>
+<tr>
+<td>자료 반입</td>
+<td>KEV·EPSS 기준일과 SHA-256, 운영 위험 점수와 근거</td>
+</tr>
+<tr>
+<td>소프트웨어 명세</td>
+<td>CycloneDX·SPDX SBOM, 구성요소 영향 서비스·버전 비교·라이선스 검토 표시</td>
+</tr>
+<tr>
+<td>캠페인</td>
+<td>최대 20개 대상의 원자적·멱등 시작, 동일 조건 내장 완료 결과 비교</td>
+</tr>
+<tr>
+<td>운영 점검</td>
+<td>DB·큐·워커·긴급 중지·설정 여부·반입 자료 갱신 상태</td>
 </tr>
 <tr>
 <td>연동</td>
@@ -84,7 +100,7 @@
 </tr>
 </tbody>
 </table>
-<p>목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 목록 화면은 조회한 범위 안에서 검색·필터·정렬·페이지 이동을 제공합니다. 이 한도를 넘는 서버 전체 이력 집계와 추가 페이지 조회는 현재 버전에 포함되지 않으며, 규모 확장 시 별도 구현이 필요합니다.</p>
+<p>기존 일반 목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계하며 그 범위 안에서 목록을 탐색합니다. v1.4 조치함은 현재 접근 가능한 미조치 발견 건에 대해 서버 검색·집계·페이지를 처리하므로 이 한도를 그대로 적용하지 않습니다. 새 SBOM·캠페인도 전용 저장소와 조회 경로를 사용합니다. 서로 다른 화면의 수치를 같은 모집단으로 해석하지 마세요.</p>
 <h3 id="1-3-별도-확장이-필요한-영역">1.3 별도 확장이 필요한 영역</h3>
 <p>같은 서비스 이미지를 워커 전용 모드로 망별 배치할 수 있습니다. 진단 컨테이너를 동적으로 생성하는 실행 플랫폼, 외부 스캐너 바이너리, 브라우저 회귀 테스트 실행기, Kubernetes·DNS·Harbor 전용 discovery 클라이언트는 번들하지 않습니다. 제공된 REST·DB 수집과 API를 사내 시스템에 맞게 연결하는 형태입니다.</p>
 <p>전체 소스의 AI 자동 분석, 의미 기반 오탐 확정과 공통 원인 자동 병합, 자동 코드 수정·병합, 메신저 전용 봇, Canary 대규모 배포, 조직 평판·보상 지급, 전체 업무 역할 매트릭스 자동 생성은 후속 확장 영역입니다. 그래프는 등록된 관계를 보여주며 전사 공격 경로를 자동 증명하지 않습니다. 개선 초안은 설정한 외부 REST API로 명시적으로 발송할 수 있습니다.</p>
@@ -124,7 +140,7 @@
 </tr>
 <tr>
 <td>반입 파일</td>
-<td>릴리즈의 <code>hunter-v1.3.0.tar.gz</code>, compose.yaml, .env.example</td>
+<td>릴리즈의 <code>hunter-v1.4.0.tar.gz</code>, compose.yaml, .env.example</td>
 </tr>
 <tr>
 <td>백업</td>
@@ -137,8 +153,8 @@
 <h2 id="3-오프라인-배포">3. 오프라인 배포</h2>
 <h3 id="3-1-릴리즈-파일-검증과-반입">3.1 릴리즈 파일 검증과 반입</h3>
 <p>인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.</p>
-<pre><code class="language-sh">sha256sum hunter-v1.3.0.tar.gz
-gzip --test hunter-v1.3.0.tar.gz
+<pre><code class="language-sh">sha256sum hunter-v1.4.0.tar.gz
+gzip --test hunter-v1.4.0.tar.gz
 </code></pre>
 <p>첨부 자산은 <code>hunter-v버전.tar.gz</code> 한 개이며 내부 이미지 이름은 <code>hunter:v버전</code>입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.</p>
 <h3 id="3-2-네-가지-환경변수-설정">3.2 네 가지 환경변수 설정</h3>
@@ -187,8 +203,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 <p>런타임 설정용 환경변수는 위 네 가지입니다. 서비스명, 공개 주소, OIDC, AI, 세션, 권한, 연동과 진단 정책은 관리자 화면에서 저장합니다.</p>
 <p><strong>암호화 키를 재기동마다 생성하면 안 됩니다.</strong> 기존 DB에 다른 키를 제공하면 시작 검증이 실패합니다. 초기 관리자 환경변수를 바꾸는 것으로 기존 관리자 계정을 복구하거나 비밀번호를 바꿀 수 없습니다.</p>
 <h3 id="3-3-이미지-불러오기와-실행">3.3 이미지 불러오기와 실행</h3>
-<pre><code class="language-sh">docker load -i hunter-v1.3.0.tar.gz
-docker image inspect hunter:v1.3.0
+<pre><code class="language-sh">docker load -i hunter-v1.4.0.tar.gz
+docker image inspect hunter:v1.4.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -269,6 +285,18 @@ curl --fail http://localhost:8080/api/health
 <td>역할·권한</td>
 <td>팀장·분석가·열람자별 기능 권한</td>
 </tr>
+<tr>
+<td>조치 기한(SLA)</td>
+<td>활성화, 심각도별 일수, 임박 기준</td>
+</tr>
+<tr>
+<td>위험 우선순위</td>
+<td>KEV 가산, EPSS 임계·가산, 자료 노후화 기준</td>
+</tr>
+<tr>
+<td>소프트웨어 명세</td>
+<td>SBOM 갱신 기준, 검토할 라이선스 식별자 목록</td>
+</tr>
 </tbody>
 </table>
 <h3 id="5-1-입력과-저장-상태-확인">5.1 입력과 저장 상태 확인</h3>
@@ -284,6 +312,50 @@ curl --fail http://localhost:8080/api/health
 <p>이 보관은 자동 저장이나 장기 초안 저장이 아닙니다. 브라우저 새로고침·탭 닫기에는 브라우저가 제공하는 미저장 경고가 표시될 수 있지만, 브라우저 정책과 사용자 조작에 따라 경고가 생략될 수 있습니다. 다른 업무 페이지로 떠나기 전에는 변경한 각 그룹을 직접 저장하세요.</p>
 <p>관리 목록에는 상단 결과 수·적용 조건별 해제·저장 보기·표 표시 설정을 제공합니다. 저장 보기와 행 간격은 <strong>현재 브라우저의 사용자·메뉴별 설정</strong>이며 관리자가 조직 전체 설정을 바꾸는 기능과 다릅니다. 보기 적용 시 첫 페이지부터 표시하며, 이름·조회 조건만 저장하고 현재 계정의 권한을 그대로 적용합니다. 자세한 절차는 <a href="user-guide.html">사용자 가이드</a>를 참고하세요.</p>
 <p>비밀 설정은 조회할 때 원문을 반환하지 않습니다. 저장됨 표시로 여부를 확인하며 빈 입력은 기존 값을 유지합니다. API에서 명시적인 비밀 삭제 옵션을 제공하는 경우에만 삭제됩니다. 설정 화면의 일반 텍스트에 비밀번호를 넣지 않습니다. 설정·비밀번호 폼의 미저장 비밀값은 현재 화면의 메모리 초안이며 브라우저 저장 보기에 넣지 않습니다. 성공적으로 제출한 비밀 입력은 화면에서 비웁니다.</p>
+<h3 id="5-3-sla-조치-기한-정책">5.3 SLA 조치 기한 정책</h3>
+<p>SLA는 기본 비활성화입니다. 관리자 설정의 조치 기한 그룹에서 활성화한 뒤 심각도별 일수와 임박 기준을 저장합니다. 기본값은 심각 7일, 높음 30일, 보통 90일, 낮음 180일, 정보 0일과 임박 7일입니다. 0일은 해당 심각도의 자동 기한을 두지 않습니다.</p>
+<p>수동 <code>due_date</code>가 있으면 이를 우선합니다. 그렇지 않으면 발견 건 생성 시각에 설정 일수를 더한 기한을 조회 시 계산합니다. 정책 변경은 계산 기한에 즉시 반영되며 수동 기한이나 최초 생성 시각을 덮어쓰지 않습니다. 날짜는 시간대를 포함하는 RFC3339 형식입니다. 영업일 달력·공휴일 제외·휴무 조직별 계산은 현재 범위에 없습니다.</p>
+<p>조치함은 해결·오탐·유효한 위험 수용을 제외하고 임박·초과·미배정 건을 구분합니다. 위험 수용이 만료된 건은 현재 상태 정리 작업 전에라도 포함합니다. 정책을 정하기 전 조직의 조치 담당자와 기준일·예외 처리 방식을 합의하고, 기한 변경 사유는 발견 건 댓글에 남깁니다.</p>
+<p><img src="../images/admin-settings-sla.png" alt="심각도별 SLA와 임박 기준 설정"></p>
+<h3 id="5-4-위험-점수와-자료-노후화">5.4 위험 점수와 자료 노후화</h3>
+<p>현재 운영 우선순위 방식은 <code>hunter-priority-v1</code>입니다. 기술적 심각도 기본점수는 심각/높음/보통/낮음/정보 순서로 70/50/30/10/0이고, 서비스 중요도 Tier 1/2/3/4 가산은 15/10/5/0입니다. 여기에 KEV와 EPSS 가산을 더하며 상한은 100점입니다.</p>
+<table>
+<thead>
+<tr>
+<th>설정</th>
+<th>기본값</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KEV 가산</td>
+<td>25</td>
+<td>반입 목록에 해당 CVE가 있는 경우</td>
+</tr>
+<tr>
+<td>EPSS 임계</td>
+<td>0.1</td>
+<td>이 값 이상인 유효 EPSS에 가산</td>
+</tr>
+<tr>
+<td>EPSS 가산</td>
+<td>10</td>
+<td>기준을 넘는 EPSS의 가산점</td>
+</tr>
+<tr>
+<td>자료 노후화</td>
+<td>30일</td>
+<td>기준일이 지나면 오래된 자료로 표시</td>
+</tr>
+</tbody>
+</table>
+<p>EPSS가 없거나 오래되었으면 가산하지 않습니다. 오래된 KEV의 포함 사실은 과거 악용 근거로 유지하므로 가산하되 기준일 경고를 함께 표시합니다. 점수가 바뀌어도 심각도·상태·서비스 승인·진단 권한은 변경되지 않습니다. 이 점수는 침해 확률, CVSS 또는 공식 인증 지표가 아닙니다.</p>
+<p><img src="../images/admin-settings-risk.png" alt="위협 정보 가산과 노후화 기준 설정"></p>
+<h3 id="5-5-sbom-갱신과-라이선스-검토-규칙">5.5 SBOM 갱신과 라이선스 검토 규칙</h3>
+<p>소프트웨어 명세 설정에서 갱신 기준일(기본 30일, 1~3650일)과 검토 라이선스 목록(최대 100개)을 관리합니다. 갱신 기준은 Hunter에 마지막으로 반입한 시각에 적용하며 실제 배포 시각이나 공급자 갱신을 자동 확인하지 않습니다.</p>
+<p>검토 목록의 식별자에 해당하거나 라이선스가 없고, <code>NOASSERTION</code>·<code>NONE</code>·<code>LicenseRef-</code>·복합 표현식 등에 해당하면 검토 필요를 표시합니다. 일반 식별자의 완전한 SPDX 유효성 검사, AND/OR/WITH 표현식의 법률적 평가, 라이선스 승인 워크플로는 제공하지 않습니다. 목록 미해당을 재배포 허용으로 해석하지 마세요.</p>
+<p><img src="../images/admin-settings-inventory.png" alt="소프트웨어 명세 갱신과 라이선스 검토 설정"></p>
 <h2 id="6-keycloak-oidc-sso">6. Keycloak OIDC SSO</h2>
 <h3 id="6-1-keycloak-클라이언트-준비">6.1 Keycloak 클라이언트 준비</h3>
 <p>조직의 Keycloak realm에서 OpenID Connect 클라이언트를 생성합니다.</p>
@@ -563,6 +635,35 @@ curl --fail http://localhost:8080/api/health
 <p>동기화한 자산은 <strong>자동발견 후보</strong>에서 확인합니다. 신규 서비스인지, 담당 조직과 URL이 정확한지 검토한 뒤 서비스 자산으로 등록합니다. 후보 발견 자체가 네트워크 진단 승인이 되지 않습니다.</p>
 <p><img src="../images/admin-discovery.png" alt="자동발견 후보"></p>
 <p>ITAM, DNS, Ingress, Route, Harbor, GitLab 등은 그 정보를 제공하는 사내 API·DB와 연결합니다. 각 제품에 대한 완성된 전용 인증·페이징·이벤트 변환 커넥터가 있다고 가정하지 않습니다.</p>
+<h3 id="12-5-kev-epss-자료를-폐쇄망에-반입">12.5 KEV·EPSS 자료를 폐쇄망에 반입</h3>
+<p><strong>관리자 → 위협 정보</strong>(<code>/admin/intelligence</code>)에서 반입합니다. 관리자 권한이 있는 세션 또는 개인 키만 자료를 교체할 수 있습니다. Hunter는 실행 중 외부 피드를 자동 다운로드하지 않습니다.</p>
+<p><img src="../images/intelligence.png" alt="KEV·EPSS 오프라인 반입과 기준일"></p>
+<ol>
+<li>인터넷 구간에서 조직이 승인한 원본 파일을 확보하고 반입 절차로 전달합니다. 압축된 EPSS 파일은 먼저 CSV로 풉니다.</li>
+<li>형식을 <strong>KEV JSON</strong> 또는 <strong>EPSS CSV</strong>로 선택합니다.</li>
+<li>실제 자료의 기준일을 <code>YYYY-MM-DD</code>로 입력합니다. 현재보다 미래 날짜를 사용할 수 없습니다.</li>
+<li>파일을 선택하거나 본문을 붙여넣습니다. 본문은 32 MiB 이하, CVE는 최대 500,000개입니다. JSON API 포장 요청에는 최대 64 MiB 제한이 적용됩니다.</li>
+<li>반입 완료 후 기준일·반입일·건수·SHA-256을 확인하고 조치함에서 해당 CVE가 연결되는지 확인합니다.</li>
+</ol>
+<p>KEV에는 <code>vulnerabilities</code> 배열과 <code>cveID</code>가 필요합니다. <code>count</code>가 있으면 실제 건수와, <code>dateReleased</code>가 있으면 입력 기준일과 일치해야 합니다. EPSS CSV는 <code>cve</code>, <code>epss</code> 열이 필수이고 <code>percentile</code>은 선택입니다. 값은 0~1 범위의 유한한 숫자여야 합니다. CSV 주석이나 행에 기준일이 있으면 화면 입력과 일치해야 합니다.</p>
+<p>반입은 형식별 자료 전체를 한 트랜잭션으로 교체합니다. 잘못된 행·중복 CVE·기준일 오류가 있으면 기존 정상 자료를 유지합니다. 기존보다 오래된 날짜는 HTTP 409로 거부합니다. 같은 날짜의 재반입은 가능하므로 실제 파일의 해시와 근거를 확인하세요. SHA-256은 반입 내용을 식별하며 원본 공급자 서명이나 사실성을 검증하지 않습니다.</p>
+<p>API 예시 파일은 실제 운영 피드가 아닌 형식을 설명하는 합성 자료입니다.</p>
+<pre><code class="language-json">{
+  &quot;format&quot;: &quot;epss&quot;,
+  &quot;source_date&quot;: &quot;2026-09-12&quot;,
+  &quot;content&quot;: &quot;cve,epss,percentile\nCVE-2026-12345,0.15,0.91\n&quot;
+}
+</code></pre>
+<pre><code class="language-sh">curl 'https://hunter.internal/api/intelligence/import' \
+  -H 'Authorization: Bearer YOUR_ADMIN_KEY' \
+  -H 'Content-Type: application/json' \
+  --data-binary @intelligence-import.json
+</code></pre>
+<p>반입 파일 자체의 날짜를 현재 날짜로 바꾸어 오래된 자료를 최신으로 표시하지 않습니다. 조회한 KEV 포함 여부가 <code>false</code>라면 반입 목록에 없다는 뜻이며, <code>null</code>은 자료 또는 유효한 CVE를 확인하지 못했다는 뜻입니다. EPSS <code>null</code>은 실제 0과 다릅니다.</p>
+<h3 id="12-6-sbom-반입-운영">12.6 SBOM 반입 운영</h3>
+<p>사용자는 <strong>소프트웨어 명세</strong>에서 현재 접근 가능한 서비스의 SBOM을 반입합니다. 조회는 <code>services:read</code>, 반입·삭제는 <code>services:write</code>가 필요하며 연결된 발견 건을 보려면 <code>findings:read</code>도 필요합니다. 개별 문서 작성자가 아니라 현재 부모 서비스 권한으로 열람·비교·영향 집계를 검사합니다.</p>
+<p>지원 형식은 CycloneDX 1.4·1.5·1.6 JSON, SPDX 2.2·2.3 JSON입니다. 본문 8 MiB·구성요소 1~10,000개·중첩 64단계·구성요소별 라이선스 50개를 제한하며, 입력 의존 관계는 미등록 참조까지 포함해 100,000개 이하입니다. 빈 문서·중복 참조·지원 필드의 잘못된 타입은 거부하고 이전 최신 명세를 유지합니다. purl 기본 구조·버전 일치·인코딩·자격 정보 qualifier를 검사하지만 전체 표준 스키마 검증기는 아닙니다. XML·태그 값 형식·SBOM 생성·취약점 DB 자동 분석은 현재 범위가 아닙니다.</p>
+<p>동일 서비스에 같은 JSON 바이트가 이미 있으면 기존 문서를 재사용합니다. 주의 메시지를 확인하고 서로 다른 배포본을 같은 서비스에 보관해 비교하세요. 임의의 공급자 속성과 파일을 그대로 저장하지 않고 필요한 구성요소·관계 메타데이터를 정규화합니다. 같은 패키지·버전의 서로 다른 라이선스는 별도 행으로 보존합니다. 문서 <code>bom-ref</code> 변경만으로 메타데이터 변경으로 세지 않으며 여러 버전 변경은 임의로 짝짓지 않고 추가·제거로 표시합니다. 이름·버전이 서로 다른 purl이나 구성요소 식별자에 걸쳐 모호하면 발견 건을 <code>이름@버전</code>으로 연결하지 않습니다. 새로운 문서 반입·삭제·패키지 제거만으로 발견 건 상태가 해결로 바뀌지 않습니다.</p>
 <h2 id="13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</h2>
 <h3 id="13-1-망별-워커">13.1 망별 워커</h3>
 <p><strong>관리자 → 워커·실행 이벤트</strong>에서 워커의 상태, 최근 생존 시각, 담당 망과 활성 여부를 관리합니다.</p>
@@ -572,7 +673,7 @@ curl --fail http://localhost:8080/api/health
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.3.0 --worker-only --worker-id worker-dmz
+  hunter:v1.4.0 --worker-only --worker-id worker-dmz
 </code></pre>
 <p>워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 <strong>정확히 일치</strong>해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.</p>
 <p>각 망의 실제 방화벽·라우팅 정책으로 워커가 승인된 대상과 PostgreSQL에만 접근하도록 구성합니다. 같은 DB에 접근할 수 없는 완전 분리망 사이를 자동 연결하지 않습니다. DB 자격 증명이 있는 워커는 신뢰된 실행 구성요소이므로 일반 사용자에게 워커 실행 호스트의 관리 권한을 제공하지 않습니다.</p>
@@ -600,6 +701,11 @@ curl --fail http://localhost:8080/api/health
 <p><strong>개선 요청</strong>에서 발견 건과 이 연동을 선택하고 초안을 작성한 후 명시적으로 발송합니다. 서버는 설정한 주소로 POST를 수행합니다. 티켓·PR API에 필요한 저장소, 브랜치, 프로젝트 필드 등은 조직의 API 문서에 맞춰 템플릿에 넣습니다.</p>
 <p><img src="../images/remediations.png" alt="개선 요청과 발송"></p>
 <p>발송은 Hunter 개선 ID를 기반으로 Idempotency-Key를 제공합니다. 상태가 sending·sent·uncertain이면 자동으로 재전송하지 않으며, 불확실한 응답은 외부 시스템에서 생성 여부를 확인해야 합니다. 외부 API도 멱등성 키를 지원하는지 확인하세요. 성공 응답의 외부 ID·URL은 설정한 응답 필드에 맞게 연결합니다. 자동 병합·배포는 수행하지 않습니다.</p>
+<h3 id="13-5-캠페인-운영과-재실행">13.5 캠페인 운영과 재실행</h3>
+<p>캠페인은 최대 20개 서비스·프로파일·시나리오 조합을 하나의 작업으로 관리합니다. 생성·시작에는 <code>services:read</code>, <code>scans:read</code>, <code>scans:write</code>가 필요하고 모든 대상의 현재 서비스 접근을 검사합니다. 관리자의 대상 승인·유효 범위·선택적 팀장 승인·긴급 중지와 기존 망별 워커를 그대로 사용합니다.</p>
+<p>시작 전 정책 준비를 마친 뒤 DB 트랜잭션에서 캠페인 잠금, 현재 부모 권한·긴급 중지 확인, 전체 진단·큐·승인·연결 저장을 처리합니다. 동시 요청이나 응답 재시도로 같은 캠페인이 중복 실행되지 않습니다. 이미 시작한 캠페인은 기존 결과를 돌려주므로 새 검증에는 새 캠페인을 만듭니다. 개별 진단을 취소해도 캠페인의 연결 이력은 유지합니다.</p>
+<p>비교는 같은 서비스·프로파일·시나리오 구성과 같은 실행 조건의 내장 완료 진단에 한정합니다. 정책·범위·인증·신뢰 CA·엔진 버전이 바뀌면 비교 불가입니다. 외부 결과 반입·이전 버전·실패·취소·스냅샷 없는 실행도 비교하지 않습니다. 비교용 관측 결과는 증거·비밀값 없이 실행별로 고정 보존하며 건당 최대 5,000개입니다.</p>
+<p>새 배포 후 기준과 동일한 진단을 실행하고 신규·반복·변경·미관측을 검토합니다. 미관측은 해결이 아니며 기존 지원 재검증 절차를 통해 해결을 확정합니다. 이 기능의 결과만으로 외부 스캐너의 실행 완전성이나 모든 업무 권한의 안전을 주장하지 않습니다.</p>
 <h2 id="14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</h2>
 <h3 id="14-1-사내-ai-연결">14.1 사내 AI 연결</h3>
 <p><strong>서비스 설정 → AI 분석</strong>에서 다음을 설정합니다.</p>
@@ -740,6 +846,50 @@ curl --fail http://localhost:8080/api/health
 <td>외부 진단 결과 수입</td>
 </tr>
 <tr>
+<td>GET /api/finding-queue</td>
+<td>서버 검색·페이지·SLA·위협 정보와 공통 원인 후보</td>
+</tr>
+<tr>
+<td>GET·POST /api/findings/{id}/activity</td>
+<td>활동 이력 조회·댓글 작성</td>
+</tr>
+<tr>
+<td>GET /api/intelligence</td>
+<td>관리자 반입 자료 기준일·건수·해시</td>
+</tr>
+<tr>
+<td>POST /api/intelligence/import</td>
+<td>KEV JSON·EPSS CSV 교체 반입</td>
+</tr>
+<tr>
+<td>GET /api/sboms, POST /api/sboms/import</td>
+<td>서비스별 SBOM 조회·반입</td>
+</tr>
+<tr>
+<td>GET /api/sboms/{id}/compare?baseline=ID</td>
+<td>동일 서비스의 SBOM 버전 비교</td>
+</tr>
+<tr>
+<td>GET /api/components</td>
+<td>최신 SBOM 구성요소·영향 서비스</td>
+</tr>
+<tr>
+<td>GET·POST /api/campaigns</td>
+<td>캠페인 조회·초안 생성</td>
+</tr>
+<tr>
+<td>POST /api/campaigns/{id}/start</td>
+<td>전체 대상 진단을 원자적·멱등 시작</td>
+</tr>
+<tr>
+<td>GET /api/campaigns/{id}/compare?baseline=ID</td>
+<td>동일 조건 내장 완료 실행 비교</td>
+</tr>
+<tr>
+<td>GET /api/operations</td>
+<td>관리자 읽기 전용 운영 점검</td>
+</tr>
+<tr>
 <td>/api/scans</td>
 <td>진단 요청·조회</td>
 </tr>
@@ -799,7 +949,39 @@ curl --fail http://localhost:8080/api/health
   }
 }
 </code></pre>
-<p>위 예시는 주소와 헤더를 보여주는 개념 설정입니다. 각 MCP 클라이언트의 실제 설정 파일 문법에 맞춰 적용합니다. 도구는 <code>hunter_list_services</code>, <code>hunter_list_findings</code>, <code>hunter_request_scan</code>이며 REST와 같은 권한·정책을 적용합니다.</p>
+<p>위 예시는 주소와 헤더를 보여주는 개념 설정입니다. 각 MCP 클라이언트의 실제 설정 파일 문법에 맞춰 적용합니다. 기존 <code>hunter_list_services</code>, <code>hunter_list_findings</code>, <code>hunter_request_scan</code>에 v1.4의 읽기 전용 도구 네 개를 추가했습니다. REST와 같은 현재 권한·팀 범위를 적용하며 키에서 허용하지 않은 도구는 목록에서도 제외됩니다.</p>
+<table>
+<thead>
+<tr>
+<th>새 MCP 도구</th>
+<th>기능</th>
+<th>필수 권한</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hunter_finding_queue</td>
+<td>SLA·점수·위협 정보가 있는 조치함, 검색·페이지</td>
+<td>services:read + findings:read</td>
+</tr>
+<tr>
+<td>hunter_list_components</td>
+<td>최신 SBOM 구성요소와 영향 서비스</td>
+<td>services:read; 발견 내용은 findings:read 추가</td>
+</tr>
+<tr>
+<td>hunter_list_campaigns</td>
+<td>캠페인·연결 진단의 실제 상태</td>
+<td>services:read + scans:read</td>
+</tr>
+<tr>
+<td>hunter_compare_campaigns</td>
+<td>기준/현재 캠페인 관측 비교</td>
+<td>services:read + scans:read + findings:read</td>
+</tr>
+</tbody>
+</table>
+<p><code>hunter_compare_campaigns</code> 입력은 <code>current_id</code>와 <code>baseline_id</code>입니다. 도구에서 결과를 읽어도 상태를 변경하지 않고, <code>not_seen</code>을 해결로 자동 처리하지 않습니다. 새 도구로 위협 정보 반입·SBOM 삭제·캠페인 시작을 수행하지 않습니다.</p>
 <h2 id="16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</h2>
 <p><strong>관리자 → 감사 기록</strong>에서 수행자, 작업, 대상과 시각을 확인합니다. 주요 설정·계정·키·진단 변경을 조사할 때 사용합니다.</p>
 <p>감사 목록에서 사용자·작업·대상을 검색하고 작업·사용자·기간 필터로 범위를 좁힙니다. 일시 열로 시간순을 바꾸고 페이지당 표시 수와 페이지 이동을 사용합니다. 검색 조건은 조회 권한이나 서버의 자료 보존·조회 한도를 늘리지 않습니다.</p>
@@ -843,7 +1025,7 @@ docker compose up -d
 <li>검증계의 승인된 작은 진단으로 기능을 확인한 뒤 운영 전환합니다.</li>
 </ol>
 <pre><code class="language-sh">pg_restore --dbname=&quot;$RESTORE_POSTGRES_DSN&quot; --no-owner hunter-backup.dump
-docker load -i hunter-v1.3.0.tar.gz
+docker load -i hunter-v1.4.0.tar.gz
 docker compose up -d
 </code></pre>
 <p>새 DB를 위한 자동 초기 관리자 생성과 기존 DB 복원 절차를 혼동하지 않습니다. 복원한 DB에 사용자가 있으면 bootstrap 환경변수로 계정을 다시 생성하지 않습니다.</p>
@@ -924,6 +1106,58 @@ docker compose up -d
 </tbody>
 </table>
 <p>장애 재현 시각, 버전, 대상 작업 ID와 마스킹한 오류를 남깁니다. 서비스 로그와 DB 오류의 원문에는 내부 주소가 포함될 수 있으므로 필요한 사람에게만 공유합니다.</p>
+<h3 id="19-1-관리자-운영-점검-화면">19.1 관리자 운영 점검 화면</h3>
+<p><strong>관리자 → 운영 점검</strong>(<code>/admin/operations</code>)을 열어 현재 점검 시각과 버전을 확인합니다. 이 화면은 관리자 권한이 필요하며 외부 서비스에 접속하거나 진단을 시작하지 않습니다.</p>
+<p><img src="../images/operations.png" alt="현재 저장 상태를 확인하는 관리자 운영 점검"></p>
+<table>
+<thead>
+<tr>
+<th>점검 항목</th>
+<th>의미와 후속 조치</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>데이터베이스</td>
+<td>PostgreSQL 응답 확인. 실패 시 DSN·사내 경로·DB 가용성 확인</td>
+</tr>
+<tr>
+<td>진단 대기열</td>
+<td>대기·실행·승인 대기·임대 만료 건수. 임대 만료는 워커 프로세스와 로그 확인</td>
+</tr>
+<tr>
+<td>워커 응답</td>
+<td>활성 워커의 2분 이상 응답 지연 확인. 워커 활성화·망 이름·프로세스 확인</td>
+</tr>
+<tr>
+<td>긴급 중지</td>
+<td>현재 활성 상태. 장애가 해소됐는지 확인 후 기존 관리 기능으로 조정</td>
+</tr>
+<tr>
+<td>SSO·AI·에이전트·승인</td>
+<td>사용 설정 여부만 확인. 연결 시험·모델 응답·OIDC 로그인 성공 보장이 아님</td>
+</tr>
+<tr>
+<td>KEV·EPSS</td>
+<td>미반입과 오래된 기준일 확인. 승인된 새 원본을 반입</td>
+</tr>
+<tr>
+<td>소프트웨어 명세</td>
+<td>서비스별 명세 보유 여부와 마지막 반입 갱신 기준 초과 확인</td>
+</tr>
+</tbody>
+</table>
+<p>운영 점검이 정상이라고 백업 복구, TLS 인증서 만료, 외부 서비스 상태와 모든 진단의 성공이 보장되는 것은 아닙니다. 이 버전의 화면은 저장된 설정·DB·큐·워커·자료 갱신 상태를 확인합니다. 외부 연동 발송 실패·불확실 상태는 기존 개선 요청 화면에서 확인하고, 불확실한 발송을 자동 재시도하지 않습니다.</p>
+<h3 id="19-2-새-운영-기능-오류-복구">19.2 새 운영 기능 오류 복구</h3>
+<ul>
+<li>KEV·EPSS 반입 오류: 오류가 난 행·중복 CVE·기준일을 원본과 대조합니다. 실패한 반입은 이전 자료를 보존합니다. 오래된 날짜의 409를 피하려고 날짜만 바꾸지 않습니다.</li>
+<li>SBOM 반입 오류: 지원 JSON 버전·파일 크기·구성요소 수·참조를 확인하고 생성 도구에서 다시 내보냅니다. 이미 반입한 동일 바이트는 중복 저장되지 않습니다.</li>
+<li>캠페인 시작 응답 유실: 같은 캠페인을 다시 조회·시작합니다. 서버는 기존 진단을 반환합니다. 새 캠페인부터 만들면 실제로 새 진단이 생성됩니다.</li>
+<li>캠페인 초안 유지: 한 대상의 준비 또는 저장 실패로 전체 시작이 취소된 상태입니다. 접근·승인·범위·정책을 확인한 뒤 다시 시작합니다.</li>
+<li>결과 비교 불가: 양쪽 완료·대상·정책·버전·스냅샷을 확인합니다. 외부 반입과 이전 버전 실행은 현재 비교 범위에 없습니다.</li>
+<li>조치함·캠페인이 보이지 않음: 현재 역할·키 범위·부모 서비스 소유권을 확인합니다. 캠페인은 모든 대상 서비스에 접근할 수 있어야 합니다.</li>
+<li>댓글 작성 실패: 내용과 권한을 확인하고 현재 활동 목록을 다시 읽습니다. 재시도 전 동일 의견의 저장 여부를 확인합니다.</li>
+</ul>
 <h2 id="20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</h2>
 <h3 id="20-1-로컬-빌드">20.1 로컬 빌드</h3>
 <p>빌드 구간에는 Go 1.26.5 이상, Node.js 26과 npm 패키지·Go 모듈 접근이 필요합니다. <strong>빌드 시 인터넷 요구와 배포 후 오프라인 운영은 별개입니다.</strong></p>
@@ -943,9 +1177,9 @@ node scripts/check-docs.mjs
 </code></pre>
 <p>실제 화면 캡처는 <code>docs/images</code>에 저장합니다. 운영 데이터·비밀값이 담긴 화면은 공개 문서로 사용하지 않습니다. 가이드의 이미지가 모두 존재해야 PDF를 정상 생성할 수 있습니다.</p>
 <h3 id="20-3-릴리즈-규칙">20.3 릴리즈 규칙</h3>
-<pre><code class="language-sh">bash scripts/release.sh 1.3.0
+<pre><code class="language-sh">bash scripts/release.sh 1.4.0
 </code></pre>
-<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.3.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.3.0</code> 서비스 이미지 하나만 들어갑니다.</p>
+<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.4.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.4.0</code> 서비스 이미지 하나만 들어갑니다.</p>
 <p>GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 <code>docs</code>를 배포합니다. GitHub 저장소의 Pages 배포 소스는 <strong>GitHub Actions</strong>로 설정합니다.</p>
 <h2 id="21-참고-문서">21. 참고 문서</h2>
 <ul>
@@ -956,4 +1190,4 @@ node scripts/check-docs.mjs
 <li><a href="https://playwright.dev/docs/api/class-page#page-pdf">Playwright PDF 생성</a></li>
 </ul>
 <p><a href="user-guide.html">사용자 일상 업무 가이드로 이동</a></p>
-<footer>Hunter v1.3.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
+<footer>Hunter v1.4.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>

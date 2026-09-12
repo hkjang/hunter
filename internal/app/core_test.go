@@ -231,8 +231,13 @@ func TestMCPScopedTools(t *testing.T) {
 	}
 	m = mustRequest(t, s, "POST", "/mcp", map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, token, 200)
 	list := m["result"].(map[string]any)["tools"].([]any)
-	if len(list) != 1 {
+	if len(list) != 2 {
 		t.Fatal("unscoped tools exposed")
+	}
+	for _, tool := range list {
+		if !hasString([]string{"hunter_list_services", "hunter_list_components"}, str(object(tool), "name")) {
+			t.Fatal("additional scopes not enforced")
+		}
 	}
 	m = mustRequest(t, s, "POST", "/mcp", map[string]any{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": map[string]any{"name": "hunter_request_scan", "arguments": map[string]any{}}}, token, 200)
 	if m["error"] == nil {
