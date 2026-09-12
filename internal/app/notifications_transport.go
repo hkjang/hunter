@@ -424,31 +424,8 @@ func (a *App) sendHTTPNotification(ctx context.Context, channel NotificationChan
 	}
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Accept", "application/json")
-	auth := str(c, "auth")
-	if auth != "" && auth != "none" && channel.Secret == "" {
+	if err := applyNotificationHTTPAuth(req, channel); err != nil {
 		return NotificationSendResult{State: "failed", Code: "credentials", Detail: "API 인증 비밀값을 등록해 주세요"}
-	}
-	switch auth {
-	case "bearer":
-		req.Header.Set("Authorization", "Bearer "+channel.Secret)
-	case "basic":
-		req.SetBasicAuth(str(c, "username"), channel.Secret)
-	case "header":
-		req.Header.Set(str(c, "auth_header"), channel.Secret)
-	case "headers":
-		var secretHeaders map[string]string
-		_ = json.Unmarshal([]byte(channel.Secret), &secretHeaders)
-		for k, v := range secretHeaders {
-			req.Header.Set(k, v)
-		}
-	case "ncp":
-		stamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
-		access := str(c, "username")
-		mac := hmac.New(sha256.New, []byte(channel.Secret))
-		_, _ = io.WriteString(mac, method+" "+req.URL.RequestURI()+"\n"+stamp+"\n"+access)
-		req.Header.Set("x-ncp-apigw-timestamp", stamp)
-		req.Header.Set("x-ncp-iam-access-key", access)
-		req.Header.Set("x-ncp-apigw-signature-v2", base64.StdEncoding.EncodeToString(mac.Sum(nil)))
 	}
 	if h := str(c, "idempotency_header"); h != "" {
 		req.Header.Set(h, "hunter-"+message.DeliveryID)
@@ -699,4 +676,36 @@ func (a *App) sendSMTPNotification(ctx context.Context, channel NotificationChan
 	// DATA has been accepted. A later QUIT/connection error cannot unsend it.
 	_ = client.Quit()
 	return NotificationSendResult{State: "sent", ProviderID: msgID, Code: "250", Detail: "SMTP 릴레이가 메일을 접수했습니다"}
+}
+
+// Share the exact channel authentication policy with read-only receipt queries.
+func applyNotificationHTTPAuth(req *http.Request, channel NotificationChannel) error {
+	c := channel.Config
+	auth := str(c, "auth")
+	if auth != "" && auth != "none" && channel.Secret == "" {
+		return errors.New("API 인증 비밀값을 등록해 주세요")
+	}
+	switch auth {
+	case "bearer":
+		req.Header.Set("Authorization", "Bearer "+channel.Secret)
+	case "basic":
+		req.SetBasicAuth(str(c, "username"), channel.Secret)
+	case "header":
+		req.Header.Set(str(c, "auth_header"), channel.Secret)
+	case "headers":
+		var secretHeaders map[string]string
+		_ = json.Unmarshal([]byte(channel.Secret), &secretHeaders)
+		for k, v := range secretHeaders {
+			req.Header.Set(k, v)
+		}
+	case "ncp":
+		stamp := strconv.FormatInt(time.Now().UnixMilli(), 10)
+		access := str(c, "username")
+		mac := hmac.New(sha256.New, []byte(channel.Secret))
+		_, _ = io.WriteString(mac, req.Method+" "+req.URL.RequestURI()+"\n"+stamp+"\n"+access)
+		req.Header.Set("x-ncp-apigw-timestamp", stamp)
+		req.Header.Set("x-ncp-iam-access-key", access)
+		req.Header.Set("x-ncp-apigw-signature-v2", base64.StdEncoding.EncodeToString(mac.Sum(nil)))
+	}
+	return nil
 }

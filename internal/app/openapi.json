@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "hunter API",
-    "version": "1.6.0",
-    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다. 알림센터는 admin:manage 전용이며 접수 상태는 최종 수신을 뜻하지 않습니다. 채널·규칙 수정은 expected_updated_at을 요구합니다."
+    "version": "1.7.0",
+    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다. 알림센터는 admin:manage 전용이며 접수 상태는 최종 수신을 뜻하지 않습니다. 채널·규칙 수정은 expected_updated_at을 요구합니다. v1.7 자동화 관리·개인 업무 알림. 공급자 전달·업무ACK·승인·발견 해결은 별도. 결과 불명 자동 재발송 금지, 현재 권한·암호화 설정·revision 적용. Hunter HMAC 콜백은 벤더 직접 호환이 아닌 게이트웨이 계약."
   },
   "servers": [
     {
@@ -3762,6 +3762,29 @@
                 }
               }
             }
+          },
+          "201": {
+            "description": "새 변경 실행 기록",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "$ref": "#/components/schemas/WorkflowRun"
+                    },
+                    "duplicate": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "run",
+                    "duplicate"
+                  ]
+                }
+              }
+            }
           }
         },
         "x-required-scope": "integrations:manage",
@@ -3770,7 +3793,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/WorkflowChangeInput"
+                  },
+                  {
+                    "type": "object",
+                    "description": "기존 승인된 자산 자동발견/변경 이벤트 형식"
+                  }
+                ]
               }
             }
           }
@@ -3783,8 +3814,29 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-Hunter-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Unix 초 문자열. 현재 시각 ±300초"
+            },
+            "description": "변경 자동화 경로에는필수. Unix 초 문자열. 현재 시각 ±300초"
+          },
+          {
+            "name": "X-Hunter-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "HMAC-SHA256(secret,timestamp+newline+raw_body) hex. 선택적 sha256= 접두사 허용. 현재workflow서명비밀."
+            },
+            "description": "변경 자동화 경로에는필수. HMAC-SHA256(secret,timestamp+newline+raw_body) hex. 선택적 sha256= 접두사 허용. 현재workflow서명비밀."
           }
-        ]
+        ],
+        "description": "기존 자산 발견 또는 변경 이벤트. 활성 변경규칙 경로는 실제changes목록+reference+현재integrations:manage/services:read/scans:read/scans:write 및 Hunter HMAC필수. 동일참조동일내용멱등, 다른내용409. 현재policy로최대20scan요청하며 import-only는결과대기만. Git공급자원본콜백직접호환아님."
       }
     },
     "/api/discovery/{id}/register": {
@@ -6329,7 +6381,7 @@
             }
           }
         },
-        "description": "failed/uncertain만 허용. uncertain은 중복 위험 확인 true와 사유8바이트 이상 필요. 전달ID·원래 본문·설정 기준은 유지하고 attempts를0으로 초기화하되 전체 시도 이력은 보존. 현재 설정과 맞지 않으면 발송 단계에서 취소.",
+        "description": "failed/uncertain 중 receipt·대체 요청·본문 파기가 없는 건만 재시도. uncertain에는 confirm_duplicate_risk:true와 공백 제외8바이트 이상 사유 필요. 접수 결과가 있는 같은 ID를 다시 보내지 않음.",
         "requestBody": {
           "required": true,
           "content": {
@@ -6392,6 +6444,1071 @@
               "type": "string"
             }
           }
+        ]
+      }
+    },
+    "/api/notification-automation": {
+      "get": {
+        "summary": "알림 자동화 설정 조회",
+        "operationId": "get_api_notification_automation",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "연락처·당직·묶음·영업일·업무 확인·주간 요약·보존. 수정은 조회한 updated_at을 expected_updated_at으로 전달. 충돌409.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationAutomationDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "알림 자동화 설정 저장",
+        "operationId": "put_api_notification_automation",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "연락처·당직·묶음·영업일·업무 확인·주간 요약·보존. 수정은 조회한 updated_at을 expected_updated_at으로 전달. 충돌409.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationAutomationDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationAutomationUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-automation/simulate": {
+      "post": {
+        "summary": "발송 없는 현재 조건 모의 검사",
+        "operationId": "post_api_notification_automation_simulate",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "활성/비활성 채널·규칙·현재 수신자/권한을 대조. 원문 주소 결과 없음.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSimulation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSimulationInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-automation/simulations": {
+      "get": {
+        "summary": "최근 모의 검사 결과",
+        "operationId": "get_api_notification_automation_simulations",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/NotificationSimulation"
+                      },
+                      "maxItems": 20
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/my-notifications": {
+      "get": {
+        "summary": "내 업무 알림",
+        "operationId": "get_api_my_notifications",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "현재 사용자만. services:read와 사건별 읽기 범위·부모 접근, 묶음 전체 members와 주간 집계 기여 서비스 권한을 다시 검사. 파기/미접수 건 제외. 서버는 최신순이며 검색·임의 정렬 없음.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonalNotificationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "services:read",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "pending",
+                "acknowledged"
+              ],
+              "default": "all"
+            }
+          }
+        ]
+      }
+    },
+    "/api/my-notifications/{id}/ack": {
+      "post": {
+        "summary": "지정된 업무 알림 확인",
+        "operationId": "post_api_my_notifications_id_ack",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "현재 수신자의 현재 전체 범위 검사. 확인 기한이 없는 건409. 멱등. 승인·반려·발견 해결·공급자 전달 결과와 별도.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "acknowledged_at"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "services:read",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-deliveries/{id}/hold": {
+      "post": {
+        "summary": "알림 본문 보존 고정 또는 해제",
+        "operationId": "post_api_notification_deliveries_id_hold",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "이미 파기한 본문은409. 적격 종결 건의 파기를 보류하며 이전 백업 사본에는 소급 적용하지 않음.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hold": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "hold"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hold": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "공백 제외 8~1000바이트 사유",
+                    "x-max-bytes": 1000
+                  }
+                },
+                "required": [
+                  "hold",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-operations": {
+      "get": {
+        "summary": "채널 운영 설정 조회",
+        "operationId": "get_api_notification_operations",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "expected_updated_at 필수. secret 빈값 유지/명시삭제. 결과 조회·서명콜백·대체·채널 보호 각각 선택 활성화.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOperationsDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "채널 운영 설정 저장",
+        "operationId": "put_api_notification_operations",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "expected_updated_at 필수. secret 빈값 유지/명시삭제. 결과 조회·서명콜백·대체·채널 보호 각각 선택 활성화.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOperationsDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationOperationsUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-operations/status": {
+      "get": {
+        "summary": "최근 채널 보호·전달 결과·대체 현황",
+        "operationId": "get_api_notification_operations_status",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "채널200/receipt100/대체100 최신 자료. 전체 통계 아님. 원문 수신자·공급자 응답 없음.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOperationsStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/notification-operations/channels/{id}/reset": {
+      "post": {
+        "summary": "채널 보호 해제",
+        "operationId": "post_api_notification_operations_channels_id_reset",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "과거 전달 재발송 없이 보호 상태만 초기화.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "8~1000바이트 사유",
+                    "x-max-bytes": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-operations/receipts/{id}/refresh": {
+      "post": {
+        "summary": "기존 전달 결과 다시 조회",
+        "operationId": "post_api_notification_operations_receipts_id_refresh",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "pending/unavailable이며 현재 설정 버전과 일치하는 이력만 조회 재예약. 메시지 재발송 없음. 확정/충돌/설정변경은409.",
+        "responses": {
+          "202": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "default": false
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-receipts/{channelID}": {
+      "post": {
+        "summary": "Hunter 게이트웨이 전달 결과 콜백",
+        "operationId": "post_api_notification_receipts_channelID",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "Bearer 없이 채널 전용 HMAC. 같은 channel/event ID 동일 내용은 멱등200, 다른 내용409. 조기 콜백도 해당 sending 시도에 연결하며 terminal 충돌은 conflict. 공급자 서명 콜백 직접 호환 아님.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "duplicate": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "delivered",
+                        "delivery_failed",
+                        "unavailable",
+                        "conflict"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationReceiptCallback"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "channelID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Hunter-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Unix 초 문자열. 현재 시각 ±300초"
+            }
+          },
+          {
+            "name": "X-Hunter-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "HMAC-SHA256(secret, timestamp + newline + raw_body)의 16진수. 이 receipt 경로는 sha256= 접두사 없이 전달."
+            }
+          }
+        ],
+        "security": [
+          {
+            "hunterHmac": []
+          }
+        ]
+      }
+    },
+    "/api/workflow-automation": {
+      "get": {
+        "summary": "변경·ITSM 자동화 설정 조회",
+        "operationId": "get_api_workflow_automation",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "기본off. 암호화설정과 현재실행주체 저장. 예상revision필수. 현재settings/role/user/key/team 검사.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowAutomationDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "변경·ITSM 자동화 설정 저장",
+        "operationId": "put_api_workflow_automation",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "기본off. 암호화설정과 현재실행주체 저장. 예상revision필수. 현재settings/role/user/key/team 검사.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowAutomationDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowAutomationUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workflow-automation/preview": {
+      "post": {
+        "summary": "변경 영향별 검사 선택 미리보기",
+        "operationId": "post_api_workflow_automation_preview",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "integration_id필수. 규칙·실제변경·현재정책만 대조, 진단/외부실행 생성 없음.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WorkflowChangeInput"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "integration_id"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workflow-automation/runs": {
+      "get": {
+        "summary": "변경·ITSM 실행 이력",
+        "operationId": "get_api_workflow_automation_runs",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "관리자+integrations:manage/services:read/findings:read/scans:read 모두필수. kind/status/page/size만. 고정최신순, q/sort미지원.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRunPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "change",
+                "ticket_sync"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "partial",
+                "blocked",
+                "no_match",
+                "conflict",
+                "unchanged"
+              ]
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "admin:manage",
+          "integrations:manage",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ]
+      }
+    },
+    "/api/workflow-automation/sync": {
+      "post": {
+        "summary": "외부 티켓 조회·로컬 동기화",
+        "operationId": "post_api_workflow_automation_sync",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "실제 외부 GET과 로컬 쓰기. admin:manage, integrations:manage, services:read, findings:read, findings:write와 현재 부모 권한 필수. 재검증은 추가 scans:read/scans:write 및 현재 정책 필요. 로컬 충돌은 결과에 기록하며 revision 불일치는409. 외부완료만으로 해결하지 않음. 명시 대체는 확인 당시 finding revision + expected_external_updated_at + 원래 동기화의 외부 hash 모두 대조하며 불일치409.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowTicketSyncInput"
+              }
+            }
+          }
+        },
+        "x-required-scopes": [
+          "integrations:manage",
+          "services:read",
+          "findings:read",
+          "findings:write",
+          "admin:manage"
+        ]
+      }
+    },
+    "/api/integrations/{id}/tickets/callback": {
+      "post": {
+        "summary": "Hunter 게이트웨이 ITSM 변경 콜백",
+        "operationId": "post_api_integrations_id_tickets_callback",
+        "tags": [
+          "운영 자동화"
+        ],
+        "description": "개인Bearer+HunterHMAC. 현재권한/부모/외부ID/버전/동시편집 검사. 같은외부시각다른정규화내용409. 벤더원본콜백직접호환아님.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "권한·입력·충돌·실행 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "integrations:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowTicketCallback"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Hunter-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Unix 초 문자열. 현재 시각 ±300초"
+            }
+          },
+          {
+            "name": "X-Hunter-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "HMAC-SHA256(secret,timestamp+newline+raw_body) hex. 선택적 sha256= 접두사 허용. 현재workflow서명비밀."
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": [],
+            "hunterHmac": []
+          }
+        ],
+        "x-required-scopes": [
+          "integrations:manage",
+          "services:read",
+          "findings:read",
+          "findings:write"
         ]
       }
     }
@@ -9028,25 +10145,31 @@
                 "finding.due",
                 "scan.completed",
                 "scan.failed",
-                "approval.pending"
+                "approval.pending",
+                "finding.due_soon",
+                "finding.unacknowledged",
+                "team.weekly"
               ]
             },
             "minItems": 1,
-            "maxItems": 6,
+            "maxItems": 9,
             "uniqueItems": true
           },
           "filters": {
             "$ref": "#/components/schemas/NotificationFilters"
           },
           "recipients": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
               "type": "string",
               "description": "채널 유형별 이메일·전화번호·일반 식별자"
             },
-            "minItems": 1,
             "maxItems": 100,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "고정 수신자 최대100. 동적 소스가 없다면 한 명 이상 필요. 동적 소스가 있으면 생략/null/빈 배열 허용."
           },
           "subject_template": {
             "type": "string",
@@ -9069,13 +10192,30 @@
             "type": "string",
             "format": "date-time",
             "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          },
+          "recipient_sources": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "assignee",
+                "service_owner",
+                "team",
+                "on_call"
+              ]
+            },
+            "maxItems": 4,
+            "uniqueItems": true,
+            "description": "현재 권한과 관리자 확인 연락처로 계산. 고정+동적 합집합 최종100명 이하."
           }
         },
         "required": [
           "name",
           "channel_id",
-          "events",
-          "recipients"
+          "events"
         ],
         "additionalProperties": false
       },
@@ -9106,25 +10246,31 @@
                 "finding.due",
                 "scan.completed",
                 "scan.failed",
-                "approval.pending"
+                "approval.pending",
+                "finding.due_soon",
+                "finding.unacknowledged",
+                "team.weekly"
               ]
             },
             "minItems": 1,
-            "maxItems": 6,
+            "maxItems": 9,
             "uniqueItems": true
           },
           "filters": {
             "$ref": "#/components/schemas/NotificationFilters"
           },
           "recipients": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
               "type": "string",
               "description": "채널 유형별 이메일·전화번호·일반 식별자"
             },
-            "minItems": 1,
             "maxItems": 100,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "고정 수신자 최대100. 동적 소스가 없다면 한 명 이상 필요. 동적 소스가 있으면 생략/null/빈 배열 허용."
           },
           "subject_template": {
             "type": "string",
@@ -9147,13 +10293,30 @@
             "type": "string",
             "format": "date-time",
             "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          },
+          "recipient_sources": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "assignee",
+                "service_owner",
+                "team",
+                "on_call"
+              ]
+            },
+            "maxItems": 4,
+            "uniqueItems": true,
+            "description": "현재 권한과 관리자 확인 연락처로 계산. 고정+동적 합집합 최종100명 이하."
           }
         },
         "required": [
           "name",
           "channel_id",
           "events",
-          "recipients",
           "expected_updated_at"
         ],
         "additionalProperties": false
@@ -9185,11 +10348,14 @@
                 "finding.due",
                 "scan.completed",
                 "scan.failed",
-                "approval.pending"
+                "approval.pending",
+                "finding.due_soon",
+                "finding.unacknowledged",
+                "team.weekly"
               ]
             },
             "minItems": 1,
-            "maxItems": 6,
+            "maxItems": 9,
             "uniqueItems": true
           },
           "filters": {
@@ -9251,14 +10417,17 @@
             }
           },
           "recipients": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
               "type": "string",
               "description": "채널 유형별 이메일·전화번호·일반 식별자"
             },
-            "minItems": 1,
             "maxItems": 100,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "고정 수신자 최대100. 동적 소스가 없다면 한 명 이상 필요. 동적 소스가 있으면 생략/null/빈 배열 허용."
           },
           "subject_template": {
             "type": "string",
@@ -9285,6 +10454,24 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "recipient_sources": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "assignee",
+                "service_owner",
+                "team",
+                "on_call"
+              ]
+            },
+            "maxItems": 4,
+            "uniqueItems": true,
+            "description": "현재 권한과 관리자 확인 연락처로 계산. 고정+동적 합집합 최종100명 이하."
           }
         },
         "required": [
@@ -9299,7 +10486,8 @@
           "max_attempts",
           "id",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "recipient_sources"
         ]
       },
       "NotificationPreview": {
@@ -9323,8 +10511,9 @@
           },
           "recipients_count": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 100
+            "minimum": 0,
+            "maximum": 100,
+            "description": "합성 미리보기의 고정 수신자 수. 동적 수신자와 실제 발송량의 검증은 모의 검사 참조."
           }
         },
         "required": [
@@ -9368,7 +10557,10 @@
                 "finding.due",
                 "scan.completed",
                 "scan.failed",
-                "approval.pending"
+                "approval.pending",
+                "finding.due_soon",
+                "finding.unacknowledged",
+                "team.weekly"
               ]
             }
           },
@@ -9400,7 +10592,13 @@
                 "scan.name",
                 "scan.status",
                 "approval.id",
-                "approval.status"
+                "approval.status",
+                "summary.total",
+                "summary.new",
+                "summary.resolved",
+                "summary.overdue",
+                "summary.period_start",
+                "summary.period_end"
               ]
             }
           }
@@ -9433,6 +10631,9 @@
               "scan.completed",
               "scan.failed",
               "approval.pending",
+              "finding.due_soon",
+              "finding.unacknowledged",
+              "team.weekly",
               "manual.test"
             ]
           },
@@ -9526,6 +10727,39 @@
           },
           "can_cancel": {
             "type": "boolean"
+          },
+          "retention_hold": {
+            "type": "boolean",
+            "default": false
+          },
+          "payload_purged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "recipient_user_id": {
+            "type": "string",
+            "description": "동적 수신자로 연결된 사용자 ID. 없으면 필드 생략."
+          },
+          "acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "ack_due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "retry_block_reason": {
+            "type": "string",
+            "description": "전달 receipt·대체 연결 또는 본문 파기 등 재발송을 막는 한국어 사유. 원문 응답 없음."
           }
         },
         "required": [
@@ -9551,7 +10785,11 @@
           "is_test",
           "cancel_requested",
           "can_retry",
-          "can_cancel"
+          "can_cancel",
+          "retention_hold",
+          "payload_purged_at",
+          "acknowledged_at",
+          "ack_due_at"
         ]
       },
       "NotificationAttempt": {
@@ -9748,6 +10986,1645 @@
           }
         },
         "additionalProperties": false
+      },
+      "AutomationContact": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "webhook_id": {
+            "type": "string"
+          },
+          "verified": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "description": "활성 사용자. verified는 관리자 확인이며 자동 OTP 검증이 아님."
+      },
+      "AutomationOnCall": {
+        "type": "object",
+        "properties": {
+          "team": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하",
+            "x-max-bytes": 200
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "team",
+          "user_id",
+          "starts_at",
+          "ends_at"
+        ],
+        "description": "연락처에 등록된 사용자. 종료는 시작 이후 최대366일."
+      },
+      "AutomationGrouping": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "window_minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 1440,
+            "default": 5
+          },
+          "emergency_severities": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "critical",
+                "high",
+                "medium",
+                "low",
+                "info"
+              ]
+            },
+            "default": [
+              "critical"
+            ]
+          },
+          "recipient_hourly_limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 30
+          }
+        }
+      },
+      "AutomationCalendar": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "weekdays": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "uniqueItems": true,
+            "default": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "holidays": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "maxItems": 1000
+          },
+          "remind_business_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 2
+          }
+        }
+      },
+      "NotificationAutomationConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "timezone": {
+            "type": "string",
+            "description": "유효한 IANA 시간대. 이미지에 시간대 데이터 포함.",
+            "default": "Asia/Seoul"
+          },
+          "contacts": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AutomationContact"
+            },
+            "maxItems": 500
+          },
+          "on_call": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AutomationOnCall"
+            },
+            "maxItems": 500
+          },
+          "grouping": {
+            "$ref": "#/components/schemas/AutomationGrouping"
+          },
+          "calendar": {
+            "$ref": "#/components/schemas/AutomationCalendar"
+          },
+          "acknowledgement": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "timeout_minutes": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 10080,
+                "default": 60
+              }
+            }
+          },
+          "weekly": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "weekday": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "default": 1
+              },
+              "hour": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 23,
+                "default": 9
+              }
+            },
+            "description": "동적 사용자: 현재 읽기/부모 권한 서비스만. 관리자 지정 고정 주소: 해당 조직 전체 요약. summary.resolved는 현재 해결 상태+기간updated_at이며 실제 해결 전환 횟수/MTTR 아님."
+          },
+          "retention": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false
+              },
+              "payload_days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3650,
+                "default": 90
+              }
+            }
+          }
+        },
+        "description": "각 하위 기능도 기본 비활성. 전체 off는 기존 정적 이벤트 규칙을 끄지 않지만 이전 자동화 버전 대기는 취소될 수 있음. 암호화 PostgreSQL 저장."
+      },
+      "NotificationAutomationDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/NotificationAutomationConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "NotificationAutomationUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/NotificationAutomationConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "NotificationSimulationInput": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 500
+          }
+        },
+        "required": [
+          "rule_id",
+          "from",
+          "to"
+        ],
+        "description": "기간 최대366일. limit 생략/0은500."
+      },
+      "NotificationSimulation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "scanned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "matched": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recipient_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "매칭 이벤트별 최종 수신자 수의 합계. 고유 사용자 수가 아님."
+          },
+          "estimated_deliveries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean",
+            "default": false
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "code",
+                "count"
+              ]
+            }
+          },
+          "sample": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "entity_id": {
+                  "type": "string"
+                },
+                "matched": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "recipient_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "event_id",
+                "entity_id",
+                "matched",
+                "recipient_count",
+                "reason"
+              ]
+            },
+            "maxItems": 100
+          },
+          "semantics": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "rule_id",
+          "scanned",
+          "matched",
+          "recipient_count",
+          "estimated_deliveries",
+          "truncated",
+          "reasons",
+          "sample",
+          "semantics"
+        ],
+        "description": "보관된 이벤트를 현재 자료·규칙·수신자로 추정. 외부발송/과거 원문 재연 없음. 그룹100개단위 분할 반영."
+      },
+      "PersonalNotification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent"
+            ]
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "finding.created",
+              "finding.updated",
+              "finding.due",
+              "scan.completed",
+              "scan.failed",
+              "approval.pending",
+              "finding.due_soon",
+              "finding.unacknowledged",
+              "team.weekly"
+            ]
+          },
+          "entity_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acknowledged_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "ack_due_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "can_ack": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "id",
+          "subject",
+          "body",
+          "status",
+          "event_type",
+          "entity_id",
+          "service_id",
+          "created_at",
+          "acknowledged_at",
+          "ack_due_at",
+          "can_ack"
+        ]
+      },
+      "PersonalNotificationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonalNotification"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ]
+      },
+      "NotificationTracking": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "발송 API와 같은 scheme/host/port. 경로에 provider_id/delivery_id 치환만 허용."
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "default": "GET"
+          },
+          "query": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 30
+          },
+          "body_template": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true,
+            "description": "JSON 16KiB 이하. 문자열 값에 provider_id/delivery_id 치환."
+          },
+          "state_path": {
+            "type": "string",
+            "default": "status"
+          },
+          "delivered_values": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 200바이트 이하",
+              "x-max-bytes": 200
+            },
+            "maxItems": 30,
+            "default": [
+              "delivered"
+            ]
+          },
+          "failed_values": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 200바이트 이하",
+              "x-max-bytes": 200
+            },
+            "maxItems": 30,
+            "default": [
+              "failed"
+            ]
+          },
+          "pending_values": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 200바이트 이하",
+              "x-max-bytes": 200
+            },
+            "maxItems": 30,
+            "default": [
+              "pending"
+            ]
+          },
+          "poll_interval_seconds": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 60,
+                "maximum": 86400
+              }
+            ],
+            "default": 60,
+            "description": "생략/0은 기본 60. 명시 설정은 60~86400."
+          },
+          "max_checks": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 1,
+                "maximum": 100
+              }
+            ],
+            "default": 10,
+            "description": "생략/0은 기본 10. 명시 설정은 1~100."
+          },
+          "callback_enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "callback_secret": {
+            "type": "string",
+            "description": "콜백 사용 시32~1000바이트. 조회에서는 빈 문자열. 빈 입력은 유지, clear_callback_secret으로 삭제.",
+            "x-max-bytes": 1000
+          },
+          "callback_secret_configured": {
+            "type": "boolean",
+            "default": false
+          },
+          "clear_callback_secret": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "description": "SMTP HTTP조회는 불가, 사내 서명콜백 연결은 가능. 상태별 배열은 서로 겹치지 않음. 접수와 최종 전달을 별도 관리."
+      },
+      "NotificationChannelProtection": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 2,
+                "maximum": 100
+              }
+            ],
+            "default": 5,
+            "description": "생략/0은 기본 5. 명시 설정은 2~100."
+          },
+          "open_seconds": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 30,
+                "maximum": 86400
+              }
+            ],
+            "default": 300,
+            "description": "생략/0은 기본 300. 명시 설정은 30~86400."
+          },
+          "min_interval_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600,
+            "default": 0
+          }
+        }
+      },
+      "NotificationChannelPolicy": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "tracking": {
+            "$ref": "#/components/schemas/NotificationTracking"
+          },
+          "fallback_channel_id": {
+            "type": "string",
+            "description": "다른 채널 중 같은 수신자 계열만. SMS/Kakao phone 계열. 순환거부, 실제 대체는 원본당 한단계 한 번."
+          },
+          "protection": {
+            "$ref": "#/components/schemas/NotificationChannelProtection"
+          }
+        },
+        "required": [
+          "channel_id"
+        ]
+      },
+      "NotificationOperationsConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "channels": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannelPolicy"
+            },
+            "maxItems": 200
+          }
+        },
+        "description": "PostgreSQL 암호화 저장. 전달 결과 정책 버전과 채널 버전을 receipt에 고정하여 과거 결과를 새 설정으로 재해석하지 않음."
+      },
+      "NotificationOperationsDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/NotificationOperationsConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "NotificationOperationsUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/NotificationOperationsConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "NotificationChannelHealth": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "closed",
+              "open",
+              "half_open"
+            ]
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "open_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "next_allowed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "channel_id",
+          "state",
+          "consecutive_failures",
+          "open_until",
+          "next_allowed_at",
+          "updated_at"
+        ]
+      },
+      "NotificationReceipt": {
+        "type": "object",
+        "properties": {
+          "delivery_id": {
+            "type": "string"
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "delivery_failed",
+              "unavailable",
+              "conflict"
+            ]
+          },
+          "checks": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "last_code": {
+            "type": "string"
+          },
+          "next_check_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "delivery_id",
+          "channel_id",
+          "state",
+          "checks",
+          "provider_id",
+          "last_code",
+          "next_check_at",
+          "updated_at"
+        ]
+      },
+      "NotificationFallback": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string"
+          },
+          "child_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "parent_id",
+          "child_id",
+          "created_at"
+        ]
+      },
+      "NotificationOperationsStatus": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannelHealth"
+            },
+            "maxItems": 200
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationReceipt"
+            },
+            "maxItems": 100
+          },
+          "fallbacks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationFallback"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "channels",
+          "receipts",
+          "fallbacks"
+        ]
+      },
+      "NotificationReceiptCallback": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하",
+            "x-max-bytes": 200,
+            "pattern": "^[a-zA-Z0-9_.:/-]{1,200}$"
+          },
+          "delivery_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_.:/-]{1,200}$"
+          },
+          "provider_id": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하",
+            "x-max-bytes": 200
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "delivered",
+              "delivery_failed"
+            ]
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "event_id",
+          "delivery_id",
+          "status",
+          "occurred_at"
+        ],
+        "additionalProperties": false,
+        "description": "원문64KiB 이하. 채널·delivery/provider ID·시각·현재정책/채널revision 확인. 수신자·비밀값을 포함한 식별자 거부."
+      },
+      "WorkflowChanges": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 512바이트 이하",
+              "x-max-bytes": 512
+            },
+            "maxItems": 1000
+          },
+          "api_paths": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 512바이트 이하",
+              "x-max-bytes": 512
+            },
+            "maxItems": 1000
+          },
+          "components": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 512바이트 이하",
+              "x-max-bytes": 512
+            },
+            "maxItems": 1000
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 512바이트 이하",
+              "x-max-bytes": 512
+            },
+            "maxItems": 1000
+          }
+        },
+        "description": "이벤트 실제 변경은 합계1000개. 규칙match는 합계100패턴, 적어도1개. * 비슬래시, ** 경로포함, ? 한 비슬래시 문자. 문자클래스/백슬래시 불가."
+      },
+      "WorkflowChangeRule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "생략 시 UUID 생성. 두 종류 규칙 전체에서 고유.",
+            "x-max-bytes": 100
+          },
+          "name": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하",
+            "x-max-bytes": 200
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "integration_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "event_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "push",
+                "pull_request",
+                "merge",
+                "image",
+                "harbor_push",
+                "deploy",
+                "api_change",
+                "iam_change",
+                "prompt_change",
+                "manual"
+              ]
+            },
+            "maxItems": 10
+          },
+          "match": {
+            "$ref": "#/components/schemas/WorkflowChanges"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "http-baseline",
+              "authorization",
+              "import-only"
+            ]
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "integration_id",
+          "service_id",
+          "event_types",
+          "match",
+          "profile"
+        ],
+        "description": "웹훅 연동. 같은서비스 scope/scenario. authorization은 scenario 필수, 다른profile은 scenario 불가. 한 그룹의 한 패턴만 실제변경과 일치해도 매칭."
+      },
+      "WorkflowTicketFields": {
+        "type": "object",
+        "properties": {
+          "external_id": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "assignee": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "due_date": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "status": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "deployment_reference": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          },
+          "deployment_confirmed": {
+            "type": "string",
+            "description": "점 경로: 영문/숫자/_/./-",
+            "x-max-bytes": 200
+          }
+        },
+        "required": [
+          "external_id",
+          "status",
+          "updated_at"
+        ],
+        "description": "외부 updated_at/due_date는 RFC3339. deployment_confirmed는 JSON boolean. assignee/due_date 누락/null은 유지, 빈문자열은 비우기."
+      },
+      "WorkflowTicketRule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UTF-8 100바이트 이하",
+            "x-max-bytes": 100
+          },
+          "name": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하",
+            "x-max-bytes": 200
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "integration_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "poll_interval_minutes": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 5,
+                "maximum": 10080
+              }
+            ],
+            "default": 15,
+            "description": "생략/0은 기본 15. 명시 설정은 5~10080."
+          },
+          "read_url_template": {
+            "type": "string",
+            "description": "external_id 토큰 정확히1개, 같은REST연동 scheme/host/port, GET만. ID는 단일 경로요소로 인코딩."
+          },
+          "field_map": {
+            "$ref": "#/components/schemas/WorkflowTicketFields"
+          },
+          "complete_statuses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "description": "UTF-8 100바이트 이하",
+              "x-max-bytes": 100
+            },
+            "maxItems": 20
+          },
+          "retest_on_deploy": {
+            "type": "boolean",
+            "default": false
+          },
+          "scope_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "integration_id",
+          "service_id",
+          "read_url_template",
+          "field_map"
+        ],
+        "description": "같은 service/integration 조합 하나. retest_on_deploy는 완료상태·배포확인·배포참조 필드 필요. 외부완료만으로 해결/진단하지 않음."
+      },
+      "WorkflowAutomationDocument": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "change_rules": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowChangeRule"
+            },
+            "maxItems": 50
+          },
+          "ticket_rules": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTicketRule"
+            },
+            "maxItems": 50
+          },
+          "signing_secret": {
+            "type": "string",
+            "description": "조회는 빈 문자열."
+          },
+          "signing_secret_configured": {
+            "type": "boolean",
+            "default": false
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "enabled",
+          "change_rules",
+          "ticket_rules",
+          "signing_secret",
+          "signing_secret_configured",
+          "updated_at"
+        ]
+      },
+      "WorkflowAutomationUpdate": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "change_rules": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowChangeRule"
+            },
+            "maxItems": 50
+          },
+          "ticket_rules": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorkflowTicketRule"
+            },
+            "maxItems": 50
+          },
+          "signing_secret": {
+            "type": "string",
+            "description": "활성 시32바이트 이상. 빈 입력 유지. 전체설정 암호화.",
+            "x-max-bytes": 16000
+          },
+          "clear_secret": {
+            "type": "boolean",
+            "default": false
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "expected_updated_at"
+        ]
+      },
+      "WorkflowChangeInput": {
+        "type": "object",
+        "properties": {
+          "integration_id": {
+            "type": "string",
+            "description": "미리보기에서는 필수. 실제 웹훅은 경로 연동 ID를 사용합니다."
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "push",
+              "pull_request",
+              "merge",
+              "image",
+              "harbor_push",
+              "deploy",
+              "api_change",
+              "iam_change",
+              "prompt_change",
+              "manual"
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "description": "실제웹훅필수. preview는생략가능. 같은 integration/service/reference 동일 내용 멱등.",
+            "x-max-bytes": 200
+          },
+          "changes": {
+            "$ref": "#/components/schemas/WorkflowChanges"
+          }
+        },
+        "required": [
+          "service_id",
+          "event_type",
+          "changes"
+        ],
+        "description": "원문1MiB 이하. 현재네범위권한+서비스/연동접근+HMAC. 외부엔진자동실행없음."
+      },
+      "WorkflowDecision": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "rule_name": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "scenario_id": {
+            "type": "string"
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "matched_changes": {
+            "$ref": "#/components/schemas/WorkflowChanges"
+          },
+          "allowed": {
+            "type": "boolean",
+            "default": false
+          },
+          "reason": {
+            "type": "string"
+          },
+          "duplicate_of_rule_id": {
+            "type": "string"
+          },
+          "scan_id": {
+            "type": "string",
+            "description": "실제 실행 결정에만 존재. 미리보기에서는 제외."
+          }
+        },
+        "required": [
+          "rule_id",
+          "rule_name",
+          "profile",
+          "scenario_id",
+          "scope_id",
+          "matched_changes",
+          "allowed",
+          "reason"
+        ]
+      },
+      "WorkflowPreview": {
+        "type": "object",
+        "properties": {
+          "matched": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDecision"
+            }
+          },
+          "scan_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "preview": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "matched",
+          "scan_count",
+          "enabled",
+          "preview"
+        ]
+      },
+      "WorkflowChangeResult": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "push",
+              "pull_request",
+              "merge",
+              "image",
+              "harbor_push",
+              "deploy",
+              "api_change",
+              "iam_change",
+              "prompt_change",
+              "manual"
+            ]
+          },
+          "changes": {
+            "$ref": "#/components/schemas/WorkflowChanges"
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDecision"
+            }
+          },
+          "scan_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20
+          }
+        }
+      },
+      "WorkflowTicketResult": {
+        "type": "object",
+        "properties": {
+          "remediation_id": {
+            "type": "string"
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "external_status": {
+            "type": "string"
+          },
+          "external_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "assignee": {
+                "type": "string"
+              },
+              "due_date": {
+                "type": "string",
+                "description": "빈 문자열 또는 RFC3339"
+              }
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scan_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "retest_reason": {
+            "type": "string"
+          },
+          "finding_status_changed": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      },
+      "WorkflowRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "change",
+              "ticket_sync"
+            ]
+          },
+          "integration_id": {
+            "type": "string"
+          },
+          "service_id": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "partial",
+              "blocked",
+              "no_match",
+              "conflict",
+              "unchanged"
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowChangeResult"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowTicketResult"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "integration_id",
+          "service_id",
+          "reference",
+          "status",
+          "result",
+          "created_at"
+        ]
+      },
+      "WorkflowRunPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRun"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ]
+      },
+      "WorkflowTicketSyncInput": {
+        "type": "object",
+        "properties": {
+          "remediation_id": {
+            "type": "string"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accept_external": {
+            "type": "boolean",
+            "default": false
+          },
+          "expected_finding_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expected_external_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "명시 대체 시 필수. 원래 충돌 결과 external_updated_at. 현재 원격 시각 및 원래 기록의 canonical hash가 모두 같아야 함."
+          }
+        },
+        "required": [
+          "remediation_id",
+          "expected_updated_at"
+        ],
+        "description": "명시 대체에는 확인 당시 finding revision과 외부 수정 시각 모두 필수. 현재 원격 GET값을 원래 동기화 기록의 hash와 대조하므로 같은 시각에 필드만 바뀌어도409. 외부 sent 티켓과 현재 부모 권한 필요.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "accept_external": {
+                  "const": true
+                }
+              },
+              "required": [
+                "accept_external"
+              ]
+            },
+            "then": {
+              "required": [
+                "expected_finding_updated_at",
+                "expected_external_updated_at"
+              ]
+            }
+          }
+        ]
+      },
+      "WorkflowTicketCallback": {
+        "type": "object",
+        "properties": {
+          "remediation_id": {
+            "type": "string"
+          },
+          "ticket": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "remediation_id",
+          "ticket"
+        ],
+        "description": "설정field_map에따라필요필드정규화. 원문응답/비밀로그없음. 현재Bearer+Hunter서명필수."
       }
     },
     "securitySchemes": {
@@ -9759,6 +12636,12 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "hunter_session"
+      },
+      "hunterHmac": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Hunter-Signature",
+        "description": "Hunter gateway HMAC. X-Hunter-Timestamp도 필수. 공급자/Git 원본 콜백과 직접 호환하지 않음."
       }
     }
   }

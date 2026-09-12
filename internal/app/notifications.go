@@ -26,12 +26,13 @@ type NotificationChannel struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 type NotificationMessage struct {
-	DeliveryID string            `json:"delivery_id"`
-	EventID    string            `json:"event_id"`
-	Recipient  string            `json:"recipient"`
-	Subject    string            `json:"subject"`
-	Body       string            `json:"body"`
-	Variables  map[string]string `json:"variables"`
+	RecipientUserID string            `json:"-"`
+	DeliveryID      string            `json:"delivery_id"`
+	EventID         string            `json:"event_id"`
+	Recipient       string            `json:"recipient"`
+	Subject         string            `json:"subject"`
+	Body            string            `json:"body"`
+	Variables       map[string]string `json:"variables"`
 }
 
 // State is sent (provider accepted), retryable (safe to retry), failed, or uncertain.
@@ -44,18 +45,19 @@ type NotificationSendResult struct {
 	RetryAfter time.Duration
 }
 type notificationRule struct {
-	ID              string              `json:"id"`
-	Name            string              `json:"name"`
-	ChannelID       string              `json:"channel_id"`
-	Enabled         bool                `json:"enabled"`
-	Events          []string            `json:"events"`
-	Filters         notificationFilters `json:"filters"`
-	Recipients      []string            `json:"recipients"`
-	SubjectTemplate string              `json:"subject_template"`
-	BodyTemplate    string              `json:"body_template"`
-	MaxAttempts     int                 `json:"max_attempts"`
-	CreatedAt       time.Time           `json:"created_at"`
-	UpdatedAt       time.Time           `json:"updated_at"`
+	ID               string              `json:"id"`
+	Name             string              `json:"name"`
+	ChannelID        string              `json:"channel_id"`
+	Enabled          bool                `json:"enabled"`
+	Events           []string            `json:"events"`
+	Filters          notificationFilters `json:"filters"`
+	Recipients       []string            `json:"recipients"`
+	RecipientSources []string            `json:"recipient_sources"`
+	SubjectTemplate  string              `json:"subject_template"`
+	BodyTemplate     string              `json:"body_template"`
+	MaxAttempts      int                 `json:"max_attempts"`
+	CreatedAt        time.Time           `json:"created_at"`
+	UpdatedAt        time.Time           `json:"updated_at"`
 }
 type notificationFilters struct {
 	Severities []string `json:"severities"`
@@ -63,8 +65,8 @@ type notificationFilters struct {
 	Teams      []string `json:"teams"`
 }
 
-var notificationEvents = []string{"finding.created", "finding.updated", "finding.due", "scan.completed", "scan.failed", "approval.pending"}
-var notificationVariables = []string{"event.type", "event.label", "event.time", "service.id", "service.name", "service.team", "resource.id", "resource.title", "resource.status", "resource.status_label", "resource.url", "finding.id", "finding.title", "finding.severity", "finding.severity_label", "finding.status", "finding.due_date", "finding.assignee", "finding.cve", "scan.id", "scan.name", "scan.status", "approval.id", "approval.status"}
+var notificationEvents = []string{"finding.created", "finding.updated", "finding.due", "scan.completed", "scan.failed", "approval.pending", "finding.due_soon", "finding.unacknowledged", "team.weekly"}
+var notificationVariables = []string{"event.type", "event.label", "event.time", "service.id", "service.name", "service.team", "resource.id", "resource.title", "resource.status", "resource.status_label", "resource.url", "finding.id", "finding.title", "finding.severity", "finding.severity_label", "finding.status", "finding.due_date", "finding.assignee", "finding.cve", "scan.id", "scan.name", "scan.status", "approval.id", "approval.status", "summary.total", "summary.new", "summary.resolved", "summary.overdue", "summary.period_start", "summary.period_end"}
 var notificationPlaceholder = regexp.MustCompile(`\{\{\s*([a-z_]+\.[a-z_]+)\s*\}\}`)
 
 //go:embed notifications_schema.sql

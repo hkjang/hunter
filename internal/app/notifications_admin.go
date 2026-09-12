@@ -216,6 +216,7 @@ func (a *App) notificationRule(ctx context.Context, q notificationQuerier, id st
 	}
 	v.Filters = data.Filters
 	v.Recipients = data.Recipients
+	v.RecipientSources = data.RecipientSources
 	v.SubjectTemplate = data.SubjectTemplate
 	v.BodyTemplate = data.BodyTemplate
 	v.MaxAttempts = data.MaxAttempts
@@ -254,20 +255,21 @@ func (a *App) listNotificationRules(w http.ResponseWriter, r *http.Request) {
 }
 
 type notificationRuleInput struct {
-	Name            string              `json:"name"`
-	ChannelID       string              `json:"channel_id"`
-	Enabled         bool                `json:"enabled"`
-	Events          []string            `json:"events"`
-	Filters         notificationFilters `json:"filters"`
-	Recipients      []string            `json:"recipients"`
-	SubjectTemplate string              `json:"subject_template"`
-	BodyTemplate    string              `json:"body_template"`
-	MaxAttempts     int                 `json:"max_attempts"`
-	Expected        string              `json:"expected_updated_at"`
+	Name             string              `json:"name"`
+	ChannelID        string              `json:"channel_id"`
+	Enabled          bool                `json:"enabled"`
+	Events           []string            `json:"events"`
+	Filters          notificationFilters `json:"filters"`
+	Recipients       []string            `json:"recipients"`
+	RecipientSources []string            `json:"recipient_sources"`
+	SubjectTemplate  string              `json:"subject_template"`
+	BodyTemplate     string              `json:"body_template"`
+	MaxAttempts      int                 `json:"max_attempts"`
+	Expected         string              `json:"expected_updated_at"`
 }
 
 func (in notificationRuleInput) rule() notificationRule {
-	return notificationRule{Name: strings.TrimSpace(in.Name), ChannelID: in.ChannelID, Enabled: in.Enabled, Events: in.Events, Filters: in.Filters, Recipients: in.Recipients, SubjectTemplate: in.SubjectTemplate, BodyTemplate: in.BodyTemplate, MaxAttempts: in.MaxAttempts}
+	return notificationRule{Name: strings.TrimSpace(in.Name), ChannelID: in.ChannelID, Enabled: in.Enabled, Events: in.Events, Filters: in.Filters, Recipients: in.Recipients, RecipientSources: in.RecipientSources, SubjectTemplate: in.SubjectTemplate, BodyTemplate: in.BodyTemplate, MaxAttempts: in.MaxAttempts}
 }
 func (a *App) validateNotificationRule(ctx context.Context, q notificationQuerier, v *notificationRule, c NotificationChannel) error {
 	if !notificationName(v.Name) {
@@ -282,6 +284,14 @@ func (a *App) validateNotificationRule(ctx context.Context, q notificationQuerie
 			return errors.New("이벤트 종류 또는 중복을 확인하세요")
 		}
 		seen[e] = true
+	}
+	if len(v.Events) == 1 && v.Events[0] == "team.weekly" {
+		if v.SubjectTemplate == "" {
+			v.SubjectTemplate = "[hunter] {{service.team}} 주간 보안 현황"
+		}
+		if v.BodyTemplate == "" {
+			v.BodyTemplate = "기간: {{summary.period_start}} ~ {{summary.period_end}}\n현재 미조치: {{summary.total}}\n기간 신규: {{summary.new}}\n현재 해결 상태이며 기간 내 갱신: {{summary.resolved}}\n현재 기한 경과: {{summary.overdue}}"
+		}
 	}
 	if v.SubjectTemplate == "" {
 		v.SubjectTemplate = "[hunter] {{event.label}} · {{resource.title}}"
@@ -304,8 +314,15 @@ func (a *App) validateNotificationRule(ctx context.Context, q notificationQuerie
 	if v.MaxAttempts < 1 || v.MaxAttempts > 5 {
 		return errors.New("최대 발송 시도는 1~5회입니다")
 	}
-	if len(v.Recipients) < 1 || len(v.Recipients) > 100 {
-		return errors.New("정적 수신자는 1~100명까지 지정하세요")
+	if len(v.Recipients) == 0 && len(v.RecipientSources) == 0 || len(v.Recipients) > 100 || len(v.RecipientSources) > 4 {
+		return errors.New("정적 수신자는 최대 100명이며 정적 또는 동적 수신자를 선택하세요")
+	}
+	sources := map[string]bool{}
+	for _, source := range v.RecipientSources {
+		if !hasString([]string{"assignee", "service_owner", "team", "on_call"}, source) || sources[source] {
+			return errors.New("동적 수신자 종류와 중복을 확인하세요")
+		}
+		sources[source] = true
 	}
 	seen = map[string]bool{}
 	for i, r := range v.Recipients {

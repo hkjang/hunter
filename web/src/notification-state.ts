@@ -12,6 +12,9 @@ export const notificationEvents = [
   { value: "finding.created", label: "새 발견 건 등록" },
   { value: "finding.updated", label: "발견 건 변경" },
   { value: "finding.due", label: "발견 건 조치 기한" },
+  { value: "finding.due_soon", label: "조치 기한 예고" },
+  { value: "finding.unacknowledged", label: "업무 미확인 후속 알림" },
+  { value: "team.weekly", label: "팀 주간 보고" },
   { value: "scan.completed", label: "진단 완료" },
   { value: "scan.failed", label: "진단 실패" },
   { value: "approval.pending", label: "검토 · 승인 대기" },
@@ -241,6 +244,7 @@ export type RuleDraft = {
   events: string[];
   filters: { severities: string[]; service_ids: string[]; teams: string[] };
   recipients: string[];
+  recipient_sources: string[];
   subject_template: string;
   body_template: string;
   max_attempts: number;
@@ -256,6 +260,7 @@ export function ruleDraft(source?: RuleDraft): RuleDraft {
         max_attempts: source.max_attempts,
         events: [...(source.events || [])],
         recipients: [...(source.recipients || [])],
+        recipient_sources: [...(source.recipient_sources || [])],
         filters: {
           severities: [...(source.filters?.severities || [])],
           service_ids: [...(source.filters?.service_ids || [])],
@@ -269,6 +274,7 @@ export function ruleDraft(source?: RuleDraft): RuleDraft {
         events: ["finding.created"],
         filters: { severities: [], service_ids: [], teams: [] },
         recipients: [],
+        recipient_sources: [],
         subject_template: "[Hunter] {{event.label}} · {{resource.title}}",
         body_template:
           "{{resource.title}}\n서비스: {{service.name}}\n상태: {{resource.status_label}}\n이벤트: {{event.label}}\n시각: {{event.time}}\n자세히 보기: {{resource.url}}",
@@ -294,8 +300,18 @@ export function rulePayload(
   const recipients = [
     ...new Set(draft.recipients.map((value) => value.trim()).filter(Boolean)),
   ];
-  if (!recipients.length || recipients.length > 100)
-    throw new Error("고정 수신자를 1~100명 입력하세요.");
+  const sources = [...new Set(draft.recipient_sources || [])];
+  if (
+    sources.some(
+      (value) =>
+        !["assignee", "service_owner", "team", "on_call"].includes(value),
+    )
+  )
+    throw new Error("동적 수신자 종류를 확인하세요.");
+  if ((!recipients.length && !sources.length) || recipients.length > 100)
+    throw new Error(
+      "고정 수신자를 1~100명 입력하거나 동적 수신자를 선택하세요.",
+    );
   if (!draft.subject_template.trim() || size(draft.subject_template) > 200)
     throw new Error("제목 템플릿은 UTF-8 기준 1~200바이트로 입력하세요.");
   if (!draft.body_template.trim() || size(draft.body_template) > 16000)

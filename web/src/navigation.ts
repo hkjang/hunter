@@ -1,6 +1,18 @@
 export type NavigationEntry = { path: string; label: string; group?: string };
 export type NavigationHistory = { favorites: string[]; recent: string[] };
 export const navigationAliases: Record<string, string[]> = {
+  "/admin/automation": [
+    "automation",
+    "자동화",
+    "당직",
+    "묶음",
+    "업무 확인",
+    "주간 보고",
+    "itsm",
+    "콜백",
+    "대체 채널",
+  ],
+  "/personal/inbox": ["inbox", "내 알림", "업무 알림", "확인 대기"],
   "/triage": ["triage", "queue", "risk", "조치", "위험", "기한", "sla"],
   "/software": [
     "software",

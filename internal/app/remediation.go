@@ -190,7 +190,21 @@ func (a *App) dispatchRemediation(w http.ResponseWriter, r *http.Request) {
 		update["sent_at"] = time.Now().UTC()
 	}
 	raw, _ := json.Marshal(update)
-	_, dbErr := a.DB.Exec(persistCtx, `UPDATE resources SET data=data||$2::jsonb,updated_at=now() WHERE id=$1`, rem.ID, raw)
+	tx, dbErr := a.DB.Begin(persistCtx)
+	if dbErr == nil {
+		defer tx.Rollback(persistCtx)
+		_, dbErr = tx.Exec(persistCtx, `UPDATE resources SET data=data||$2::jsonb,updated_at=now() WHERE id=$1`, rem.ID, raw)
+		if dbErr == nil && state == "sent" && externalID != "" {
+			var baseline string
+			baseline, dbErr = workflowCipher(a, map[string]any{"assignee": str(finding.Data, "assignee"), "due_date": str(finding.Data, "due_date")})
+			if dbErr == nil {
+				_, dbErr = tx.Exec(persistCtx, `INSERT INTO workflow_ticket_state(remediation_id,baseline_encrypted) VALUES($1,$2) ON CONFLICT DO NOTHING`, rem.ID, baseline)
+			}
+		}
+		if dbErr == nil {
+			dbErr = tx.Commit(persistCtx)
+		}
+	}
 	a.audit(r, "remediation.dispatch", rem.ID, map[string]any{"integration_id": integration.ID, "state": state, "http_status": statusCode})
 	if dbErr != nil {
 		fail(w, 502, "발신 후 상태 저장에 실패했습니다. 대상 시스템에서 요청 ID를 확인해 주세요")

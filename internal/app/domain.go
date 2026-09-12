@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // A resource retains domain-specific fields without coupling connector payloads
@@ -331,7 +332,7 @@ func (a *App) saveDomain(w http.ResponseWriter, r *http.Request, kind string, up
 		}
 		v.OwnerID = owner
 	}
-	for _, k := range []string{"id", "owner_id", "created_at", "updated_at", "expected_updated_at", "observations", "verification", "verified_at", "resolved_at", "evidence_encrypted", "dispatch_state", "dispatch_started_at", "dispatch_http_status", "external_id", "external_url", "sent_at", "credential_key_id", "last_run_at", "last_scan_id", "last_result", "last_error", "policy_version"} {
+	for _, k := range []string{"id", "owner_id", "created_at", "updated_at", "expected_updated_at", "observations", "verification", "verified_at", "resolved_at", "evidence_encrypted", "dispatch_state", "dispatch_started_at", "dispatch_http_status", "external_id", "external_url", "external_status", "external_updated_at", "last_synced_at", "sent_at", "credential_key_id", "last_run_at", "last_scan_id", "last_result", "last_error", "policy_version"} {
 		delete(m, k)
 	}
 	oldData := cloneMap(v.Data)
@@ -366,6 +367,11 @@ func (a *App) saveDomain(w http.ResponseWriter, r *http.Request, kind string, up
 	if err := a.persistResource(r.Context(), &v); err != nil {
 		if errors.Is(err, errResourceConflict) {
 			fail(w, 409, err.Error())
+			return
+		}
+		var conflict *pgconn.PgError
+		if errors.As(err, &conflict) && conflict.Code == "23505" && conflict.ConstraintName == "findings_fingerprint" {
+			fail(w, 409, "동일한 서비스·위치·취약점의 발견 건이 이미 있습니다. 기존 발견 건을 검색해 확인하세요")
 			return
 		}
 		fail(w, 500, "항목을 저장하지 못했습니다")

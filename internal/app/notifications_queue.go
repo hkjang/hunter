@@ -28,11 +28,15 @@ type notificationEvent struct {
 var errNotificationTargetChanged = errors.New("알림 대상 서비스가 변경되었습니다")
 
 func (a *App) notificationVariablesFor(ctx context.Context, q notificationQuerier, e notificationEvent) (map[string]string, domainResource, domainResource, error) {
-	entity, err := scanResource(q.QueryRow(ctx, `SELECT id,kind,owner_id,data,created_at,updated_at FROM resources WHERE id=$1 AND kind IN('findings','scans','approvals')`, e.EntityID))
+	entity, err := scanResource(q.QueryRow(ctx, `SELECT id,kind,owner_id,data,created_at,updated_at FROM resources WHERE id=$1 AND kind IN('findings','scans','approvals','services')`, e.EntityID))
 	if err != nil {
 		return nil, entity, domainResource{}, err
 	}
-	service, err := scanResource(q.QueryRow(ctx, `SELECT id,kind,owner_id,data,created_at,updated_at FROM resources WHERE kind='services' AND id=$1`, str(entity.Data, "service_id")))
+	parentID := str(entity.Data, "service_id")
+	if entity.Kind == "services" {
+		parentID = entity.ID
+	}
+	service, err := scanResource(q.QueryRow(ctx, `SELECT id,kind,owner_id,data,created_at,updated_at FROM resources WHERE kind='services' AND id=$1`, parentID))
 	if err != nil {
 		return nil, entity, service, err
 	}
@@ -57,6 +61,9 @@ func (a *App) notificationVariablesFor(ctx context.Context, q notificationQuerie
 	vars["resource.title"] = title
 	vars["resource.status"] = str(entity.Data, "status")
 	prefix := strings.TrimSuffix(entity.Kind, "s")
+	if e.Type == "team.weekly" {
+		vars["resource.title"] = str(service.Data, "team") + " 주간 보안 현황"
+	}
 	for _, k := range []string{"id", "title", "name", "severity", "status", "due_date", "assignee", "cve"} {
 		key := prefix + "." + k
 		if _, ok := vars[key]; ok {
@@ -117,7 +124,7 @@ func (a *App) notificationHash(s string) string {
 	sum.Write([]byte("hunter-notification-recipient\x00" + strings.ToLower(s)))
 	return hex.EncodeToString(sum.Sum(nil))
 }
-func (a *App) enqueueNotification(ctx context.Context, tx pgx.Tx, e notificationEvent, rule notificationRule, channel NotificationChannel, msg NotificationMessage, isTest bool, u User) (string, error) {
+func (a *App) enqueueNotificationRaw(ctx context.Context, tx pgx.Tx, e notificationEvent, rule notificationRule, channel NotificationChannel, msg NotificationMessage, isTest bool, u User) (string, error) {
 	msg.DeliveryID = newID()
 	if e.ID != 0 {
 		msg.EventID = strconv.FormatInt(e.ID, 10)
@@ -189,6 +196,12 @@ func (a *App) processNotificationOutbox(ctx context.Context) (int, error) {
 			if checkErr != nil {
 				return 0, checkErr
 			}
+			if eligible {
+				eligible, checkErr = a.notificationAutomationEventCurrent(ctx, tx, e, entity)
+				if checkErr != nil {
+					return 0, checkErr
+				}
+			}
 			if !eligible {
 				readErr = errNotificationTargetChanged
 			}
@@ -230,12 +243,30 @@ func (a *App) processNotificationOutbox(ctx context.Context) (int, error) {
 				if !channel.Enabled || channel.UpdatedAt.After(e.CreatedAt) {
 					continue
 				}
-				for _, recipient := range rule.Recipients {
-					normalized, er := validateNotificationRecipient(channel.Type, recipient)
-					if er != nil {
-						continue
+				cfg, _, er := a.notificationAutomationConfig(ctx, tx)
+				if er != nil {
+					return 0, er
+				}
+				targets, er := a.notificationTargets(ctx, tx, cfg, rule, channel, entity, service, time.Now())
+				if errors.Is(er, errNotificationRecipientLimit) {
+					// A bad rule must not stall later durable events. Record an explicit,
+					// never-send cancellation with zero recipients instead of partial fanout.
+					id, recordErr := a.enqueueNotificationRaw(ctx, tx, e, rule, channel, NotificationMessage{Subject: "수신자 한도 초과로 발송 취소", Body: er.Error(), Variables: vars}, false, User{})
+					if recordErr != nil {
+						return 0, recordErr
 					}
-					message := NotificationMessage{Recipient: normalized, Subject: notificationRender(rule.SubjectTemplate, vars, 200), Body: notificationRender(rule.BodyTemplate, vars, 16000), Variables: vars}
+					if id != "" {
+						if _, recordErr = tx.Exec(ctx, `UPDATE notification_deliveries SET status='cancelled',last_error=$2,updated_at=now() WHERE id=$1`, id, er.Error()); recordErr != nil {
+							return 0, recordErr
+						}
+					}
+					continue
+				}
+				if er != nil {
+					return 0, er
+				}
+				for _, target := range targets {
+					message := NotificationMessage{RecipientUserID: target.UserID, Recipient: target.Address, Subject: notificationRender(rule.SubjectTemplate, vars, 200), Body: notificationRender(rule.BodyTemplate, vars, 16000), Variables: vars}
 					if _, er = a.enqueueNotification(ctx, tx, e, rule, channel, message, false, User{}); er != nil {
 						return 0, er
 					}
@@ -286,6 +317,9 @@ type notificationClaim struct {
 	RuleRevision                           *time.Time
 	IsTest                                 bool
 	RequestedBy, KeyID                     string
+	RecipientUserID                        string
+	AutomationRevision                     *time.Time
+	MemberCount                            int
 	Attempt                                int
 	MaxAttempts                            int
 }
@@ -323,19 +357,46 @@ func (a *App) claimNotification(ctx context.Context) (*notificationClaim, error)
 	var c notificationClaim
 	var channelID, payload string
 	var channelRevision time.Time
-	err = tx.QueryRow(ctx, `SELECT id,channel_id,channel_revision,payload_encrypted,rule_id,rule_revision,entity_id,service_id,event_type,is_test,requested_by,credential_key_id,max_attempts FROM notification_deliveries WHERE status IN('queued','retry') AND NOT cancel_requested AND available_at<=now() ORDER BY available_at,created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`).Scan(&c.ID, &channelID, &channelRevision, &payload, &c.RuleID, &c.RuleRevision, &c.EntityID, &c.ServiceID, &c.EventType, &c.IsTest, &c.RequestedBy, &c.KeyID, &c.MaxAttempts)
+	err = tx.QueryRow(ctx, `SELECT id,channel_id,channel_revision,payload_encrypted,rule_id,rule_revision,entity_id,service_id,event_type,is_test,requested_by,credential_key_id,max_attempts,recipient_user_id,automation_revision FROM notification_deliveries WHERE status IN('queued','retry') AND NOT cancel_requested AND available_at<=now() ORDER BY available_at,created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`).Scan(&c.ID, &channelID, &channelRevision, &payload, &c.RuleID, &c.RuleRevision, &c.EntityID, &c.ServiceID, &c.EventType, &c.IsTest, &c.RequestedBy, &c.KeyID, &c.MaxAttempts, &c.RecipientUserID, &c.AutomationRevision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err
 	}
+	plain, err := a.decrypt(payload)
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal([]byte(plain), &c.Message); err != nil {
+		return nil, err
+	}
+	allowed, retryAt, err := a.notificationBeforeClaim(ctx, tx, channelID)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		if retryAt.IsZero() {
+			retryAt = time.Now().Add(time.Minute)
+		}
+		_, err = tx.Exec(ctx, `UPDATE notification_deliveries SET available_at=$2,updated_at=now() WHERE id=$1`, c.ID, retryAt)
+		if err != nil {
+			return nil, err
+		}
+		return nil, tx.Commit(ctx)
+	}
 	channel, err := a.notificationChannel(ctx, tx, channelID)
 	valid := err == nil && channel.UpdatedAt.Equal(channelRevision) && (channel.Enabled || c.IsTest)
 	c.Channel = channel
 	if valid && !c.IsTest {
 		rule, e := a.notificationRule(ctx, tx, c.RuleID)
-		valid = e == nil && c.RuleRevision != nil && rule.UpdatedAt.Equal(*c.RuleRevision) && rule.Enabled && rule.ChannelID == channelID && hasString(rule.Events, c.EventType)
+		valid = e == nil && c.RuleRevision != nil && rule.UpdatedAt.Equal(*c.RuleRevision) && rule.Enabled && hasString(rule.Events, c.EventType)
+		if valid {
+			valid, e = a.notificationDeliveryChannelAllowed(ctx, tx, c.ID, rule.ChannelID, channelID)
+			if e != nil {
+				return nil, e
+			}
+		}
 		if valid {
 			_, entity, service, e := a.notificationVariablesFor(ctx, tx, notificationEvent{EntityID: c.EntityID, ServiceID: c.ServiceID})
 			valid = e == nil && notificationMatches(rule, entity, service)
@@ -355,12 +416,12 @@ func (a *App) claimNotification(ctx context.Context) (*notificationClaim, error)
 		}
 		return nil, tx.Commit(ctx)
 	}
-	plain, err := a.decrypt(payload)
+	ready, err := a.notificationAutomationClaim(ctx, tx, &c)
 	if err != nil {
 		return nil, err
 	}
-	if err = json.Unmarshal([]byte(plain), &c.Message); err != nil {
-		return nil, err
+	if !ready {
+		return nil, tx.Commit(ctx)
 	}
 	c.Token = newID()
 	err = tx.QueryRow(ctx, `UPDATE notification_deliveries SET status='sending',attempts=attempts+1,lease_token=$2,lease_until=now()+interval '2 minutes',updated_at=now(),cancel_requested=false WHERE id=$1 RETURNING attempts`, c.ID, c.Token).Scan(&c.Attempt)
@@ -449,6 +510,13 @@ func (a *App) notificationClaimCurrent(ctx context.Context, c *notificationClaim
 	if err != nil || !notificationMatches(rule, entity, service) {
 		return false
 	}
+	valid, err = a.notificationDeliveryChannelAllowed(ctx, a.DB, c.ID, rule.ChannelID, c.Channel.ID)
+	if err != nil || !valid {
+		return false
+	}
+	if !a.notificationDynamicCurrent(ctx, a.DB, c, entity, service) || !a.notificationGroupCurrent(ctx, a.DB, c, false) {
+		return false
+	}
 	valid, err = notificationEventCurrent(ctx, a.DB, c.EventType, entity, time.Now())
 	return err == nil && valid
 }
@@ -495,6 +563,12 @@ func (a *App) finishNotification(ctx context.Context, c *notificationClaim, resu
 	}
 	_, err = tx.Exec(ctx, `UPDATE notification_attempts SET status=$2,code=$3,detail=$4,provider_id=$5,finished_at=now() WHERE delivery_id=$1 AND finished_at IS NULL`, c.ID, state, code, detail, providerID)
 	if err != nil {
+		return err
+	}
+	if err = a.notificationAutomationAfterAttempt(ctx, tx, c, state); err != nil {
+		return err
+	}
+	if err = a.notificationAfterAttempt(ctx, tx, c, result, state); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -570,7 +644,7 @@ func (a *App) notificationLoop(ctx context.Context) {
 func notificationEventID(id int64) string { return fmt.Sprint(id) }
 
 func notificationEventLabel(event string) string {
-	return map[string]string{"finding.created": "발견 건 등록", "finding.updated": "발견 건 변경", "finding.due": "조치 기한 도달", "scan.completed": "진단 완료", "scan.failed": "진단 실패", "approval.pending": "검토 요청", "manual.test": "테스트 알림"}[event]
+	return map[string]string{"finding.created": "발견 건 등록", "finding.updated": "발견 건 변경", "finding.due": "조치 기한 도달", "scan.completed": "진단 완료", "scan.failed": "진단 실패", "approval.pending": "검토 요청", "manual.test": "테스트 알림", "finding.due_soon": "조치 기한 예고", "finding.unacknowledged": "업무 확인 지연", "team.weekly": "조직 주간 보안 현황"}[event]
 }
 func notificationStatusLabel(status string) string {
 	if label := map[string]string{"candidate": "탐지 후보", "confirmed": "확인됨", "in_progress": "조치 중", "retest": "재검증 대기", "inconclusive": "판단 불가", "resolved": "해결", "accepted": "위험 수용", "false_positive": "오탐", "completed": "완료", "failed": "실패", "pending": "검토 대기", "pending_approval": "검토 대기", "cancelled": "취소됨"}[status]; label != "" {

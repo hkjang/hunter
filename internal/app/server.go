@@ -102,7 +102,7 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
-	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications} {
+	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation} {
 		if err = init(ctx); err != nil {
 			return nil, err
 		}
@@ -187,6 +187,9 @@ func (a *App) Routes() http.Handler {
 	a.registerOperations(m)
 	a.registerRemediation(m)
 	a.registerNotifications(m)
+	a.registerNotificationAutomation(m)
+	a.registerNotificationOperations(m)
+	a.registerWorkflowAutomation(m)
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "API를 찾을 수 없습니다") })
 	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" && r.Method != "HEAD" {

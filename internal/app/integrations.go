@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -405,12 +406,21 @@ func (a *App) webhookIntegration(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "웹훅 유형의 연동이 아닙니다")
 		return
 	}
+	raw, readErr := io.ReadAll(io.LimitReader(r.Body, (1<<20)+1))
+	if readErr != nil || len(raw) > 1<<20 {
+		fail(w, 400, "웹훅 본문은 1 MiB 이하여야 합니다")
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(raw))
 	m := map[string]any{}
 	if decode(r, &m) != nil {
 		fail(w, 400, "올바른 JSON 이벤트가 필요합니다")
 		return
 	}
 	m["integration_id"] = v.ID
+	if a.workflowChangeWebhook(w, r, v, m, raw) {
+		return
+	}
 	if raw, exists := m["assets"]; exists {
 		items, ok := raw.([]any)
 		if !ok || len(items) > 5000 {
@@ -497,5 +507,5 @@ func (a *App) createEvent(w http.ResponseWriter, r *http.Request, input map[stri
 	jsonResponse(w, 201, a.resourceOutput(v))
 }
 
-// sendRemediationDraft is deliberately absent: generated patches and links are
-// reviewable local records. No connector publishes messages or merges changes.
+// Explicit remediation dispatch lives in remediation.go; change automation only
+// creates policy-checked Hunter scans and never executes caller-supplied commands.

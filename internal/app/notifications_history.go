@@ -12,31 +12,37 @@ import (
 )
 
 type notificationDelivery struct {
-	ID              string                `json:"id"`
-	EventID         *int64                `json:"event_id"`
-	EventType       string                `json:"event_type"`
-	RuleID          string                `json:"rule_id"`
-	RuleName        string                `json:"rule_name"`
-	ChannelID       string                `json:"channel_id"`
-	ChannelName     string                `json:"channel_name"`
-	ChannelType     string                `json:"channel_type"`
-	RecipientMasked string                `json:"recipient_masked"`
-	Subject         string                `json:"subject"`
-	Body            string                `json:"body,omitempty"`
-	Status          string                `json:"status"`
-	Attempts        int                   `json:"attempts"`
-	MaxAttempts     int                   `json:"max_attempts"`
-	AvailableAt     time.Time             `json:"available_at"`
-	LastError       string                `json:"last_error"`
-	ProviderID      string                `json:"provider_id"`
-	CreatedAt       time.Time             `json:"created_at"`
-	UpdatedAt       time.Time             `json:"updated_at"`
-	SentAt          *time.Time            `json:"sent_at"`
-	IsTest          bool                  `json:"is_test"`
-	CancelRequested bool                  `json:"cancel_requested"`
-	CanRetry        bool                  `json:"can_retry"`
-	CanCancel       bool                  `json:"can_cancel"`
-	AttemptLog      []notificationAttempt `json:"attempt_log,omitempty"`
+	ID               string                `json:"id"`
+	EventID          *int64                `json:"event_id"`
+	EventType        string                `json:"event_type"`
+	RuleID           string                `json:"rule_id"`
+	RuleName         string                `json:"rule_name"`
+	ChannelID        string                `json:"channel_id"`
+	ChannelName      string                `json:"channel_name"`
+	ChannelType      string                `json:"channel_type"`
+	RecipientMasked  string                `json:"recipient_masked"`
+	Subject          string                `json:"subject"`
+	Body             string                `json:"body,omitempty"`
+	Status           string                `json:"status"`
+	Attempts         int                   `json:"attempts"`
+	MaxAttempts      int                   `json:"max_attempts"`
+	AvailableAt      time.Time             `json:"available_at"`
+	LastError        string                `json:"last_error"`
+	ProviderID       string                `json:"provider_id"`
+	CreatedAt        time.Time             `json:"created_at"`
+	UpdatedAt        time.Time             `json:"updated_at"`
+	SentAt           *time.Time            `json:"sent_at"`
+	IsTest           bool                  `json:"is_test"`
+	CancelRequested  bool                  `json:"cancel_requested"`
+	RetryBlockReason string                `json:"retry_block_reason,omitempty"`
+	CanRetry         bool                  `json:"can_retry"`
+	CanCancel        bool                  `json:"can_cancel"`
+	RetentionHold    bool                  `json:"retention_hold"`
+	PayloadPurgedAt  *time.Time            `json:"payload_purged_at"`
+	RecipientUserID  string                `json:"recipient_user_id,omitempty"`
+	AcknowledgedAt   *time.Time            `json:"acknowledged_at"`
+	AckDueAt         *time.Time            `json:"ack_due_at"`
+	AttemptLog       []notificationAttempt `json:"attempt_log,omitempty"`
 }
 type notificationAttempt struct {
 	Attempt    int        `json:"attempt"`
@@ -48,14 +54,18 @@ type notificationAttempt struct {
 	FinishedAt *time.Time `json:"finished_at"`
 }
 
-const notificationDeliveryColumns = `id,event_id,event_type,rule_id,rule_name,channel_id,channel_name,channel_type,payload_encrypted,status,attempts,max_attempts,available_at,last_error,provider_id,created_at,updated_at,sent_at,is_test,cancel_requested`
+const notificationDeliveryColumns = `id,event_id,event_type,rule_id,rule_name,channel_id,channel_name,channel_type,payload_encrypted,status,attempts,max_attempts,available_at,last_error,provider_id,created_at,updated_at,sent_at,is_test,cancel_requested,retention_hold,payload_purged_at,recipient_user_id,acknowledged_at,ack_due_at`
 
 func (a *App) scanNotificationDelivery(row pgx.Row, detail bool) (notificationDelivery, error) {
 	var v notificationDelivery
 	var cipher string
-	err := row.Scan(&v.ID, &v.EventID, &v.EventType, &v.RuleID, &v.RuleName, &v.ChannelID, &v.ChannelName, &v.ChannelType, &cipher, &v.Status, &v.Attempts, &v.MaxAttempts, &v.AvailableAt, &v.LastError, &v.ProviderID, &v.CreatedAt, &v.UpdatedAt, &v.SentAt, &v.IsTest, &v.CancelRequested)
+	err := row.Scan(&v.ID, &v.EventID, &v.EventType, &v.RuleID, &v.RuleName, &v.ChannelID, &v.ChannelName, &v.ChannelType, &cipher, &v.Status, &v.Attempts, &v.MaxAttempts, &v.AvailableAt, &v.LastError, &v.ProviderID, &v.CreatedAt, &v.UpdatedAt, &v.SentAt, &v.IsTest, &v.CancelRequested, &v.RetentionHold, &v.PayloadPurgedAt, &v.RecipientUserID, &v.AcknowledgedAt, &v.AckDueAt)
 	if err != nil {
 		return v, err
+	}
+	if v.PayloadPurgedAt != nil {
+		v.Subject = "보존 기간이 지나 본문이 파기되었습니다"
+		return v, nil
 	}
 	plain, err := a.decrypt(cipher)
 	if err != nil {
@@ -75,7 +85,13 @@ func (a *App) scanNotificationDelivery(row pgx.Row, detail bool) (notificationDe
 	return v, nil
 }
 func (a *App) notificationDelivery(ctx context.Context, id string, detail bool) (notificationDelivery, error) {
-	return a.scanNotificationDelivery(a.DB.QueryRow(ctx, `SELECT `+notificationDeliveryColumns+` FROM notification_deliveries WHERE id=$1`, id), detail)
+	v, err := a.scanNotificationDelivery(a.DB.QueryRow(ctx, `SELECT `+notificationDeliveryColumns+` FROM notification_deliveries WHERE id=$1`, id), detail)
+	if err != nil {
+		return v, err
+	}
+	items := []notificationDelivery{v}
+	err = a.notificationHistoryRetryPolicy(ctx, items)
+	return items[0], err
 }
 func (a *App) listNotificationDeliveries(w http.ResponseWriter, r *http.Request) {
 	page, size := 1, 25
@@ -159,6 +175,10 @@ func (a *App) listNotificationDeliveries(w http.ResponseWriter, r *http.Request)
 	counts.Close()
 	if e != nil || counts.Err() != nil {
 		fail(w, 500, "발송 통계 조회 실패")
+		return
+	}
+	if err = a.notificationHistoryRetryPolicy(r.Context(), items); err != nil {
+		fail(w, 500, "재시도 정책 조회 실패")
 		return
 	}
 	jsonResponse(w, 200, map[string]any{"items": items, "total": total, "page": page, "page_size": size, "summary": summary, "as_of": time.Now().UTC()})
@@ -254,9 +274,18 @@ func (a *App) retryNotificationDelivery(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer tx.Rollback(r.Context())
+	allowed, checkErr := a.notificationRetryPermitted(r.Context(), tx, r.PathValue("id"))
+	if checkErr != nil {
+		fail(w, 500, "전달 결과 확인 실패")
+		return
+	}
+	if !allowed {
+		fail(w, 409, "전달 결과 조회 또는 대체 발송 이력을 확인하세요")
+		return
+	}
 	var status string
 	var isTest bool
-	if tx.QueryRow(r.Context(), `SELECT status,is_test FROM notification_deliveries WHERE id=$1 FOR UPDATE`, r.PathValue("id")).Scan(&status, &isTest) != nil {
+	if tx.QueryRow(r.Context(), `SELECT status,is_test FROM notification_deliveries WHERE id=$1 AND payload_purged_at IS NULL FOR UPDATE`, r.PathValue("id")).Scan(&status, &isTest) != nil {
 		fail(w, 404, "발송 이력이 없습니다")
 		return
 	}
@@ -299,4 +328,34 @@ func (a *App) cancelNotificationDelivery(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	jsonResponse(w, 200, v)
+}
+
+// Fetch all policy flags in one query after closing the page cursor.
+func (a *App) notificationHistoryRetryPolicy(ctx context.Context, items []notificationDelivery) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ids := make([]string, len(items))
+	for i, v := range items {
+		ids[i] = v.ID
+	}
+	var raw []byte
+	err := a.DB.QueryRow(ctx, `SELECT coalesce(jsonb_agg(id),'[]') FROM notification_deliveries d WHERE id=ANY($1::text[]) AND (EXISTS(SELECT 1 FROM notification_fallbacks WHERE parent_id=d.id) OR EXISTS(SELECT 1 FROM notification_receipts WHERE delivery_id=d.id AND state IN('pending','unavailable','delivered','delivery_failed','conflict')))`, ids).Scan(&raw)
+	if err != nil {
+		return err
+	}
+	var blocked []string
+	if err = json.Unmarshal(raw, &blocked); err != nil {
+		return err
+	}
+	for i := range items {
+		if hasString(blocked, items[i].ID) {
+			items[i].CanRetry = false
+			items[i].RetryBlockReason = "전달 결과 조회 또는 대체 발송 이력을 확인하세요"
+		} else if items[i].PayloadPurgedAt != nil {
+			items[i].CanRetry = false
+			items[i].RetryBlockReason = "보존 기간이 지나 발송 본문이 파기되었습니다"
+		}
+	}
+	return nil
 }

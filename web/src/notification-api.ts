@@ -35,6 +35,11 @@ export type NotificationDelivery = {
   updated_at: string;
   sent_at?: string;
   cancel_requested?: boolean;
+  retention_hold?: boolean;
+  payload_purged_at?: string | null;
+  acknowledged_at?: string | null;
+  ack_due_at?: string | null;
+  retry_block_reason?: string;
   can_retry: boolean;
   can_cancel: boolean;
 };

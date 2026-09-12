@@ -85,6 +85,8 @@ import {
   CopilotPage,
 } from "./pages";
 import { NotificationsPage } from "./notifications";
+import { AutomationPage } from "./automation";
+import { PersonalInboxPage } from "./personal-inbox";
 import { ResourcePage } from "./resources";
 import { TriagePage } from "./triage";
 import { SoftwarePage, SoftwareDetailPage } from "./software";
@@ -149,6 +151,11 @@ export const navGroups = [
         icon: IconShieldCheck,
       },
       { path: "/admin/notifications", label: "알림센터", icon: IconBell },
+      {
+        path: "/admin/automation",
+        label: "자동화 관리",
+        icon: IconAdjustments,
+      },
       { path: "/admin/operations", label: "운영 점검", icon: IconActivity },
       { path: "/admin/users", label: "사용자 · 권한", icon: IconUsers },
       { path: "/admin/audit", label: "감사 기록", icon: IconBook2 },
@@ -177,8 +184,11 @@ const routeScopes: Record<string, string | readonly string[]> = {
   "/admin/discovery": "integrations:manage",
   "/admin/audit": "audit:read",
   "/admin/notifications": "admin:manage",
+  "/admin/automation": "admin:manage",
+  "/personal/inbox": "services:read",
 };
 const personalItems = [
+  { path: "/personal/inbox", label: "내 업무 알림", icon: IconBell },
   { path: "/personal/profile", label: "내 프로필", icon: IconUser },
   { path: "/personal/keys", label: "개인 API 키", icon: IconKey },
 ];
@@ -186,7 +196,7 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.6.0" });
+    [config, setConfig] = useState<Row>({ version: "1.7.0" });
   const refreshConfig = () =>
     api<Row>("/api/settings/public")
       .then(setConfig)
@@ -426,7 +436,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.6.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.7.0"}</b>
           </span>
         </footer>
       </section>
@@ -479,7 +489,9 @@ function Shell() {
     ...groups.flatMap((g) =>
       g.items.map((item) => ({ ...item, group: g.title })),
     ),
-    ...personalItems.map((item) => ({ ...item, group: "개인화" })),
+    ...personalItems
+      .filter((item) => allowed(item.path))
+      .map((item) => ({ ...item, group: "개인화" })),
   ];
   const current = entries.find(
     (i) =>
@@ -647,7 +659,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.6.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.7.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -667,6 +679,15 @@ function Shell() {
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>개인화</Menu.Label>
+              {allowed("/personal/inbox") && (
+                <Menu.Item
+                  component={Link}
+                  to="/personal/inbox"
+                  leftSection={<IconBell size={17} />}
+                >
+                  내 업무 알림
+                </Menu.Item>
+              )}
               <Menu.Item
                 component={Link}
                 to="/personal/profile"
@@ -683,7 +704,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.6.0"}
+                hunter · 서비스 버전 v{config.version || "1.7.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -953,6 +974,22 @@ function Shell() {
               element={
                 <Access required="audit:read">
                   <AuditPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/automation"
+              element={
+                <Access required="admin:manage">
+                  <AutomationPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/personal/inbox"
+              element={
+                <Access required="services:read">
+                  <PersonalInboxPage />
                 </Access>
               }
             />

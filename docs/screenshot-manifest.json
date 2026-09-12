@@ -210,6 +210,83 @@
     "mobile_path": "images/mobile-notification-delivery.png"
   },
   {
+    "name": "automation-recipients",
+    "path": "images/automation-recipients.png",
+    "title": "연락처·당직",
+    "description": "합성 연락처와 현재 담당자·당직 기반 수신자 설정",
+    "mobile_path": "images/mobile-automation-recipients.png"
+  },
+  {
+    "name": "automation-notifications",
+    "path": "images/automation-notifications.png",
+    "title": "알림 자동화 정책",
+    "description": "묶음·한도·영업일·업무 확인·주간 요약 설정",
+    "mobile_path": "images/mobile-automation-notifications.png"
+  },
+  {
+    "name": "automation-providers",
+    "path": "images/automation-providers.png",
+    "title": "채널 운영",
+    "description": "공급자 전달 결과·대체 채널·연속 실패 보호",
+    "mobile_path": "images/mobile-automation-providers.png"
+  },
+  {
+    "name": "automation-workflows",
+    "path": "images/automation-workflows.png",
+    "title": "변경 영향 규칙",
+    "description": "실제 변경 목록과 일치하는 검사만 선택하는 규칙",
+    "mobile_path": "images/mobile-automation-workflows.png"
+  },
+  {
+    "name": "automation-tickets",
+    "path": "images/automation-tickets.png",
+    "title": "ITSM 동기화 규칙",
+    "description": "조회 주소·필드 매핑·배포 재검증·충돌 보호",
+    "mobile_path": "images/mobile-automation-tickets.png"
+  },
+  {
+    "name": "automation-simulation",
+    "path": "images/automation-simulation.png",
+    "title": "발송 없는 모의 검사",
+    "description": "보관 이벤트를 현재 조건으로 추정한 제외 사유와 건수",
+    "mobile_path": "images/mobile-automation-simulation.png"
+  },
+  {
+    "name": "automation-history",
+    "path": "images/automation-history.png",
+    "title": "자동화 실행 이력",
+    "description": "변경·ITSM의 근거·결과와 연결 진단",
+    "mobile_path": "images/mobile-automation-history.png"
+  },
+  {
+    "name": "automation-retention",
+    "path": "images/automation-retention.png",
+    "title": "알림 보존 관리",
+    "description": "종결 본문 보존 일수와 파기 예외",
+    "mobile_path": "images/mobile-automation-retention.png"
+  },
+  {
+    "name": "personal-inbox",
+    "path": "images/personal-inbox.png",
+    "title": "내 업무 알림",
+    "description": "현재 지정 수신자의 명시적 업무 확인",
+    "mobile_path": "images/mobile-personal-inbox.png"
+  },
+  {
+    "name": "notification-dynamic-rule",
+    "path": "images/notification-dynamic-rule.png",
+    "title": "동적 수신 규칙",
+    "description": "담당자·서비스 소유자·조직·당직 소스 지정",
+    "mobile_path": "images/mobile-notification-dynamic-rule.png"
+  },
+  {
+    "name": "notification-operations-detail",
+    "path": "images/notification-operations-detail.png",
+    "title": "전달 운영 설정 상세",
+    "description": "합성 게이트웨이의 결과 필드·서명 콜백·채널 보호",
+    "mobile_path": "images/mobile-notification-operations-detail.png"
+  },
+  {
     "name": "list-saved-view",
     "path": "images/list-saved-view.png",
     "title": "저장한 보기",

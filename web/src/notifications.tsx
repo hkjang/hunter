@@ -99,6 +99,9 @@ import {
   type NotificationPreview,
 } from "./notification-api";
 import "./notifications.css";
+import { AutomationEditor } from "./automation-ui";
+import { automationAPI } from "./automation-api";
+import { recipientSourceOptions } from "./automation-state";
 
 const typeLabel = (value: string) =>
   channelKinds.find((item) => item.value === value)?.label || value;
@@ -1012,13 +1015,34 @@ function RuleEditor({
         )}
       </section>
       <section className="notification-section">
+        <h3>현재 담당자와 동적 수신자</h3>
+        <MultiSelect
+          label="동적 수신자"
+          data={recipientSourceOptions}
+          value={draft.recipient_sources || []}
+          onChange={(value) => update({ ...draft, recipient_sources: value })}
+          description="확인한 현재 활성 사용자의 연락처와 서비스 접근 권한을 기준으로 선정합니다. 고정 수신자와 합쳐 중복을 제거합니다."
+        />
+        <Text size="sm" c="dimmed" mt="sm">
+          연락처·당직·업무 확인 정책은{" "}
+          <a
+            href="/admin/automation?tab=recipients"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            자동화 관리 (새 탭)
+          </a>
+          에서 설정합니다.
+        </Text>
+      </section>
+      <section className="notification-section">
         <h3>고정 수신자</h3>
         <TagsInput
           label="수신자 목록"
-          required
+          required={!draft.recipient_sources?.length}
           description={
             selectedChannel?.type === "smtp"
-              ? "이메일 주소를 입력하고 Enter를 누르세요. 최대 100명, 동적 수신자 치환은 지원하지 않습니다."
+              ? "이메일 주소를 입력하고 Enter를 누르세요. 최대 100명. 동적 수신자만 선택하면 비워 둘 수 있습니다."
               : "게이트웨이에 전달할 전화번호 또는 수신자 식별자를 입력하고 Enter를 누르세요. 최대 100명."
           }
           value={draft.recipients}
@@ -1102,8 +1126,11 @@ function RuleEditor({
           </Text>
           <pre>{preview.body}</pre>
           <Text className="notification-subtle" mt="md">
-            현재 수신자 {preview.recipients_count}명 · 실제 이벤트 값은 발송
-            대기 생성 시 채워집니다.
+            고정 수신자 {preview.recipients_count}명
+            {draft.recipient_sources?.length
+              ? " · 동적 수신자는 자동화 관리의 모의 검사에서 확인하세요."
+              : ""}{" "}
+            실제 이벤트 값은 발송 대기 생성 시 채워집니다.
           </Text>
         </section>
       )}
@@ -1658,9 +1685,22 @@ function DeliveryDrawer({
               {row.last_error}
             </Alert>
           )}
+          <DeliveryRetention row={row} onSaved={result.reload} />
+          {row.retry_block_reason && (
+            <Alert color="teal">
+              {row.retry_block_reason}{" "}
+              <Link to="/admin/automation?tab=providers">
+                채널 운영 이력 확인
+              </Link>
+            </Alert>
+          )}
           <section className="notification-preview">
             <Text fw={700}>발송 메시지</Text>
-            <pre>{row.body}</pre>
+            <pre>
+              {row.payload_purged_at
+                ? "보존 정책에 따라 본문이 정리되었습니다."
+                : row.body}
+            </pre>
           </section>
           <Text className="notification-subtle">
             본문은 일반 텍스트로 표시합니다. 게이트웨이 응답 원문과 인증
@@ -2019,6 +2059,9 @@ export function NotificationsPage() {
         description="채널과 발송 규칙을 연결하고, 테스트부터 처리 이력까지 관리합니다."
         action={
           <Group>
+            <Button component={Link} to="/admin/automation" variant="default">
+              자동화 관리
+            </Button>
             <Button
               component={Link}
               to="/admin/settings?tab=security"
@@ -2047,8 +2090,9 @@ export function NotificationsPage() {
         }
       />
       <div className="notification-hint">
-        ① 채널을 저장하고 테스트하세요.　② 이벤트·대상·고정 수신자를 규칙으로
-        지정하세요.　③ 채널과 규칙을 활성화한 뒤 이력에서 결과를 확인하세요.
+        ① 채널을 저장하고 테스트하세요.　② 이벤트·대상·고정 또는 동적 수신자를
+        규칙으로 지정하세요.　③ 채널과 규칙을 활성화한 뒤 이력에서 결과를
+        확인하세요.
       </div>
       <Tabs
         value={tab}
@@ -2256,6 +2300,86 @@ export function NotificationsPage() {
           </Group>
         </Stack>
       </Modal>
+    </>
+  );
+}
+
+function DeliveryRetention({
+  row,
+  onSaved,
+}: {
+  row: DeliveryDetail;
+  onSaved: () => Promise<void>;
+}) {
+  const [opened, setOpened] = useState(false);
+  return (
+    <>
+      <section className="notification-section">
+        <Group justify="space-between">
+          <div>
+            <Text fw={700}>본문 보존</Text>
+            <Text size="sm" c="dimmed">
+              {row.payload_purged_at
+                ? `본문 정리: ${dateText(row.payload_purged_at)}`
+                : row.retention_hold
+                  ? "개별 보존 지정됨"
+                  : "관리자 보존 정책 적용"}
+            </Text>
+          </div>
+          <Button variant="default" onClick={() => setOpened(true)}>
+            보존 설정
+          </Button>
+        </Group>
+        {row.ack_due_at && (
+          <Text size="sm" mt="sm">
+            업무 확인:{" "}
+            {row.acknowledged_at
+              ? `확인 완료 · ${dateText(row.acknowledged_at)}`
+              : `확인 기한 · ${dateText(row.ack_due_at)}`}
+          </Text>
+        )}
+      </section>
+      {opened && (
+        <AutomationEditor
+          title="알림 본문 보존 설정"
+          value={{ hold: !!row.retention_hold, reason: "" }}
+          revision={row.updated_at}
+          onClose={() => setOpened(false)}
+          onSave={async (value) => {
+            if (new TextEncoder().encode(value.reason.trim()).length < 8)
+              throw new Error(
+                "보존 변경 사유는 UTF-8 기준 8바이트 이상 입력하세요.",
+              );
+            await automationAPI.holdDelivery(row.id, value);
+            success("알림 본문 보존 설정을 저장했습니다.");
+            await onSaved();
+          }}
+        >
+          {(value, setValue) => (
+            <Stack>
+              <Checkbox
+                label="이 알림 본문을 자동 정리에서 제외합니다"
+                checked={value.hold}
+                onChange={(e) =>
+                  setValue({ ...value, hold: e.currentTarget.checked })
+                }
+              />
+              <Textarea
+                label="보존 변경 사유"
+                required
+                value={value.reason}
+                onChange={(e) =>
+                  setValue({ ...value, reason: e.currentTarget.value })
+                }
+              />
+              <Alert color="orange">
+                이미 정리한 본문은 복원하지 않습니다. 보존을 해제하면 관리자
+                보존 기간에 따라 정리될 수 있습니다.
+              </Alert>
+            </Stack>
+          )}
+        </AutomationEditor>
+      )}
     </>
   );
 }

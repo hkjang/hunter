@@ -9,7 +9,7 @@ const MarkdownIt=require('markdown-it');
 const markdown=new MarkdownIt({html:false,linkify:true,typographer:true});
 const htmlOnly=process.argv.includes('--html-only');
 const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-const entries=[['user-guide','사용자 가이드','조치함·SBOM·캠페인 비교, 발견 건·알림·진단·개인화·API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, SMTP·메시지 알림센터, SLA·Keycloak·AI·권한·정책·백업 절차']];
+const entries=[['user-guide','사용자 가이드','조치함·SBOM·캠페인·내 업무 알림, 발견 건·진단·개인화·API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, 동적 알림·ITSM·변경 진단 자동화, SLA·Keycloak·AI·권한·백업 절차']];
 const routes=[
 ['login','로그인','로컬 계정과 SSO 로그인, 서비스 버전'],
 ['dashboard','보안 현황','서비스와 발견 건의 위험도, 최근 진단'],
@@ -41,6 +41,17 @@ const routes=[
 ['notification-rule-preview','알림 템플릿 미리보기','외부 발송 없이 합성 값으로 확인하는 메시지'],
 ['notification-test','채널 테스트 발송','로컬 모의 수신 대상으로 확인하는 명시적 시험'],
 ['notification-delivery','전달 이력 상세','마스킹 수신자·본문과 시도별 안전한 결과 안내'],
+['automation-recipients', '연락처·당직', '합성 연락처와 현재 담당자·당직 기반 수신자 설정'],
+['automation-notifications', '알림 자동화 정책', '묶음·한도·영업일·업무 확인·주간 요약 설정'],
+['automation-providers', '채널 운영', '공급자 전달 결과·대체 채널·연속 실패 보호'],
+['automation-workflows', '변경 영향 규칙', '실제 변경 목록과 일치하는 검사만 선택하는 규칙'],
+['automation-tickets', 'ITSM 동기화 규칙', '조회 주소·필드 매핑·배포 재검증·충돌 보호'],
+['automation-simulation', '발송 없는 모의 검사', '보관 이벤트를 현재 조건으로 추정한 제외 사유와 건수'],
+['automation-history', '자동화 실행 이력', '변경·ITSM의 근거·결과와 연결 진단'],
+['automation-retention', '알림 보존 관리', '종결 본문 보존 일수와 파기 예외'],
+['personal-inbox', '내 업무 알림', '현재 지정 수신자의 명시적 업무 확인'],
+['notification-dynamic-rule', '동적 수신 규칙', '담당자·서비스 소유자·조직·당직 소스 지정'],
+['notification-operations-detail', '전달 운영 설정 상세', '합성 게이트웨이의 결과 필드·서명 콜백·채널 보호'],
 ['list-saved-view','저장한 보기','합성 API 자료: 사용자·메뉴별 목록 조건 저장'],
 ['list-display-settings','표 표시 설정','합성 API 자료: 행 간격과 표 전체 펼치기'],
 ['form-validation','입력 오류 안내','모의 저장 실패: 입력 내용 보존과 폼 안의 오류 안내'],
@@ -99,7 +110,7 @@ for(const [name,title,description] of entries) {
   console.log('HTML 생성: '+name);
 }
 const cards=items=>items.map(([slug,title,description])=>'<figure class="gallery-card"><a href="images/'+slug+'.png"><img src="images/'+slug+'.png" alt="Hunter '+escape(title)+' 실제 화면" width="1512" height="1050" loading="lazy"></a><figcaption><strong>'+escape(title)+'</strong><span>'+escape(description)+'</span>'+(existsSync(resolve(root,'docs/images/mobile-'+slug+'.png'))?'<a href="images/mobile-'+slug+'.png">모바일 화면 보기 →</a>':'')+'</figcaption></figure>').join('');
-await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 조치함, SBOM, 캠페인 비교와 알림센터부터 로그인·관리자 설정·개인화까지 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 주요 메뉴와 알림센터는 v1.6.0 화면이며 사용 흐름이 바뀌지 않은 일부 상세 장면은 이전 버전 캡처를 유지합니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 위협 정보·SBOM·조치함 자료도 설명용 합성 데이터입니다. 알림 채널과 수신 정보는 합성 값이며 발송은 로컬 모의 SMTP·HTTP 서버로 검증했습니다. 실제 공급 계정·단말 수신을 검증한 화면이 아닙니다. 캠페인 비교는 승인된 자체 HTTP 대상에 제한 진단을 실제 실행한 예시이며 전체 취약점 탐지 성능을 뜻하지 않습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
+await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 조치함, SBOM, 캠페인 비교·자동화·개인 업무 알림부터 로그인·관리자 설정·개인화까지 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 주요 메뉴·상세·알림센터와 자동화 장면은 v1.7.0 내장 화면에서 갱신했습니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 위협 정보·SBOM·조치함 자료도 설명용 합성 데이터입니다. 알림·자동화 설정과 수신 정보는 합성 값이며 발송·전달 결과·ITSM은 로컬 모의 SMTP·HTTP 서버로 검증했습니다. 실제 공급 계정·단말 수신을 검증한 화면이 아닙니다. 캠페인 비교는 승인된 자체 HTTP 대상에 제한 진단을 실제 실행한 예시이며 전체 취약점 탐지 성능을 뜻하지 않습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
 await writeFile(resolve(root,'docs/screenshot-manifest.json'),JSON.stringify([...routes,...agentTabs].map(([name,title,description])=>({name,path:'images/'+name+'.png',title,description,...(existsSync(resolve(root,'docs/images/mobile-'+name+'.png'))?{mobile_path:'images/mobile-'+name+'.png'}:{})})),null,2)+'\n');
 if(htmlOnly) process.exit(0);
 const {chromium}=require('playwright');
