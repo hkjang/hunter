@@ -72,6 +72,13 @@ import {
   Stat,
   Status,
 } from "./components";
+import {
+  useListView,
+  ListSearch,
+  SortHeader,
+  ListPagination,
+  ListReset,
+} from "./use-list-view";
 const severityColors: Record<string, string> = {
   critical: "#e45560",
   high: "#ed955a",
@@ -869,6 +876,16 @@ export function ReportsPage() {
     });
     return Object.values(map);
   }, [findings.data, services.data]);
+  const teams = useListView({
+    rows: grouping,
+    columns: [
+      { key: "name", label: "담당 조직", value: (row) => row.name },
+      { key: "services", label: "등록 서비스", value: (row) => row.services },
+      { key: "open", label: "미해결 발견 건", value: (row) => row.open },
+      { key: "critical", label: "심각한 위험", value: (row) => row.critical },
+      { key: "resolved", label: "해결 완료", value: (row) => row.resolved },
+    ],
+  });
   return (
     <>
       <PageHeader
@@ -946,24 +963,39 @@ export function ReportsPage() {
                     서비스 담당 조직을 기준으로 집계합니다.
                   </Text>
                 </div>
-                <Badge variant="light" color="gray">
-                  {grouping.length}개 조직
-                </Badge>
+                <Group className="table-controls" gap="sm">
+                  <ListSearch
+                    view={teams}
+                    label="조직별 보안 현황 검색"
+                    placeholder="담당 조직 검색"
+                  />
+                  <ListReset view={teams} />
+                </Group>
               </div>
-              {grouping.length ? (
+              {teams.rows.length ? (
                 <Table.ScrollContainer minWidth={670}>
                   <Table verticalSpacing="lg" horizontalSpacing="lg">
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th>담당 조직</Table.Th>
-                        <Table.Th>등록 서비스</Table.Th>
-                        <Table.Th>미해결 발견 건</Table.Th>
-                        <Table.Th>심각한 위험</Table.Th>
-                        <Table.Th>해결 완료</Table.Th>
+                        <SortHeader view={teams} column="name">
+                          담당 조직
+                        </SortHeader>
+                        <SortHeader view={teams} column="services">
+                          등록 서비스
+                        </SortHeader>
+                        <SortHeader view={teams} column="open">
+                          미해결 발견 건
+                        </SortHeader>
+                        <SortHeader view={teams} column="critical">
+                          심각한 위험
+                        </SortHeader>
+                        <SortHeader view={teams} column="resolved">
+                          해결 완료
+                        </SortHeader>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {grouping.map((t) => (
+                      {teams.rows.map((t) => (
                         <Table.Tr key={t.name}>
                           <Table.Td>
                             <Text fw={600}>{t.name}</Text>
@@ -986,14 +1018,27 @@ export function ReportsPage() {
                 </Table.ScrollContainer>
               ) : (
                 <Empty
-                  title="집계할 서비스가 없습니다"
-                  description="서비스와 발견 건을 등록하면 조직별 현황이 표시됩니다."
+                  title={
+                    teams.query
+                      ? "검색 결과가 없습니다"
+                      : "집계할 서비스가 없습니다"
+                  }
+                  description={
+                    teams.query
+                      ? "검색어를 변경하거나 조건을 초기화해 주세요."
+                      : "서비스와 발견 건을 등록하면 조직별 현황이 표시됩니다."
+                  }
                 />
               )}
+              <ListPagination view={teams} totalLabel="개 조직" />
             </Paper>
             <SimpleGrid cols={{ base: 1, lg: 2 }} mt="xl" spacing="xl">
               <Paper className="content-card">
                 <h2>다운로드에 포함되는 정보</h2>
+                <Text size="sm" c="dimmed" mt="sm">
+                  내보내기 범위: 접근 가능한 발견 건의 최신 5,000건. 조직 표의
+                  검색은 화면 목록에 적용됩니다.
+                </Text>
                 <Stack gap="md" mt="lg">
                   {[
                     "발견 건 제목과 대상 서비스 식별자",
@@ -1028,6 +1073,33 @@ export function ContributionsPage() {
   const { data, loading, error, reload } = useData<Row[]>("/api/findings");
   const rows = (data || []).filter((r) => Number(r.contribution_points) > 0);
   const total = rows.reduce((a, r) => a + Number(r.contribution_points), 0);
+  const view = useListView<Row>({
+    rows,
+    columns: [
+      { key: "title", label: "발견 건", value: (row) => row.title },
+      {
+        key: "assignee",
+        label: "담당자",
+        value: (row) => row.assignee || "미지정",
+      },
+      {
+        key: "severity",
+        label: "심각도",
+        value: (row) => label(row.severity),
+        compare: (a, b) =>
+          ["info", "low", "medium", "high", "critical"].indexOf(a.severity) -
+          ["info", "low", "medium", "high", "critical"].indexOf(b.severity),
+      },
+      { key: "status", label: "상태", value: (row) => label(row.status) },
+      {
+        key: "contribution_points",
+        label: "인정 점수",
+        value: (row) => Number(row.contribution_points),
+      },
+    ],
+    defaultSort: { key: "contribution_points", direction: "desc" },
+    searchValues: (row) => [row.cve, row.severity, row.status],
+  });
   return (
     <>
       <PageHeader
@@ -1076,27 +1148,47 @@ export function ContributionsPage() {
           <Paper className="data-panel" mt="xl">
             <div className="table-toolbar">
               <h2>기여 기록</h2>
-              <Badge color="teal" variant="light">
-                유효 기여 중심
-              </Badge>
+              <Group className="table-controls" gap="sm">
+                <ListSearch
+                  view={view}
+                  label="보안 기여 검색"
+                  placeholder="발견 건 · 담당자 · 상태 검색"
+                />
+                <ListReset view={view} />
+              </Group>
             </div>
-            {rows.length ? (
+            {view.rows.length ? (
               <Table.ScrollContainer minWidth={680}>
                 <Table verticalSpacing="md" horizontalSpacing="lg">
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>발견 건</Table.Th>
-                      <Table.Th>담당자</Table.Th>
-                      <Table.Th>심각도</Table.Th>
-                      <Table.Th>상태</Table.Th>
-                      <Table.Th>인정 점수</Table.Th>
+                      <SortHeader view={view} column="title">
+                        발견 건
+                      </SortHeader>
+                      <SortHeader view={view} column="assignee">
+                        담당자
+                      </SortHeader>
+                      <SortHeader view={view} column="severity">
+                        심각도
+                      </SortHeader>
+                      <SortHeader view={view} column="status">
+                        상태
+                      </SortHeader>
+                      <SortHeader view={view} column="contribution_points">
+                        인정 점수
+                      </SortHeader>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {rows.map((r) => (
+                    {view.rows.map((r) => (
                       <Table.Tr key={r.id}>
                         <Table.Td>
-                          <Text fw={500}>{r.title}</Text>
+                          <Link
+                            className="table-detail-link"
+                            to={`/findings?item=${encodeURIComponent(r.id)}`}
+                          >
+                            {r.title}
+                          </Link>
                         </Table.Td>
                         <Table.Td>{r.assignee || "미지정"}</Table.Td>
                         <Table.Td>
@@ -1117,10 +1209,24 @@ export function ContributionsPage() {
               </Table.ScrollContainer>
             ) : (
               <Empty
-                title="인정된 기여 기록이 없습니다"
-                description="관리자가 유효한 발견과 기여를 검토하고 점수를 부여하면 표시됩니다."
+                title={
+                  view.query
+                    ? "검색 결과가 없습니다"
+                    : "인정된 기여 기록이 없습니다"
+                }
+                description={
+                  view.query
+                    ? "검색어를 변경하거나 조건을 초기화해 주세요."
+                    : "관리자가 유효한 발견과 기여를 검토하고 점수를 부여하면 표시됩니다."
+                }
                 icon={<IconTrophy size={30} />}
               />
+            )}
+            <ListPagination view={view} />
+            {(data?.length || 0) >= 5000 && (
+              <Text size="sm" c="dimmed" p="md">
+                최근 5,000개 발견 건에 포함된 기여 기록입니다.
+              </Text>
             )}
           </Paper>
           <Alert mt="xl" color="teal" title="검토를 기반으로 한 기여 인정">

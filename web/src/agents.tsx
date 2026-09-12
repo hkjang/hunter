@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
+  useLocation,
   useNavigate,
   useParams,
   useSearchParams,
@@ -74,6 +75,13 @@ import {
 } from "./agent-events";
 import { useAgentRun, type AgentRun } from "./use-agent-run";
 import { canStartAgents } from "./agent-permissions";
+import {
+  ListPagination,
+  ListReset,
+  ListSearch,
+  SortHeader,
+  useListView,
+} from "./use-list-view";
 
 const runLabels: Record<string, string> = {
   queued: "대기 중",
@@ -344,16 +352,66 @@ export function AgentsPage() {
   const { config } = useSession();
   const can = useCan(),
     navigate = useNavigate();
-  const [opened, setOpened] = useState(false),
-    [query, setQuery] = useState(""),
-    [status, setStatus] = useState<string | null>(null);
-  const rows = (data || []).filter(
-    (r) =>
-      (!status || r.status === status) &&
-      `${r.title || ""} ${r.service_name || r.service_id}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const location = useLocation();
+  const listLocation = location.pathname + location.search;
+  const [opened, setOpened] = useState(false);
+  const view = useListView<AgentRun>({
+    rows: data || [],
+    columns: [
+      {
+        key: "title",
+        label: "실행 목표",
+        value: (run) => run.title || "에이전트 진단",
+      },
+      {
+        key: "service",
+        label: "서비스",
+        value: (run) => run.service_name || run.service_id,
+      },
+      {
+        key: "status",
+        label: "상태",
+        value: (run) => runLabels[run.status] || run.status,
+      },
+      {
+        key: "model_calls",
+        label: "모델 호출",
+        value: (run) => Number(run.model_calls || 0),
+      },
+      {
+        key: "tool_calls",
+        label: "Hunter 도구 호출",
+        value: (run) => Number(run.tool_calls || 0),
+      },
+      {
+        key: "created_at",
+        label: "시작 일시",
+        value: (run) => (run.created_at ? Date.parse(run.created_at) : null),
+      },
+    ],
+    searchValues: (run) => [
+      run.id,
+      run.status,
+      run.created_at,
+      dateText(run.created_at),
+    ],
+    defaultSort: { key: "created_at", direction: "desc" },
+    filters: {
+      status: (run, value) => run.status === value,
+      service: (run, value) => run.service_id === value,
+    },
+  });
+  const serviceOptions = [
+    ...new Map(
+      (data || []).map((run) => [
+        run.service_id,
+        {
+          value: run.service_id,
+          label: String(run.service_name || run.service_id),
+        },
+      ]),
+    ).values(),
+  ].sort((a, b) => a.label.localeCompare(b.label, "ko"));
   const allowed = canStartAgents(can);
   return (
     <div className="agent-workspace">
@@ -407,13 +465,10 @@ export function AgentsPage() {
             </Badge>
           </Group>
           <Group className="table-controls" gap="sm">
-            <TextInput
-              aria-label="에이전트 실행 검색"
-              placeholder="목표 · 서비스 검색"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              leftSection={<IconSearch size={17} />}
-              size="sm"
+            <ListSearch
+              view={view}
+              label="에이전트 실행 검색"
+              placeholder="목표 · 서비스 · 상태 검색"
             />
             <Select
               aria-label="에이전트 상태 필터"
@@ -435,19 +490,31 @@ export function AgentsPage() {
                     (data || []).some((r) => r.status === s),
                 )
                 .map((value) => ({ value, label: runLabels[value] }))}
-              value={status}
-              onChange={setStatus}
+              value={view.filters.status || null}
+              onChange={(value) => view.setFilter("status", value || "")}
               clearable
               w={150}
               size="sm"
             />
+            <Select
+              aria-label="에이전트 서비스 필터"
+              placeholder="모든 서비스"
+              data={serviceOptions}
+              value={view.filters.service || null}
+              onChange={(value) => view.setFilter("service", value || "")}
+              clearable
+              searchable
+              w={180}
+              size="sm"
+            />
+            <ListReset view={view} />
           </Group>
         </div>
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
-          (rows.length ? (
-            <Table.ScrollContainer minWidth={900}>
+          (view.rows.length ? (
+            <Table.ScrollContainer minWidth={1060}>
               <Table
                 verticalSpacing="lg"
                 horizontalSpacing="lg"
@@ -455,33 +522,47 @@ export function AgentsPage() {
               >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>실행 목표 · 서비스</Table.Th>
-                    <Table.Th>상태</Table.Th>
-                    <Table.Th>모델 호출</Table.Th>
-                    <Table.Th>Hunter 도구 호출</Table.Th>
-                    <Table.Th>시작 일시</Table.Th>
+                    <SortHeader view={view} column="title">
+                      실행 목표
+                    </SortHeader>
+                    <SortHeader view={view} column="service">
+                      서비스
+                    </SortHeader>
+                    <SortHeader view={view} column="status">
+                      상태
+                    </SortHeader>
+                    <SortHeader view={view} column="model_calls">
+                      모델 호출
+                    </SortHeader>
+                    <SortHeader view={view} column="tool_calls">
+                      Hunter 도구 호출
+                    </SortHeader>
+                    <SortHeader view={view} column="created_at">
+                      시작 일시
+                    </SortHeader>
                     <Table.Th>
                       <span className="sr-only">실행 상세</span>
                     </Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {rows.map((run) => (
+                  {view.rows.map((run) => (
                     <Table.Tr key={run.id}>
                       <Table.Td>
                         <Link
                           className="agent-run-link"
                           to={`/agents/${encodeURIComponent(run.id)}`}
+                          state={{ from: listLocation }}
                         >
                           <span className="table-object-icon">
                             <IconBrain size={19} />
                           </span>
                           <div>
                             <strong>{run.title || "에이전트 진단"}</strong>
-                            <small>{run.service_name || run.service_id}</small>
                           </div>
                         </Link>
                       </Table.Td>
+                      <Table.Td>{run.service_name || run.service_id}</Table.Td>
                       <Table.Td>
                         <AgentStatus status={run.status} />
                       </Table.Td>
@@ -499,7 +580,9 @@ export function AgentsPage() {
                           aria-label={`${run.title || "실행"} 상세 보기`}
                           variant="subtle"
                           onClick={() =>
-                            navigate(`/agents/${encodeURIComponent(run.id)}`)
+                            navigate(`/agents/${encodeURIComponent(run.id)}`, {
+                              state: { from: listLocation },
+                            })
                           }
                         >
                           <IconArrowUpRight size={20} />
@@ -513,18 +596,21 @@ export function AgentsPage() {
           ) : (
             <Empty
               title={
-                query || status
+                view.query || view.filters.status || view.filters.service
                   ? "일치하는 실행이 없습니다"
                   : "아직 에이전트 실행이 없습니다"
               }
               description={
-                query || status
-                  ? "검색어나 상태 필터를 변경하세요."
+                view.query || view.filters.status || view.filters.service
+                  ? "검색어나 서비스·상태 필터를 변경하세요."
                   : "서비스와 진단 목표를 선택하면 작업 계획, 실행 도구와 결과가 이곳에 기록됩니다."
               }
               icon={<IconBrain size={30} />}
               action={
-                allowed && config.agents_enabled && config.ai_enabled ? (
+                !data?.length &&
+                allowed &&
+                config.agents_enabled &&
+                config.ai_enabled ? (
                   <Button variant="light" onClick={() => setOpened(true)}>
                     첫 에이전트 진단 시작
                   </Button>
@@ -532,6 +618,9 @@ export function AgentsPage() {
               }
             />
           ))}
+        {!loading && !error && (
+          <ListPagination view={view} totalLabel="건" limit={1000} />
+        )}
       </Paper>
       <div className="agent-footer-note">
         <IconInfoCircle size={17} />
@@ -685,6 +774,12 @@ function ToolCard({ tool }: { tool: AgentTool }) {
 }
 export function AgentRunPage() {
   const { id = "" } = useParams();
+  const location = useLocation();
+  const from =
+    typeof location.state?.from === "string" &&
+    /^\/agents(?:\?|$)/.test(location.state.from)
+      ? location.state.from
+      : "/agents";
   const { run, loading, error, reload, connection, streamError, activity } =
     useAgentRun(id);
   const can = useCan(),
@@ -705,14 +800,14 @@ export function AgentRunPage() {
   function setTab(value: string | null) {
     const next = new URLSearchParams(params);
     next.set("tab", value || "overview");
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, state: location.state });
   }
   function chooseTask(value: string | null) {
     const next = new URLSearchParams(params);
     if (value) next.set("task", value);
     else next.delete("task");
     next.set("tab", "logs");
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, state: location.state });
   }
   const visibleEvents = useMemo(
     () =>
@@ -759,7 +854,7 @@ export function AgentRunPage() {
           action={
             <Button
               component={Link}
-              to="/agents"
+              to={from}
               variant="default"
               leftSection={<IconArrowLeft size={17} />}
             >
@@ -786,7 +881,7 @@ export function AgentRunPage() {
   return (
     <div className="agent-workspace">
       <div className="agent-back-link">
-        <Link to="/agents">
+        <Link to={from}>
           <IconArrowLeft size={16} />
           에이전트 진단 목록
         </Link>

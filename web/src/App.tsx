@@ -16,7 +16,6 @@ import {
   Button,
   Group,
   Menu,
-  Modal,
   PasswordInput,
   Stack,
   Text,
@@ -67,6 +66,13 @@ import {
   useCan,
 } from "./api";
 import { LoadState } from "./components";
+import { QuickNavigation } from "./quick-navigation";
+import {
+  clearLoginReturn,
+  readLoginReturn,
+  safeReturnPath,
+  saveLoginReturn,
+} from "./navigation";
 import {
   Dashboard,
   GraphPage,
@@ -154,9 +160,10 @@ const personalItems = [
   { path: "/personal/keys", label: "개인 API 키", icon: IconKey },
 ];
 export default function App() {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.1.0" });
+    [config, setConfig] = useState<Row>({ version: "1.2.0" });
   const refreshConfig = () => {
     api("/api/settings/public")
       .then(setConfig)
@@ -164,7 +171,14 @@ export default function App() {
   };
   useEffect(() => {
     api<{ user: User }>("/api/auth/me")
-      .then((v) => setUser(v.user))
+      .then((v) => {
+        setUser(v.user);
+        const from = readLoginReturn(true);
+        if (from) {
+          clearLoginReturn();
+          navigate(from, { replace: true });
+        }
+      })
       .catch(() => {})
       .finally(() => setReady(true));
     refreshConfig();
@@ -187,16 +201,32 @@ export default function App() {
       <Routes>
         <Route
           path="/login"
-          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+          element={user ? <AuthenticatedLoginRedirect /> : <Login />}
         />
         <Route path="/*" element={user ? <Shell /> : <LoginRedirect />} />
       </Routes>
     </SessionContext.Provider>
   );
 }
+function AuthenticatedLoginRedirect() {
+  const location = useLocation();
+  const { user } = useSession();
+  const home = ["/dashboard", "/services", "/findings"].includes(
+    user?.preferences?.home_page,
+  )
+    ? user!.preferences!.home_page
+    : "/dashboard";
+  const target =
+    safeReturnPath(location.state?.from) || readLoginReturn() || home;
+  return <Navigate to={target} replace />;
+}
 function LoginRedirect() {
   const location = useLocation();
-  return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  const from = location.pathname + location.search;
+  useEffect(() => {
+    saveLoginReturn(from);
+  }, [from]);
+  return <Navigate to="/login" replace state={{ from }} />;
 }
 function Login() {
   const { setUser, refreshConfig } = useSession();
@@ -232,15 +262,11 @@ function Login() {
       )
         ? profile.preferences.home_page
         : "/dashboard";
+      const from = safeReturnPath(location.state?.from) || readLoginReturn();
+      saveLoginReturn(from || home);
       setUser({ ...result.user, preferences: profile.preferences });
       refreshConfig();
-      const from = location.state?.from;
-      navigate(
-        from && from !== "/" && from.startsWith("/") && !from.startsWith("//")
-          ? from
-          : home,
-        { replace: true },
-      );
+      navigate(from || home, { replace: true });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -344,6 +370,12 @@ function Login() {
               <Button
                 component="a"
                 href="/api/auth/oidc/login"
+                onClick={() =>
+                  saveLoginReturn(
+                    safeReturnPath(location.state?.from) || readLoginReturn(),
+                    true,
+                  )
+                }
                 variant="default"
                 fullWidth
                 size="lg"
@@ -365,7 +397,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.1.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.2.0"}</b>
           </span>
         </footer>
       </section>
@@ -377,9 +409,11 @@ function Shell() {
   const location = useLocation(),
     navigate = useNavigate();
   const [mobile, setMobile] = useState(false),
-    [searchOpen, setSearchOpen] = useState(false),
-    [search, setSearch] = useState("");
+    [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    clearLoginReturn();
+  }, []);
   const can = useCan();
   const allowed = (path: string) =>
     (path !== "/approvals" || !!config.approval_enabled) &&
@@ -389,7 +423,12 @@ function Shell() {
   const groups = navGroups
     .map((g) => ({ ...g, items: g.items.filter((i) => allowed(i.path)) }))
     .filter((g) => g.items.length > 0);
-  const entries = [...groups.flatMap((g) => g.items), ...personalItems];
+  const entries = [
+    ...groups.flatMap((g) =>
+      g.items.map((item) => ({ ...item, group: g.title })),
+    ),
+    ...personalItems.map((item) => ({ ...item, group: "개인화" })),
+  ];
   const current = entries.find(
     (i) =>
       i.path === location.pathname ||
@@ -411,7 +450,12 @@ function Shell() {
   }, [location.pathname, current?.label]);
   useEffect(() => {
     function key(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        e.key.toLowerCase() === "k" &&
+        !e.isComposing
+      ) {
         e.preventDefault();
         setSearchOpen((v) => !v);
       }
@@ -420,6 +464,7 @@ function Shell() {
     return () => window.removeEventListener("keydown", key);
   }, []);
   async function logout() {
+    clearLoginReturn();
     await api("/api/auth/logout", { method: "POST" }).catch(() => {});
     setUser(null);
     navigate("/login");
@@ -506,7 +551,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.1.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.2.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -539,7 +584,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.1.0"}
+                hunter · 서비스 버전 v{config.version || "1.2.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -576,12 +621,16 @@ function Shell() {
           </Group>
           <Group gap="md">
             <button
-              className="quick-search"
+              className="quick-search hunter-navigation-trigger"
+              aria-label="빠른 이동 열기"
+              aria-haspopup="dialog"
               onClick={() => setSearchOpen(true)}
             >
               <IconSearch size={17} />
-              <span>메뉴 빠른 검색</span>
-              <kbd>⌘ K</kbd>
+              <span>빠른 이동</span>
+              <kbd>
+                {/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ K" : "Ctrl K"}
+              </kbd>
             </button>
             <div className="topbar-date">
               {new Date().toLocaleDateString("ko-KR", {
@@ -759,39 +808,15 @@ function Shell() {
           </span>
         </footer>
       </div>
-      <Modal
+      <QuickNavigation
+        key={user?.id}
         opened={searchOpen}
         onClose={() => setSearchOpen(false)}
-        title="메뉴 빠른 검색"
-        size="md"
-      >
-        <TextInput
-          placeholder="메뉴 이름 검색..."
-          value={search}
-          autoFocus
-          onChange={(e) => setSearch(e.target.value)}
-          leftSection={<IconSearch size={18} />}
-        />
-        <Stack gap={4} mt="md">
-          {entries
-            .filter((i) => i.label.toLowerCase().includes(search.toLowerCase()))
-            .map((i) => (
-              <UnstyledButton
-                className="search-result"
-                key={i.path}
-                onClick={() => {
-                  navigate(i.path);
-                  setSearchOpen(false);
-                  setSearch("");
-                }}
-              >
-                <i.icon size={19} />
-                <span>{i.label}</span>
-                <IconChevronRight size={16} />
-              </UnstyledButton>
-            ))}
-        </Stack>
-      </Modal>
+        onNavigate={navigate}
+        entries={entries}
+        userId={user?.id || ""}
+        currentPath={current?.path}
+      />
     </div>
   );
 }

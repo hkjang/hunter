@@ -1,6 +1,6 @@
 # Hunter 관리자 가이드
 
-**버전 1.1.0 · 한국어 · 최종 갱신 2026-09-12**
+**버전 1.2.0 · 한국어 · 최종 갱신 2026-09-12**
 
 이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.
 
@@ -15,7 +15,7 @@
 Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.
 
 ~~~
-사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.1.0 → 사내 PostgreSQL
+사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.2.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -45,7 +45,7 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 | 개발자 도구 | OpenAPI 명세, 개인 Bearer 키를 사용하는 HTTP MCP |
 | 참여 | 발견 건 기여 점수와 집계, 현금 보상 자동 지급 제외 |
 
-목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 이 한도를 넘는 전체 이력 집계와 대규모 페이지 조회는 현재 버전에 포함되지 않으며, 규모 확장 시 별도 구현이 필요합니다.
+목록·보고서·대시보드·관계 그래프는 접근 가능한 자료를 종류별 생성 시각 기준 최신 5,000건까지 조회·집계합니다. 목록 화면은 조회한 범위 안에서 검색·필터·정렬·페이지 이동을 제공합니다. 이 한도를 넘는 서버 전체 이력 집계와 추가 페이지 조회는 현재 버전에 포함되지 않으며, 규모 확장 시 별도 구현이 필요합니다.
 
 ### 1.3 별도 확장이 필요한 영역
 
@@ -65,7 +65,7 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 | 사용자 접속 | 사내 DNS 이름과 HTTPS 종단 프록시 권장 |
 | 관리자 정보 | 초기 관리자 ID, 고유한 12~72바이트 비밀번호 |
 | 암호화 키 | 무작위 32바이트의 base64 인코딩 값 |
-| 반입 파일 | 릴리즈의 `hunter-v1.1.0.tar.gz`, compose.yaml, .env.example |
+| 반입 파일 | 릴리즈의 `hunter-v1.2.0.tar.gz`, compose.yaml, .env.example |
 | 백업 | DB 백업과 암호화 키를 분리하여 안전하게 보관할 위치 |
 
 서비스 자원은 사용량에 따라 산정합니다. 시작점으로 2 vCPU와 2~4 GiB 메모리를 두고 실제 응답 지연, 연결 수, 진단량에 따라 조정할 수 있으나, 이는 성능 검증 수치나 용량 보장이 아닙니다. 연결한 AI 모델의 메모리·가속기 자원은 Hunter 서버와 별개입니다.
@@ -79,8 +79,8 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.
 
 ~~~sh
-sha256sum hunter-v1.1.0.tar.gz
-gzip --test hunter-v1.1.0.tar.gz
+sha256sum hunter-v1.2.0.tar.gz
+gzip --test hunter-v1.2.0.tar.gz
 ~~~
 
 첨부 자산은 `hunter-v버전.tar.gz` 한 개이며 내부 이미지 이름은 `hunter:v버전`입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.
@@ -118,8 +118,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 ### 3.3 이미지 불러오기와 실행
 
 ~~~sh
-docker load -i hunter-v1.1.0.tar.gz
-docker image inspect hunter:v1.1.0
+docker load -i hunter-v1.2.0.tar.gz
+docker image inspect hunter:v1.2.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -227,7 +227,9 @@ SSO subject는 로컬 사용자명과 별도로 식별합니다. 임의로 같�
 
 ### 7.1 사용자 관리
 
-**관리자 → 사용자 관리**에서 사용자명, 표시 이름, 역할과 비활성화 여부를 관리합니다. 새 로컬 계정에는 12~72바이트의 초기 비밀번호를 지정합니다. 기존 사용자 수정 시 빈 비밀번호는 기존 값을 유지합니다.
+**서비스 관리 → 사용자 · 권한**에서 사용자명, 표시 이름, 역할과 비활성화 여부를 관리합니다. 새 로컬 계정에는 12~72바이트의 초기 비밀번호를 지정합니다. 기존 사용자 수정 시 빈 비밀번호는 기존 값을 유지합니다.
+
+사용자 목록의 검색창은 이름·아이디·조직·역할을 검색합니다. 역할·활성 상태·조직 필터를 함께 적용하고 열 제목으로 정렬한 뒤 페이지를 이동할 수 있습니다. **조건 초기화**는 검색·필터·정렬·페이지 조건을 기본 상태로 돌립니다. 조건은 URL에 보존되므로 새로고침과 뒤로가기 후에도 해당 조건을 확인할 수 있습니다.
 
 ![사용자 관리](../images/admin-users.png)
 
@@ -400,7 +402,7 @@ docker run -d --name hunter-worker-dmz \
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.1.0 --worker-only --worker-id worker-dmz
+  hunter:v1.2.0 --worker-only --worker-id worker-dmz
 ~~~
 
 워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 **정확히 일치**해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.
@@ -558,6 +560,8 @@ HTTP 엔드포인트는 `/mcp`입니다. MCP 프로토콜 2025-06-18과 2025-11-
 
 **관리자 → 감사 기록**에서 수행자, 작업, 대상과 시각을 확인합니다. 주요 설정·계정·키·진단 변경을 조사할 때 사용합니다.
 
+감사 목록에서 사용자·작업·대상을 검색하고 작업·사용자·기간 필터로 범위를 좁힙니다. 일시 열로 시간순을 바꾸고 페이지당 표시 수와 페이지 이동을 사용합니다. 검색 조건은 조회 권한이나 서버의 자료 보존·조회 한도를 늘리지 않습니다.
+
 ![감사 기록](../images/admin-audit.png)
 
 감사 기록은 애플리케이션 DB에 저장되므로 독립적인 WORM 저장소나 외부 SIEM의 변조 방지 증거를 대체하지 않습니다. 규정상 보존 요건이 있으면 DB 접근 통제, 백업·복제와 별도 로그 수집을 조직 정책으로 구성합니다.
@@ -612,7 +616,7 @@ docker compose up -d
 
 ~~~sh
 pg_restore --dbname="$RESTORE_POSTGRES_DSN" --no-owner hunter-backup.dump
-docker load -i hunter-v1.1.0.tar.gz
+docker load -i hunter-v1.2.0.tar.gz
 docker compose up -d
 ~~~
 
@@ -685,10 +689,10 @@ node scripts/check-docs.mjs
 ### 20.3 릴리즈 규칙
 
 ~~~sh
-bash scripts/release.sh 1.1.0
+bash scripts/release.sh 1.2.0
 ~~~
 
-스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.1.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.1.0` 서비스 이미지 하나만 들어갑니다.
+스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.2.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.2.0` 서비스 이미지 하나만 들어갑니다.
 
 GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 `docs`를 배포합니다. GitHub 저장소의 Pages 배포 소스는 **GitHub Actions**로 설정합니다.
 

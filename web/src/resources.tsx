@@ -30,6 +30,8 @@ import {
 import {
   IconArrowRight,
   IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconCode,
   IconDots,
   IconDownload,
@@ -60,6 +62,13 @@ import {
   useSession,
 } from "./api";
 import { Empty, LoadState, PageHeader, Status } from "./components";
+import {
+  useListView,
+  ListSearch,
+  SortHeader,
+  ListPagination,
+  ListReset,
+} from "./use-list-view";
 export type Field = {
   key: string;
   label: string;
@@ -1011,7 +1020,7 @@ export function ResourcePage({ kind }: { kind: string }) {
   const cfg = configs[kind];
   const can = useCan();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const { data, loading, error, reload } = useData<Row[]>(`/api/${kind}`);
   const servicesData = useData<Row[]>(
     kind === "services" || !can("services:read") ? null : "/api/services",
@@ -1043,9 +1052,7 @@ export function ResourcePage({ kind }: { kind: string }) {
       : null,
   );
   const writable = can(cfg.scope);
-  const [query, setQuery] = useState(""),
-    [filter, setFilter] = useState<string | null>(null),
-    [opened, setOpened] = useState(false),
+  const [opened, setOpened] = useState(false),
     [edit, setEdit] = useState<Row | null>(null),
     [values, setValues] = useState<Row>({}),
     [busy, setBusy] = useState(false),
@@ -1073,11 +1080,24 @@ export function ResourcePage({ kind }: { kind: string }) {
     error: string;
   } | null>(null);
   useEffect(() => {
-    if (data)
-      setDetail((current) =>
-        current ? data.find((row) => row.id === current.id) || current : null,
-      );
-  }, [data]);
+    const item = params.get("item");
+    if (item && data) setDetail(data.find((row) => row.id === item) || null);
+    else if (!item && !params.get("scan")) setDetail(null);
+  }, [data, params.get("item"), params.get("scan")]);
+  function showDetail(row: Row, replace = false) {
+    const next = new URLSearchParams(params);
+    next.set("item", row.id);
+    next.delete("scan");
+    setDetail(row);
+    setParams(next, { replace, preventScrollReset: true });
+  }
+  function closeDetail() {
+    const next = new URLSearchParams(params);
+    next.delete("item");
+    next.delete("scan");
+    setDetail(null);
+    setParams(next, { replace: true, preventScrollReset: true });
+  }
   const serviceMap = useMemo(
     () =>
       Object.fromEntries(
@@ -1087,19 +1107,84 @@ export function ResourcePage({ kind }: { kind: string }) {
       ),
     [servicesData.data, data, kind],
   );
-  const filtered = (data || []).filter(
-    (r) =>
-      JSON.stringify(r).toLowerCase().includes(query.toLowerCase()) &&
-      (!filter ||
-        [r.status, r.severity, r.environment, r.type].includes(filter)),
-  );
-  const filterOptions = Array.from(
-    new Set(
-      (data || [])
-        .flatMap((r) => [r.status, r.severity, r.environment, r.type])
-        .filter(Boolean),
+  const severityOrder = ["info", "low", "medium", "high", "critical"];
+  const list = useListView<Row>({
+    rows: data || [],
+    columns: cfg.columns.map((key) => ({
+      key,
+      label: fieldLabels[key] || key,
+      value: (row: Row) => {
+        if (key === "service_id") return serviceMap[row[key]] || row[key];
+        if (key === "finding_id")
+          return (
+            findingData.data?.find((finding) => finding.id === row[key])
+              ?.title || row[key]
+          );
+        if (key === "approved") return row[key] ? "승인됨" : "미승인";
+        if (key === "enabled") return row[key] ? "활성" : "비활성";
+        if (key.endsWith("_at")) return row[key] ? Date.parse(row[key]) : null;
+        if (typeof row[key] === "string") return label(row[key]);
+        return row[key];
+      },
+      ...(key === "severity"
+        ? {
+            compare: (a: Row, b: Row) =>
+              severityOrder.indexOf(a.severity) -
+              severityOrder.indexOf(b.severity),
+          }
+        : {}),
+    })),
+    searchValues: (row) => [
+      row.id,
+      row.url,
+      row.cve,
+      row.source,
+      row.profile,
+      row.assignee,
+      ...cfg.columns.map((key) =>
+        key.endsWith("_at")
+          ? [row[key], dateText(row[key])]
+          : typeof row[key] === "object"
+            ? null
+            : row[key],
+      ),
+    ],
+    filters: Object.fromEntries(
+      ["status", "severity", "environment", "type", "service_id", "team"].map(
+        (key) => [key, (row: Row, value: string) => row[key] === value],
+      ),
     ),
-  ).map((v) => ({ value: v, label: label(v) }));
+  });
+  const hasFilters = !!list.query || Object.values(list.filters).some(Boolean);
+  const detailIndex = detail
+    ? list.filteredRows.findIndex((row) => row.id === detail.id)
+    : -1;
+  const filterFields = [
+    "status",
+    "severity",
+    "environment",
+    "type",
+    "service_id",
+    "team",
+  ].filter(
+    (key) =>
+      cfg.columns.includes(key) &&
+      (data?.some((row) => row[key]) || list.filters[key]),
+  );
+  const filterOptions = (key: string) =>
+    Array.from(
+      new Set([
+        ...(data || [])
+          .map((row) => row[key])
+          .filter((value) => typeof value === "string" && value),
+        ...(list.filters[key] ? [list.filters[key]] : []),
+      ]),
+    )
+      .map((value) => ({
+        value,
+        label: key === "service_id" ? serviceMap[value] || value : label(value),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "ko", { numeric: true }));
   useEffect(() => {
     const finding = params.get("finding");
     if (kind === "remediations" && finding) {
@@ -1111,7 +1196,7 @@ export function ResourcePage({ kind }: { kind: string }) {
       });
       setOpened(true);
     }
-  }, [kind, params, cfg.fields]);
+  }, [kind, params.get("finding"), cfg.fields]);
   useEffect(() => {
     const scan = params.get("scan");
     if (kind !== "scans" || !scan) return;
@@ -1124,7 +1209,7 @@ export function ResourcePage({ kind }: { kind: string }) {
         if (!controller.signal.aborted) showError(e);
       });
     return () => controller.abort();
-  }, [kind, params]);
+  }, [kind, params.get("scan")]);
   function create() {
     setEdit(null);
     setValues(initialValues(cfg.fields));
@@ -1133,7 +1218,7 @@ export function ResourcePage({ kind }: { kind: string }) {
   function editRow(row: Row) {
     setEdit(row);
     setValues(initialValues(cfg.fields, row));
-    setDetail(null);
+    closeDetail();
     setOpened(true);
   }
   async function save(e: React.FormEvent) {
@@ -1182,7 +1267,7 @@ export function ResourcePage({ kind }: { kind: string }) {
       await api(`/api/${kind}/${remove.id}`, { method: "DELETE" });
       success("항목을 삭제했습니다");
       setRemove(null);
-      setDetail(null);
+      closeDetail();
       await reload();
     } catch (e) {
       showError(e);
@@ -1423,28 +1508,12 @@ export function ResourcePage({ kind }: { kind: string }) {
             </Badge>
           </Group>
           <Group gap="sm" className="table-controls">
-            <TextInput
-              aria-label={`${cfg.singular} 검색`}
-              placeholder={`${cfg.singular} 검색`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              leftSection={<IconSearch size={17} />}
-              size="sm"
-              className="table-search"
+            <ListSearch
+              view={list}
+              label={`${cfg.singular} 검색`}
+              placeholder="이름, 서비스, 상태 검색"
             />
-            {filterOptions.length > 0 && (
-              <Select
-                aria-label="상태 필터"
-                placeholder="모든 상태"
-                clearable
-                data={filterOptions}
-                value={filter}
-                onChange={setFilter}
-                size="sm"
-                w={150}
-                leftSection={<IconFilter size={15} />}
-              />
-            )}
+            <ListReset view={list} />
             <Tooltip label="새로고침">
               <ActionIcon
                 aria-label="목록 새로고침"
@@ -1457,10 +1526,29 @@ export function ResourcePage({ kind }: { kind: string }) {
             </Tooltip>
           </Group>
         </div>
+        {filterFields.length > 0 && (
+          <div className="list-filter-bar">
+            {filterFields.map((key) => (
+              <Select
+                key={key}
+                label={fieldLabels[key] || key}
+                aria-label={`${fieldLabels[key] || key} 필터`}
+                placeholder="전체"
+                clearable
+                searchable
+                nothingFoundMessage="일치하는 항목이 없습니다"
+                data={filterOptions(key)}
+                value={list.filters[key] || null}
+                onChange={(value) => list.setFilter(key, value)}
+                leftSection={<IconFilter size={15} />}
+              />
+            ))}
+          </div>
+        )}
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
-          (filtered.length ? (
+          (list.filteredRows.length ? (
             <Table.ScrollContainer minWidth={760}>
               <Table
                 verticalSpacing="md"
@@ -1471,7 +1559,9 @@ export function ResourcePage({ kind }: { kind: string }) {
                 <Table.Thead>
                   <Table.Tr>
                     {cfg.columns.map((c) => (
-                      <Table.Th key={c}>{fieldLabels[c] || c}</Table.Th>
+                      <SortHeader key={c} view={list} column={c}>
+                        {fieldLabels[c] || c}
+                      </SortHeader>
                     ))}
                     <Table.Th w={55}>
                       <span className="sr-only">작업</span>
@@ -1479,14 +1569,15 @@ export function ResourcePage({ kind }: { kind: string }) {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {filtered.map((row) => (
+                  {list.rows.map((row) => (
                     <Table.Tr
                       key={row.id}
-                      onClick={() => setDetail(row)}
+                      onClick={() => showDetail(row)}
                       style={{ cursor: "pointer" }}
                       tabIndex={0}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") setDetail(row);
+                        if (e.key === "Enter" && e.target === e.currentTarget)
+                          showDetail(row);
                       }}
                     >
                       {cfg.columns.map((c) => (
@@ -1505,7 +1596,7 @@ export function ResourcePage({ kind }: { kind: string }) {
                           </Menu.Target>
                           <Menu.Dropdown>
                             <Menu.Item
-                              onClick={() => setDetail(row)}
+                              onClick={() => showDetail(row)}
                               leftSection={<IconSearch size={16} />}
                             >
                               상세 보기
@@ -1682,21 +1773,17 @@ export function ResourcePage({ kind }: { kind: string }) {
           ) : (
             <Empty
               title={
-                query || filter
+                hasFilters
                   ? "검색 결과가 없습니다"
                   : `등록된 ${cfg.singular}이(가) 없습니다`
               }
               description={
-                query || filter
+                hasFilters
                   ? "검색어나 필터를 변경해 다시 확인하세요."
                   : cfg.description
               }
               action={
-                !query &&
-                !filter &&
-                !cfg.readOnly &&
-                !cfg.editOnly &&
-                writable ? (
+                !hasFilters && !cfg.readOnly && !cfg.editOnly && writable ? (
                   <Button
                     variant="light"
                     leftSection={<IconPlus size={17} />}
@@ -1708,6 +1795,7 @@ export function ResourcePage({ kind }: { kind: string }) {
               }
             />
           ))}
+        {!loading && !error && <ListPagination view={list} limit={5000} />}
       </Paper>
       {kind === "integrations" && (
         <Paper className="content-card" mt="xl">
@@ -1827,13 +1915,42 @@ export function ResourcePage({ kind }: { kind: string }) {
       </Modal>
       <Drawer
         opened={!!detail}
-        onClose={() => setDetail(null)}
+        onClose={closeDetail}
         title={`${cfg.singular} 상세`}
         position="right"
         size="lg"
       >
         {detail && (
           <Stack>
+            {detailIndex >= 0 && (
+              <Group justify="space-between" className="detail-navigation">
+                <Text size="sm" c="dimmed">
+                  현재 목록 {detailIndex + 1} / {list.filteredRows.length}
+                </Text>
+                <Group gap="xs">
+                  <Button
+                    variant="default"
+                    leftSection={<IconChevronLeft size={16} />}
+                    disabled={detailIndex === 0}
+                    onClick={() =>
+                      showDetail(list.filteredRows[detailIndex - 1], true)
+                    }
+                  >
+                    이전 항목
+                  </Button>
+                  <Button
+                    variant="default"
+                    rightSection={<IconChevronRight size={16} />}
+                    disabled={detailIndex === list.filteredRows.length - 1}
+                    onClick={() =>
+                      showDetail(list.filteredRows[detailIndex + 1], true)
+                    }
+                  >
+                    다음 항목
+                  </Button>
+                </Group>
+              </Group>
+            )}
             <Group justify="space-between">
               <h2 style={{ margin: 0 }}>
                 {detail.name ||

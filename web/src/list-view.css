@@ -1,0 +1,133 @@
+.list-search {
+  width: 280px;
+  max-width: 100%;
+  flex: 1 1 220px;
+}
+.table-toolbar .list-search input {
+  height: 42px;
+  min-height: 42px;
+  font-size: 16px;
+}
+.table-toolbar .list-reset {
+  height: 40px;
+}
+.table-toolbar .list-reset .mantine-Button-label {
+  font-size: 14px;
+}
+.list-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.list-sort svg {
+  flex-shrink: 0;
+  color: #7b8f99;
+}
+.list-sort:hover,
+.list-sort.is-sorted,
+.list-sort.is-sorted svg {
+  color: #087f6d;
+}
+.list-sort:focus-visible {
+  outline: 2px solid #0c8d76;
+  outline-offset: 5px;
+  border-radius: 3px;
+}
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 24px;
+  border-top: 1px solid #e7eeef;
+  background: #fcfdfd;
+  border-radius: 0 0 12px 12px;
+}
+.list-footer-summary {
+  color: #5e727d;
+}
+.list-footer-summary strong {
+  color: #243e48;
+}
+.list-footer-controls {
+  max-width: 100%;
+}
+.list-page-jump {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.list-page-jump .mantine-NumberInput-root {
+  width: 95px;
+}
+.list-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 24px 18px;
+}
+.list-filter-bar .mantine-Select-root {
+  width: 160px;
+  max-width: 100%;
+  flex: 1 1 150px;
+}
+.list-filter-bar .mantine-InputWrapper-label {
+  font-size: 14px;
+  color: #536b76;
+}
+.list-filter-bar .mantine-Input-input {
+  font-size: 15px;
+}
+.list-hint {
+  color: #627b86;
+  font-size: 14px;
+  margin: 0 24px 14px;
+}
+.resource-table tbody tr:focus-visible {
+  outline: 2px solid #0c8d76;
+  outline-offset: -2px;
+}
+@media (max-width: 640px) {
+  .list-footer {
+    padding: 16px;
+    gap: 14px;
+  }
+  .list-footer-controls {
+    width: 100%;
+  }
+  .list-footer .mantine-Pagination-root {
+    max-width: 100%;
+  }
+  .list-filter-bar {
+    padding: 0 16px 16px;
+    gap: 10px;
+  }
+  .list-filter-bar .mantine-Select-root {
+    min-width: 0;
+    width: calc(50% - 5px);
+    flex: 1 1 calc(50% - 5px);
+  }
+  .table-controls .list-search {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  .list-search {
+    width: 100%;
+  }
+  .list-hint {
+    margin-inline: 16px;
+  }
+}

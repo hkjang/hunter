@@ -36,7 +36,6 @@ import {
   IconPlus,
   IconRefresh,
   IconRotateClockwise,
-  IconSearch,
   IconSettings,
   IconShieldCheck,
   IconSparkles,
@@ -60,6 +59,13 @@ import {
 } from "./api";
 import { Empty, LoadState, PageHeader, Status } from "./components";
 import { FieldForm, initialValues, type Field } from "./resources";
+import {
+  ListPagination,
+  ListReset,
+  ListSearch,
+  SortHeader,
+  useListView,
+} from "./use-list-view";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
   label: `${scopeNames[s]} · ${s}`,
@@ -664,9 +670,65 @@ export function ProfilePage() {
     </>
   );
 }
+const keyStateLabels = { active: "활성", expired: "만료됨", revoked: "폐기됨" };
+function sortableDate(value: unknown) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+function keyState(row: Row): keyof typeof keyStateLabels {
+  if (row.revoked_at) return "revoked";
+  return Date.parse(row.expires_at) <= Date.now() ? "expired" : "active";
+}
 export function KeysPage() {
   const { user } = useSession();
   const { data, loading, error, reload } = useData<Row[]>("/api/keys");
+  const view = useListView<Row>({
+    rows: data || [],
+    columns: [
+      { key: "name", label: "키 이름", value: (row) => row.name },
+      { key: "prefix", label: "키 접두사", value: (row) => row.prefix },
+      {
+        key: "scopes",
+        label: "권한",
+        value: (row) =>
+          (row.scopes || []).map((scope: string) => scopeNames[scope] || scope),
+      },
+      {
+        key: "created_at",
+        label: "발급 일시",
+        value: (row) => sortableDate(row.created_at),
+      },
+      {
+        key: "expires_at",
+        label: "만료 일자",
+        value: (row) => sortableDate(row.expires_at),
+      },
+      {
+        key: "last_used_at",
+        label: "최근 사용",
+        value: (row) => sortableDate(row.last_used_at),
+      },
+      {
+        key: "status",
+        label: "상태",
+        value: (row) => keyStateLabels[keyState(row)],
+      },
+    ],
+    searchValues: (row) => [
+      row.scopes || [],
+      row.created_at,
+      row.expires_at,
+      row.last_used_at,
+      dateText(row.created_at),
+      fullDate(row.expires_at),
+      dateText(row.last_used_at),
+    ],
+    defaultSort: { key: "created_at", direction: "desc" },
+    filters: {
+      status: (row, value) => keyState(row) === value,
+      scope: (row, value) => (row.scopes || []).includes(value),
+    },
+  });
   const [opened, setOpened] = useState(false),
     [edit, setEdit] = useState<Row | null>(null),
     [name, setName] = useState(""),
@@ -767,35 +829,81 @@ export function KeysPage() {
           <Group>
             <h2>내 API 키</h2>
             <Badge variant="light" color="gray">
-              {data?.filter((k) => !k.revoked_at).length || 0}개 활성
+              {data?.filter((key) => keyState(key) === "active").length || 0}개
+              활성
             </Badge>
           </Group>
-          <ActionIcon
-            aria-label="키 목록 새로고침"
-            variant="default"
-            onClick={reload}
-          >
-            <IconRefresh size={18} />
-          </ActionIcon>
+          <Group className="table-controls" gap="sm">
+            <ListSearch
+              view={view}
+              label="개인 API 키 검색"
+              placeholder="키 이름 · 접두사 · 권한 검색"
+            />
+            <Select
+              aria-label="API 키 상태 필터"
+              placeholder="모든 상태"
+              data={Object.entries(keyStateLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+              value={view.filters.status || null}
+              onChange={(value) => view.setFilter("status", value || "")}
+              clearable
+              size="sm"
+              w={130}
+            />
+            <Select
+              aria-label="API 키 권한 필터"
+              placeholder="모든 권한"
+              data={scopesOptions}
+              value={view.filters.scope || null}
+              onChange={(value) => view.setFilter("scope", value || "")}
+              clearable
+              searchable
+              size="sm"
+              w={170}
+            />
+            <ListReset view={view} />
+            <ActionIcon
+              aria-label="키 목록 새로고침"
+              variant="default"
+              onClick={reload}
+            >
+              <IconRefresh size={18} />
+            </ActionIcon>
+          </Group>
         </div>
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
-          (data?.length ? (
-            <Table.ScrollContainer minWidth={800}>
+          (view.rows.length ? (
+            <Table.ScrollContainer minWidth={980}>
               <Table verticalSpacing="md" horizontalSpacing="lg">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>키 이름</Table.Th>
-                    <Table.Th>권한</Table.Th>
-                    <Table.Th>만료 일자</Table.Th>
-                    <Table.Th>최근 사용</Table.Th>
-                    <Table.Th>상태</Table.Th>
+                    <SortHeader view={view} column="name">
+                      키 이름
+                    </SortHeader>
+                    <SortHeader view={view} column="scopes">
+                      권한
+                    </SortHeader>
+                    <SortHeader view={view} column="created_at">
+                      발급 일시
+                    </SortHeader>
+                    <SortHeader view={view} column="expires_at">
+                      만료 일자
+                    </SortHeader>
+                    <SortHeader view={view} column="last_used_at">
+                      최근 사용
+                    </SortHeader>
+                    <SortHeader view={view} column="status">
+                      상태
+                    </SortHeader>
                     <Table.Th>관리</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {data.map((k) => (
+                  {view.rows.map((k) => (
                     <Table.Tr key={k.id}>
                       <Table.Td>
                         <Text fw={600}>{k.name}</Text>
@@ -815,24 +923,21 @@ export function KeysPage() {
                           ))}
                         </Group>
                       </Table.Td>
+                      <Table.Td>{dateText(k.created_at)}</Table.Td>
                       <Table.Td>{fullDate(k.expires_at)}</Table.Td>
                       <Table.Td>{dateText(k.last_used_at)}</Table.Td>
                       <Table.Td>
                         <Badge
                           color={
-                            k.revoked_at
+                            keyState(k) === "revoked"
                               ? "gray"
-                              : new Date(k.expires_at) < new Date()
+                              : keyState(k) === "expired"
                                 ? "orange"
                                 : "teal"
                           }
                           variant="light"
                         >
-                          {k.revoked_at
-                            ? "폐기됨"
-                            : new Date(k.expires_at) < new Date()
-                              ? "만료됨"
-                              : "활성"}
+                          {keyStateLabels[keyState(k)]}
                         </Badge>
                       </Table.Td>
                       <Table.Td>
@@ -881,15 +986,26 @@ export function KeysPage() {
             </Table.ScrollContainer>
           ) : (
             <Empty
-              title="발급한 API 키가 없습니다"
-              description="연동하려는 시스템에 필요한 권한을 선택하여 첫 번째 키를 발급하세요."
+              title={
+                data?.length
+                  ? "조건에 맞는 API 키가 없습니다"
+                  : "발급한 API 키가 없습니다"
+              }
+              description={
+                data?.length
+                  ? "검색어나 상태·권한 필터를 변경하세요."
+                  : "연동하려는 시스템에 필요한 권한을 선택하여 첫 번째 키를 발급하세요."
+              }
               action={
-                <Button variant="light" onClick={create}>
-                  새 키 발급
-                </Button>
+                !data?.length ? (
+                  <Button variant="light" onClick={create}>
+                    새 키 발급
+                  </Button>
+                ) : undefined
               }
             />
           ))}
+        {!loading && !error && <ListPagination view={view} totalLabel="개" />}
       </Paper>
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl" mt="xl">
         <Paper className="content-card">
@@ -1048,8 +1164,47 @@ export function KeysPage() {
 }
 export function UsersPage() {
   const { data, loading, error, reload } = useData<Row[]>("/api/users");
-  const [query, setQuery] = useState(""),
-    [opened, setOpened] = useState(false),
+  const view = useListView<Row>({
+    rows: data || [],
+    columns: [
+      {
+        key: "name",
+        label: "사용자",
+        value: (row) => row.name || row.username,
+      },
+      { key: "username", label: "아이디", value: (row) => row.username },
+      { key: "team", label: "담당 조직", value: (row) => row.team || "미지정" },
+      { key: "role", label: "역할", value: (row) => label(row.role) },
+      {
+        key: "status",
+        label: "상태",
+        value: (row) => (row.disabled ? "비활성" : "활성"),
+      },
+      {
+        key: "created_at",
+        label: "등록 일시",
+        value: (row) => sortableDate(row.created_at),
+      },
+    ],
+    searchValues: (row) => [
+      row.role,
+      row.sso ? "SSO 로그인" : "로컬 로그인",
+      row.created_at,
+      dateText(row.created_at),
+    ],
+    defaultSort: { key: "created_at", direction: "desc" },
+    filters: {
+      role: (row, value) => row.role === value,
+      status: (row, value) => (row.disabled ? "disabled" : "active") === value,
+      team: (row, value) => row.team === value,
+    },
+  });
+  const teams = [
+    ...new Set(
+      (data || []).map((row) => String(row.team || "")).filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "ko"));
+  const [opened, setOpened] = useState(false),
     [edit, setEdit] = useState<Row | null>(null),
     [values, setValues] = useState<Row>({}),
     [busy, setBusy] = useState(false);
@@ -1107,21 +1262,57 @@ export function UsersPage() {
               {data?.length || 0}
             </Badge>
           </h2>
-          <TextInput
-            placeholder="이름 또는 아이디 검색"
-            aria-label="사용자 검색"
-            leftSection={<IconSearch size={17} />}
-            size="sm"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <Group className="table-controls" gap="sm">
+            <ListSearch
+              view={view}
+              label="사용자 검색"
+              placeholder="이름 · 아이디 · 조직 · 역할 검색"
+            />
+            <Select
+              aria-label="사용자 역할 필터"
+              placeholder="모든 역할"
+              data={["viewer", "analyst", "lead", "admin"].map((role) => ({
+                value: role,
+                label: label(role),
+              }))}
+              value={view.filters.role || null}
+              onChange={(value) => view.setFilter("role", value || "")}
+              clearable
+              size="sm"
+              w={135}
+            />
+            <Select
+              aria-label="사용자 상태 필터"
+              placeholder="모든 상태"
+              data={[
+                { value: "active", label: "활성" },
+                { value: "disabled", label: "비활성" },
+              ]}
+              value={view.filters.status || null}
+              onChange={(value) => view.setFilter("status", value || "")}
+              clearable
+              size="sm"
+              w={130}
+            />
+            <Select
+              aria-label="사용자 조직 필터"
+              placeholder="모든 조직"
+              data={teams}
+              value={view.filters.team || null}
+              onChange={(value) => view.setFilter("team", value || "")}
+              clearable
+              searchable
+              size="sm"
+              w={150}
+            />
+            <ListReset view={view} />
+          </Group>
         </div>
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
-          (data?.filter((u) => `${u.name} ${u.username}`.includes(query))
-            .length ? (
-            <Table.ScrollContainer minWidth={720}>
+          (view.rows.length ? (
+            <Table.ScrollContainer minWidth={940}>
               <Table
                 verticalSpacing="md"
                 horizontalSpacing="lg"
@@ -1129,63 +1320,86 @@ export function UsersPage() {
               >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>사용자</Table.Th>
-                    <Table.Th>아이디</Table.Th>
-                    <Table.Th>역할</Table.Th>
-                    <Table.Th>상태</Table.Th>
-                    <Table.Th>등록 일시</Table.Th>
+                    <SortHeader view={view} column="name">
+                      사용자
+                    </SortHeader>
+                    <SortHeader view={view} column="username">
+                      아이디
+                    </SortHeader>
+                    <SortHeader view={view} column="team">
+                      담당 조직
+                    </SortHeader>
+                    <SortHeader view={view} column="role">
+                      역할
+                    </SortHeader>
+                    <SortHeader view={view} column="status">
+                      상태
+                    </SortHeader>
+                    <SortHeader view={view} column="created_at">
+                      등록 일시
+                    </SortHeader>
                     <Table.Th>관리</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {data
-                    .filter((u) => `${u.name} ${u.username}`.includes(query))
-                    .map((u) => (
-                      <Table.Tr key={u.id}>
-                        <Table.Td>
-                          <Group>
-                            <span className="user-avatar">
-                              {(u.name || u.username)[0]}
-                            </span>
-                            <Text fw={600}>{u.name}</Text>
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>{u.username}</Table.Td>
-                        <Table.Td>
-                          <Badge
-                            color={u.role === "admin" ? "teal" : "gray"}
-                            variant="light"
-                            size="lg"
-                          >
-                            {label(u.role)}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge
-                            color={u.disabled ? "gray" : "teal"}
-                            variant="light"
-                          >
-                            {u.disabled ? "비활성" : "활성"}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>{dateText(u.created_at)}</Table.Td>
-                        <Table.Td>
-                          <Button
-                            variant="subtle"
-                            size="compact-sm"
-                            onClick={() => open(u)}
-                          >
-                            수정
-                          </Button>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
+                  {view.rows.map((u) => (
+                    <Table.Tr key={u.id}>
+                      <Table.Td>
+                        <Group>
+                          <span className="user-avatar">
+                            {(u.name || u.username)[0]}
+                          </span>
+                          <Text fw={600}>{u.name}</Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text>{u.username}</Text>
+                        <Text size="xs" c="dimmed">
+                          {u.sso ? "SSO 로그인" : "로컬 로그인"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {u.team || <Text c="dimmed">미지정</Text>}
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={u.role === "admin" ? "teal" : "gray"}
+                          variant="light"
+                          size="lg"
+                        >
+                          {label(u.role)}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={u.disabled ? "gray" : "teal"}
+                          variant="light"
+                        >
+                          {u.disabled ? "비활성" : "활성"}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>{dateText(u.created_at)}</Table.Td>
+                      <Table.Td>
+                        <Button
+                          variant="subtle"
+                          size="compact-sm"
+                          onClick={() => open(u)}
+                        >
+                          수정
+                        </Button>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
           ) : (
-            <Empty title="일치하는 사용자가 없습니다" />
+            <Empty
+              title="일치하는 사용자가 없습니다"
+              description="검색어나 역할·상태·조직 필터를 변경하세요."
+            />
           ))}
+        {!loading && !error && <ListPagination view={view} totalLabel="명" />}
       </Paper>
       <Alert mt="xl" color="teal" title="변경 가능한 역할 권한">
         역할별 기능 권한은 서비스 설정 → 역할 · 권한에서 변경할 수 있습니다.
@@ -1264,11 +1478,51 @@ export function UsersPage() {
 }
 export function AuditPage() {
   const { data, loading, error, reload } = useData<Row[]>("/api/audit");
-  const [query, setQuery] = useState(""),
-    [detail, setDetail] = useState<Row | null>(null);
-  const rows = (data || []).filter((r) =>
-    JSON.stringify(r).toLowerCase().includes(query.toLowerCase()),
-  );
+  const [detail, setDetail] = useState<Row | null>(null);
+  const view = useListView<Row>({
+    rows: data || [],
+    columns: [
+      {
+        key: "created_at",
+        label: "수행 일시",
+        value: (row) => sortableDate(row.created_at),
+      },
+      {
+        key: "username",
+        label: "사용자",
+        value: (row) => row.username || "시스템",
+      },
+      { key: "action", label: "작업", value: (row) => row.action },
+      { key: "target", label: "대상", value: (row) => row.target || "—" },
+    ],
+    searchValues: (row) => [
+      row.created_at,
+      dateText(row.created_at),
+      JSON.stringify(row.detail || {}),
+    ],
+    defaultSort: { key: "created_at", direction: "desc" },
+    filters: {
+      action: (row, value) => row.action === value,
+      actor: (row, value) => (row.username || "시스템") === value,
+      period: (row, value) => {
+        const days = { day: 1, week: 7, month: 30 }[
+          value as "day" | "week" | "month"
+        ];
+        return (
+          !days ||
+          (sortableDate(row.created_at) || 0) >= Date.now() - days * 86400000
+        );
+      },
+    },
+  });
+  const actions = [
+    ...new Set(
+      (data || []).map((row) => String(row.action || "")).filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "ko"));
+  const actors = [
+    ...new Set((data || []).map((row) => String(row.username || "시스템"))),
+  ].sort((a, b) => a.localeCompare(b, "ko"));
   return (
     <>
       <PageHeader
@@ -1293,19 +1547,55 @@ export function AuditPage() {
               {data?.length || 0}
             </Badge>
           </h2>
-          <TextInput
-            aria-label="감사 기록 검색"
-            placeholder="사용자 · 작업 · 대상 검색"
-            leftSection={<IconSearch size={17} />}
-            value={query}
-            size="sm"
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <Group className="table-controls" gap="sm">
+            <ListSearch
+              view={view}
+              label="감사 기록 검색"
+              placeholder="사용자 · 작업 · 대상 · 상세 검색"
+            />
+            <Select
+              aria-label="감사 작업 필터"
+              placeholder="모든 작업"
+              data={actions}
+              value={view.filters.action || null}
+              onChange={(value) => view.setFilter("action", value || "")}
+              searchable
+              clearable
+              size="sm"
+              w={175}
+            />
+            <Select
+              aria-label="감사 사용자 필터"
+              placeholder="모든 사용자"
+              data={actors}
+              value={view.filters.actor || null}
+              onChange={(value) => view.setFilter("actor", value || "")}
+              searchable
+              clearable
+              size="sm"
+              w={150}
+            />
+            <Select
+              aria-label="감사 기간 필터"
+              placeholder="전체 기간"
+              data={[
+                { value: "day", label: "최근 24시간" },
+                { value: "week", label: "최근 7일" },
+                { value: "month", label: "최근 30일" },
+              ]}
+              value={view.filters.period || null}
+              onChange={(value) => view.setFilter("period", value || "")}
+              clearable
+              size="sm"
+              w={145}
+            />
+            <ListReset view={view} />
+          </Group>
         </div>
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
-          (rows.length ? (
+          (view.rows.length ? (
             <Table.ScrollContainer minWidth={800}>
               <Table
                 verticalSpacing="md"
@@ -1314,15 +1604,23 @@ export function AuditPage() {
               >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>수행 일시</Table.Th>
-                    <Table.Th>사용자</Table.Th>
-                    <Table.Th>작업</Table.Th>
-                    <Table.Th>대상</Table.Th>
+                    <SortHeader view={view} column="created_at">
+                      수행 일시
+                    </SortHeader>
+                    <SortHeader view={view} column="username">
+                      사용자
+                    </SortHeader>
+                    <SortHeader view={view} column="action">
+                      작업
+                    </SortHeader>
+                    <SortHeader view={view} column="target">
+                      대상
+                    </SortHeader>
                     <Table.Th>상세</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {rows.map((r) => (
+                  {view.rows.map((r) => (
                     <Table.Tr key={r.id}>
                       <Table.Td>{dateText(r.created_at)}</Table.Td>
                       <Table.Td>{r.username || "시스템"}</Table.Td>
@@ -1350,10 +1648,21 @@ export function AuditPage() {
             </Table.ScrollContainer>
           ) : (
             <Empty
-              title="감사 기록이 없습니다"
-              description="사용자의 관리 작업이 발생하면 감사 기록이 표시됩니다."
+              title={
+                data?.length
+                  ? "조건에 맞는 감사 기록이 없습니다"
+                  : "감사 기록이 없습니다"
+              }
+              description={
+                data?.length
+                  ? "검색어나 작업·사용자·기간 필터를 변경하세요."
+                  : "사용자의 관리 작업이 발생하면 감사 기록이 표시됩니다."
+              }
             />
           ))}
+        {!loading && !error && (
+          <ListPagination view={view} totalLabel="건" limit={1000} />
+        )}
       </Paper>
       <Modal
         opened={!!detail}

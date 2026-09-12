@@ -31,6 +31,8 @@
 | `web/src` | React·TypeScript·Mantine 화면과 한국어 문구 |
 | `web/src/agents.tsx` | 에이전트 목록·상세 다섯 탭 |
 | `web/src/agent-events.ts`, `use-agent-run.ts` | SSE 이벤트 병합·재연결 |
+| `web/src/list-view.ts`, `use-list-view.tsx` | 검색·정렬·페이지 처리, URL 목록 상태와 공통 컨트롤 |
+| `web/src/navigation.ts`, `quick-navigation.tsx` | 권한을 적용한 빠른 이동, 사용자별 즐겨찾기·최근 방문 |
 | `web/tests` | 프런트엔드 권한·이벤트 회귀 테스트 |
 | `internal/webassets/dist` | Go 실행 파일에 포함하는 프런트엔드 빌드 결과 |
 | `docs` | GitHub Pages, 화면 캡처, 사용자·관리자 가이드 |
@@ -163,6 +165,9 @@ python3 -m py_compile scripts/release-notes.py
 
 - 메뉴·버튼·오류·기본 안내는 한국어로 작성하고 Mantine과 기존 시각 체계를 따릅니다.
 - 새로고침 시 현재 메뉴·상세 탭을 유지하고 로그인·프로필 메뉴의 버전을 확인합니다.
+- 목록 검색·필터·정렬·페이지는 URL에 보존하고, 다른 상세 링크 매개변수를 지우지 않습니다.
+- 검색 인덱스에는 명시적으로 선택한 표시 필드만 사용하며 비밀값이나 전체 API 응답을 직렬화하지 않습니다.
+- 즐겨찾기·최근 방문은 사용자별로 분리하고 현재 권한과 관리자 승인 메뉴 설정을 적용합니다.
 - 데스크톱과 모바일에서 글자 크기, 가로 넘침, 스크롤바, 오류·빈 상태를 확인합니다.
 - 변경한 페이지는 실제 앱에서 캡처하고 문서용 합성 자료임을 설명합니다.
 - 모의 AI 응답의 통합 검증을 실모델 품질이나 실제 취약점 탐지 성능으로 표현하지 않습니다.
