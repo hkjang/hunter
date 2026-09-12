@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFocusTrap, useMediaQuery } from "@mantine/hooks";
 import {
   Link,
   Navigate,
@@ -67,6 +68,8 @@ import {
 } from "./api";
 import { LoadState } from "./components";
 import { QuickNavigation } from "./quick-navigation";
+import { focusMainContent, useRouteFocus } from "./accessibility";
+import "./accessibility.css";
 import {
   clearLoginReturn,
   readLoginReturn,
@@ -163,7 +166,7 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.2.0" });
+    [config, setConfig] = useState<Row>({ version: "1.3.0" });
   const refreshConfig = () => {
     api("/api/settings/public")
       .then(setConfig)
@@ -397,7 +400,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.2.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.3.0"}</b>
           </span>
         </footer>
       </section>
@@ -410,6 +413,27 @@ function Shell() {
     navigate = useNavigate();
   const [mobile, setMobile] = useState(false),
     [searchOpen, setSearchOpen] = useState(false);
+  const narrow = useMediaQuery("(max-width: 991px)", false, {
+    getInitialValueInEffect: false,
+  });
+  const mobileMenuOpen = narrow && mobile;
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const quickReturnToMenu = useRef<string | null>(null);
+  const main = useRef<HTMLElement>(null);
+  const sidebarFocusTrap = useFocusTrap(mobileMenuOpen && !searchOpen);
+  useRouteFocus(location.pathname, main);
+  function closeMobileMenu() {
+    setMobile(false);
+    requestAnimationFrame(() => menuTrigger.current?.focus());
+  }
+  function closeQuickNavigation() {
+    setSearchOpen(false);
+  }
+  function afterQuickNavigationClose() {
+    if (narrow && quickReturnToMenu.current === location.pathname)
+      menuTrigger.current?.focus();
+    quickReturnToMenu.current = null;
+  }
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     clearLoginReturn();
@@ -457,12 +481,17 @@ function Shell() {
         !e.isComposing
       ) {
         e.preventDefault();
-        setSearchOpen((v) => !v);
+        if (searchOpen) closeQuickNavigation();
+        else {
+          quickReturnToMenu.current = mobileMenuOpen ? location.pathname : null;
+          setMobile(false);
+          setSearchOpen(true);
+        }
       }
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [mobileMenuOpen, searchOpen, location.pathname]);
   async function logout() {
     clearLoginReturn();
     await api("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -471,10 +500,45 @@ function Shell() {
   }
   return (
     <div className="app-shell">
-      {mobile && (
-        <div className="mobile-overlay" onClick={() => setMobile(false)} />
+      <a
+        className="skip-to-content"
+        href="#main-content"
+        inert={mobileMenuOpen || undefined}
+        onClick={(event) => {
+          event.preventDefault();
+          focusMainContent(main.current);
+        }}
+      >
+        본문 바로가기
+      </a>
+      {mobileMenuOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={closeMobileMenu}
+          aria-hidden="true"
+        />
       )}
-      <aside className={`sidebar ${mobile ? "sidebar-open" : ""}`}>
+      <aside
+        id="workspace-navigation"
+        className={`sidebar ${mobileMenuOpen ? "sidebar-open" : ""}`}
+        ref={sidebarFocusTrap}
+        inert={narrow && !mobileMenuOpen ? true : undefined}
+        aria-hidden={narrow && !mobileMenuOpen ? true : undefined}
+        role={mobileMenuOpen ? "dialog" : undefined}
+        aria-modal={mobileMenuOpen ? true : undefined}
+        aria-label={mobileMenuOpen ? "워크스페이스 메뉴" : undefined}
+        onKeyDown={(event) => {
+          if (
+            mobileMenuOpen &&
+            event.key === "Escape" &&
+            !event.defaultPrevented &&
+            !(event.target as HTMLElement).closest('[role="menu"]')
+          ) {
+            event.preventDefault();
+            closeMobileMenu();
+          }
+        }}
+      >
         <div className="sidebar-brand">
           <Link to="/dashboard" className="brand">
             <img src="/favicon.svg" alt="" />
@@ -486,8 +550,10 @@ function Shell() {
             hiddenFrom="md"
             variant="subtle"
             color="gray"
+            className="shell-menu-control"
+            data-autofocus={mobileMenuOpen || undefined}
             aria-label="메뉴 닫기"
-            onClick={() => setMobile(false)}
+            onClick={closeMobileMenu}
           >
             <IconX size={20} />
           </ActionIcon>
@@ -507,21 +573,23 @@ function Shell() {
         <nav className="sidebar-nav" aria-label="주 메뉴">
           {groups.map((group) => (
             <div className="nav-group" key={group.title}>
-              <button
-                className="nav-group-title"
-                onClick={() => group.admin && setCollapsed(!collapsed)}
-                aria-expanded={group.admin ? !collapsed : undefined}
-              >
-                {group.title}
-                {group.admin && (
+              {group.admin ? (
+                <button
+                  className="nav-group-title"
+                  onClick={() => setCollapsed(!collapsed)}
+                  aria-expanded={!collapsed}
+                >
+                  {group.title}
                   <IconChevronDown
                     size={14}
                     style={{
                       transform: collapsed ? "rotate(-90deg)" : undefined,
                     }}
                   />
-                )}
-              </button>
+                </button>
+              ) : (
+                <div className="nav-group-title">{group.title}</div>
+              )}
               {!(group.admin && collapsed) &&
                 group.items
                   .filter(
@@ -551,11 +619,14 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.2.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.3.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
-              <UnstyledButton className="profile-trigger">
+              <UnstyledButton
+                className="profile-trigger"
+                aria-label="프로필 및 개인화 메뉴"
+              >
                 <Avatar color="teal" radius="xl">
                   {(user?.name || user?.username || "H").slice(0, 1)}
                 </Avatar>
@@ -584,7 +655,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.2.0"}
+                hunter · 서비스 버전 v{config.version || "1.3.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -597,14 +668,19 @@ function Shell() {
           </Menu>
         </div>
       </aside>
-      <div className="main-shell">
+      <div className="main-shell" inert={mobileMenuOpen || undefined}>
         <header className="topbar">
           <Group gap="sm">
             <ActionIcon
               hiddenFrom="md"
               variant="subtle"
               color="gray"
+              ref={menuTrigger}
+              className="shell-menu-control"
               aria-label="메뉴 열기"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="workspace-navigation"
+              aria-haspopup="dialog"
               onClick={() => setMobile(true)}
             >
               <IconMenu2 />
@@ -649,7 +725,13 @@ function Shell() {
             </Avatar>
           </Group>
         </header>
-        <main className="main-content">
+        <main
+          className="main-content"
+          id="main-content"
+          ref={main}
+          tabIndex={-1}
+          aria-label={`${current?.label || "Hunter"} 본문`}
+        >
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
@@ -811,7 +893,8 @@ function Shell() {
       <QuickNavigation
         key={user?.id}
         opened={searchOpen}
-        onClose={() => setSearchOpen(false)}
+        onClose={closeQuickNavigation}
+        onExitTransitionEnd={afterQuickNavigationClose}
         onNavigate={navigate}
         entries={entries}
         userId={user?.id || ""}

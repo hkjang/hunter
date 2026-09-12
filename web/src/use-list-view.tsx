@@ -31,6 +31,7 @@ import {
   type ListSort,
 } from "./list-view";
 import "./list-view.css";
+import { useListPreferences } from "./list-tools";
 
 export function useListView<T>({
   rows,
@@ -46,6 +47,7 @@ export function useListView<T>({
   filters?: Record<string, (row: T, value: string) => boolean>;
 }) {
   const [params, setParams] = useSearchParams();
+  const presentation = useListPreferences();
   // Keep consecutive changes in the same event (clear/search/filter) atomic;
   // useSearchParams callbacks do not queue updates like React state setters.
   const latest = useRef(params);
@@ -86,6 +88,8 @@ export function useListView<T>({
   const filteredRows = sortRows(matched, columns, state.sort);
   const paged = paginateRows(filteredRows, state.page, state.pageSize);
   return {
+    ...presentation,
+    columns,
     ...state,
     ...paged,
     filteredRows,
@@ -166,7 +170,13 @@ export function ListSearch<T>({
             variant="subtle"
             color="gray"
             aria-label={`${caption} 지우기`}
-            onClick={() => view.setQuery("")}
+            onClick={(event) => {
+              event.currentTarget
+                .closest(".list-search")
+                ?.querySelector("input")
+                ?.focus({ preventScroll: true });
+              view.setQuery("");
+            }}
           >
             <IconX size={16} />
           </ActionIcon>
@@ -226,7 +236,13 @@ export function ListReset<T>({ view }: { view: ListView<T> }) {
       variant="subtle"
       color="gray"
       leftSection={<IconRefresh size={16} />}
-      onClick={view.reset}
+      onClick={(event) => {
+        event.currentTarget
+          .closest(".table-controls, .data-panel")
+          ?.querySelector<HTMLInputElement>(".list-search input")
+          ?.focus({ preventScroll: true });
+        view.reset();
+      }}
     >
       조건 초기화
     </Button>

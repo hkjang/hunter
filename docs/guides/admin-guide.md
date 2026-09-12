@@ -1,6 +1,6 @@
 # Hunter 관리자 가이드
 
-**버전 1.2.0 · 한국어 · 최종 갱신 2026-09-12**
+**버전 1.3.0 · 한국어 · 최종 갱신 2026-09-12**
 
 이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.
 
@@ -15,7 +15,7 @@
 Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.
 
 ~~~
-사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.2.0 → 사내 PostgreSQL
+사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.3.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -65,7 +65,7 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 | 사용자 접속 | 사내 DNS 이름과 HTTPS 종단 프록시 권장 |
 | 관리자 정보 | 초기 관리자 ID, 고유한 12~72바이트 비밀번호 |
 | 암호화 키 | 무작위 32바이트의 base64 인코딩 값 |
-| 반입 파일 | 릴리즈의 `hunter-v1.2.0.tar.gz`, compose.yaml, .env.example |
+| 반입 파일 | 릴리즈의 `hunter-v1.3.0.tar.gz`, compose.yaml, .env.example |
 | 백업 | DB 백업과 암호화 키를 분리하여 안전하게 보관할 위치 |
 
 서비스 자원은 사용량에 따라 산정합니다. 시작점으로 2 vCPU와 2~4 GiB 메모리를 두고 실제 응답 지연, 연결 수, 진단량에 따라 조정할 수 있으나, 이는 성능 검증 수치나 용량 보장이 아닙니다. 연결한 AI 모델의 메모리·가속기 자원은 Hunter 서버와 별개입니다.
@@ -79,8 +79,8 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.
 
 ~~~sh
-sha256sum hunter-v1.2.0.tar.gz
-gzip --test hunter-v1.2.0.tar.gz
+sha256sum hunter-v1.3.0.tar.gz
+gzip --test hunter-v1.3.0.tar.gz
 ~~~
 
 첨부 자산은 `hunter-v버전.tar.gz` 한 개이며 내부 이미지 이름은 `hunter:v버전`입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.
@@ -118,8 +118,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 ### 3.3 이미지 불러오기와 실행
 
 ~~~sh
-docker load -i hunter-v1.2.0.tar.gz
-docker image inspect hunter:v1.2.0
+docker load -i hunter-v1.3.0.tar.gz
+docker image inspect hunter:v1.3.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -191,7 +191,25 @@ PostgreSQL TLS는 DSN의 `sslmode=verify-full`과 `sslrootcert=/경로/ca.pem` �
 | 보안·세션 | 새 세션 유효 시간, 개인 키 최대 수명, 사내 신뢰 CA |
 | 역할·권한 | 팀장·분석가·열람자별 기능 권한 |
 
-비밀 설정은 조회할 때 원문을 반환하지 않습니다. 저장됨 표시로 여부를 확인하며 빈 입력은 기존 값을 유지합니다. API에서 명시적인 비밀 삭제 옵션을 제공하는 경우에만 삭제됩니다. 설정 화면의 일반 텍스트에 비밀번호를 넣지 않습니다.
+### 5.1 입력과 저장 상태 확인
+
+별표(*)가 붙은 항목은 필수이며 **설정 저장**은 현재 그룹에만 적용됩니다. 폼 아래에 `저장된 내용입니다`, `저장하지 않은 변경 사항이 있습니다`, `저장 중입니다…`, 저장 완료 시각을 표시합니다. 값이 달라진 그룹은 설정 메뉴에서도 표시합니다.
+
+필수값이나 URL·숫자 등의 형식이 잘못되면 폼 위의 오류 요약과 해당 입력 옆의 메시지를 확인합니다. 요약의 링크를 선택하면 문제가 있는 입력으로 이동합니다. 서버 저장 실패도 폼 안에 표시하며 입력값은 남아 있으므로 원인을 수정한 뒤 다시 저장할 수 있습니다. 성공 표시가 나타나기 전에 저장 완료로 판단하지 마세요.
+
+### 5.2 저장하지 않은 설정 그룹 이동
+
+현재 그룹을 변경한 상태에서 다른 설정 그룹을 선택하면 다음 중 하나를 고릅니다.
+
+- **계속 수정**: 현재 그룹으로 돌아가 입력을 계속합니다.
+- **입력 유지하고 이동**: 현재 입력을 저장하지 않고 화면에 보관한 채 다른 그룹을 확인합니다. 같은 설정 화면 안에서 돌아오면 입력을 이어갈 수 있습니다.
+- **저장 후 이동**: 현재 그룹을 저장한 뒤 선택한 그룹으로 이동합니다. 저장에 실패하면 오류를 해결해야 합니다.
+
+이 보관은 자동 저장이나 장기 초안 저장이 아닙니다. 브라우저 새로고침·탭 닫기에는 브라우저가 제공하는 미저장 경고가 표시될 수 있지만, 브라우저 정책과 사용자 조작에 따라 경고가 생략될 수 있습니다. 다른 업무 페이지로 떠나기 전에는 변경한 각 그룹을 직접 저장하세요.
+
+관리 목록에는 상단 결과 수·적용 조건별 해제·저장 보기·표 표시 설정을 제공합니다. 저장 보기와 행 간격은 **현재 브라우저의 사용자·메뉴별 설정**이며 관리자가 조직 전체 설정을 바꾸는 기능과 다릅니다. 보기 적용 시 첫 페이지부터 표시하며, 이름·조회 조건만 저장하고 현재 계정의 권한을 그대로 적용합니다. 자세한 절차는 [사용자 가이드](user-guide.html)를 참고하세요.
+
+비밀 설정은 조회할 때 원문을 반환하지 않습니다. 저장됨 표시로 여부를 확인하며 빈 입력은 기존 값을 유지합니다. API에서 명시적인 비밀 삭제 옵션을 제공하는 경우에만 삭제됩니다. 설정 화면의 일반 텍스트에 비밀번호를 넣지 않습니다. 설정·비밀번호 폼의 미저장 비밀값은 현재 화면의 메모리 초안이며 브라우저 저장 보기에 넣지 않습니다. 성공적으로 제출한 비밀 입력은 화면에서 비웁니다.
 
 ## 6. Keycloak OIDC SSO
 
@@ -402,7 +420,7 @@ docker run -d --name hunter-worker-dmz \
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.2.0 --worker-only --worker-id worker-dmz
+  hunter:v1.3.0 --worker-only --worker-id worker-dmz
 ~~~
 
 워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 **정확히 일치**해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.
@@ -616,7 +634,7 @@ docker compose up -d
 
 ~~~sh
 pg_restore --dbname="$RESTORE_POSTGRES_DSN" --no-owner hunter-backup.dump
-docker load -i hunter-v1.2.0.tar.gz
+docker load -i hunter-v1.3.0.tar.gz
 docker compose up -d
 ~~~
 
@@ -689,10 +707,10 @@ node scripts/check-docs.mjs
 ### 20.3 릴리즈 규칙
 
 ~~~sh
-bash scripts/release.sh 1.2.0
+bash scripts/release.sh 1.3.0
 ~~~
 
-스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.2.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.2.0` 서비스 이미지 하나만 들어갑니다.
+스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.3.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.3.0` 서비스 이미지 하나만 들어갑니다.
 
 GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 `docs`를 배포합니다. GitHub 저장소의 Pages 배포 소스는 **GitHub Actions**로 설정합니다.
 

@@ -34,6 +34,7 @@ export type QuickNavigationEntry = NavigationEntry & {
 export function QuickNavigation({
   opened,
   onClose,
+  onExitTransitionEnd,
   onNavigate,
   entries,
   userId,
@@ -41,6 +42,7 @@ export function QuickNavigation({
 }: {
   opened: boolean;
   onClose: () => void;
+  onExitTransitionEnd?: () => void;
   onNavigate: (path: string) => void;
   entries: QuickNavigationEntry[];
   userId: string;
@@ -144,6 +146,7 @@ export function QuickNavigation({
     <Modal
       opened={opened}
       onClose={onClose}
+      onExitTransitionEnd={onExitTransitionEnd}
       title="빠른 이동"
       size="lg"
       className="hunter-quick-navigation"

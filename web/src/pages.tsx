@@ -1,3 +1,4 @@
+import { ListTools, TableViewport } from "./list-tools";
 import { canReadAgents } from "./agent-permissions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -972,8 +973,13 @@ export function ReportsPage() {
                   <ListReset view={teams} />
                 </Group>
               </div>
+              <ListTools view={teams} />
               {teams.rows.length ? (
-                <Table.ScrollContainer minWidth={670}>
+                <TableViewport
+                  view={teams}
+                  label="조직별 보안 현황"
+                  minWidth={670}
+                >
                   <Table verticalSpacing="lg" horizontalSpacing="lg">
                     <Table.Thead>
                       <Table.Tr>
@@ -1015,7 +1021,7 @@ export function ReportsPage() {
                       ))}
                     </Table.Tbody>
                   </Table>
-                </Table.ScrollContainer>
+                </TableViewport>
               ) : (
                 <Empty
                   title={
@@ -1157,8 +1163,9 @@ export function ContributionsPage() {
                 <ListReset view={view} />
               </Group>
             </div>
+            <ListTools view={view} />
             {view.rows.length ? (
-              <Table.ScrollContainer minWidth={680}>
+              <TableViewport view={view} label="보안 기여" minWidth={680}>
                 <Table verticalSpacing="md" horizontalSpacing="lg">
                   <Table.Thead>
                     <Table.Tr>
@@ -1206,7 +1213,7 @@ export function ContributionsPage() {
                     ))}
                   </Table.Tbody>
                 </Table>
-              </Table.ScrollContainer>
+              </TableViewport>
             ) : (
               <Empty
                 title={

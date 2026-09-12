@@ -62,6 +62,8 @@ import {
   useSession,
 } from "./api";
 import { Empty, LoadState, PageHeader, Status } from "./components";
+import { ListTools, TableViewport } from "./list-tools";
+import { FormFeedback } from "./form-feedback";
 import {
   useListView,
   ListSearch,
@@ -804,6 +806,8 @@ export function FieldForm({
   scopes = [],
   scenarios = [],
   choices = {},
+  errors = {},
+  idPrefix,
 }: {
   fields: Field[];
   values: Row;
@@ -812,6 +816,8 @@ export function FieldForm({
   scopes?: Row[];
   scenarios?: Row[];
   choices?: Record<string, Row[]>;
+  errors?: Record<string, string>;
+  idPrefix?: string;
 }) {
   const { user } = useSession();
   const change = (key: string, v: any) => setValues({ ...values, [key]: v });
@@ -824,6 +830,8 @@ export function FieldForm({
             label: f.label,
             description: f.description,
             required: f.required,
+            error: errors[f.key],
+            id: idPrefix ? `${idPrefix}-${f.key}` : undefined,
           };
           let input;
           switch (f.type) {
@@ -1073,6 +1081,11 @@ export function ResourcePage({ kind }: { kind: string }) {
       profile: "http-baseline",
     });
   const [dispatch, setDispatch] = useState<Row | null>(null);
+  const [formError, setFormError] = useState("");
+  const [saveAttempt, setSaveAttempt] = useState(0);
+  useEffect(() => {
+    if (opened) setFormError("");
+  }, [opened]);
   const [history, setHistory] = useState<{
     name: string;
     rows: Row[];
@@ -1223,6 +1236,9 @@ export function ResourcePage({ kind }: { kind: string }) {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    setFormError("");
+    setSaveAttempt((value) => value + 1);
     setBusy(true);
     try {
       const body = formBody(cfg.fields, values);
@@ -1236,7 +1252,11 @@ export function ResourcePage({ kind }: { kind: string }) {
       setOpened(false);
       await reload();
     } catch (e) {
-      showError(e);
+      setFormError(
+        e instanceof Error
+          ? e.message
+          : "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
     } finally {
       setBusy(false);
     }
@@ -1545,11 +1565,28 @@ export function ResourcePage({ kind }: { kind: string }) {
             ))}
           </div>
         )}
+        <ListTools
+          view={list}
+          loading={loading}
+          failed={!!error}
+          filterLabels={Object.fromEntries(
+            Object.keys(list.filters).map((key) => [
+              key,
+              {
+                label: fieldLabels[key] || key,
+                value: (value: string) =>
+                  key === "service_id"
+                    ? serviceMap[value] || value
+                    : label(value),
+              },
+            ]),
+          )}
+        />
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
           (list.filteredRows.length ? (
-            <Table.ScrollContainer minWidth={760}>
+            <TableViewport view={list} label={cfg.singular} minWidth={760}>
               <Table
                 verticalSpacing="md"
                 horizontalSpacing="lg"
@@ -1769,7 +1806,7 @@ export function ResourcePage({ kind }: { kind: string }) {
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
+            </TableViewport>
           ) : (
             <Empty
               title={
@@ -1878,6 +1915,7 @@ export function ResourcePage({ kind }: { kind: string }) {
         size="xl"
       >
         <form onSubmit={save}>
+          <FormFeedback error={formError} focusKey={saveAttempt} />
           {kind === "scans" && (
             <Alert color="teal" mb="lg">
               HTTP 진단은 승인된 URL에 제한된 GET/HEAD 요청을 보내 실제 보안

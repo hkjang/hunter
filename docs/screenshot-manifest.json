@@ -42,6 +42,27 @@
     "mobile_path": "images/mobile-findings.png"
   },
   {
+    "name": "list-saved-view",
+    "path": "images/list-saved-view.png",
+    "title": "저장한 보기",
+    "description": "합성 API 자료: 사용자·메뉴별 목록 조건 저장",
+    "mobile_path": "images/mobile-list-saved-view.png"
+  },
+  {
+    "name": "list-display-settings",
+    "path": "images/list-display-settings.png",
+    "title": "표 표시 설정",
+    "description": "합성 API 자료: 행 간격과 표 전체 펼치기",
+    "mobile_path": "images/mobile-list-display-settings.png"
+  },
+  {
+    "name": "form-validation",
+    "path": "images/form-validation.png",
+    "title": "입력 오류 안내",
+    "description": "모의 저장 실패: 입력 내용 보존과 폼 안의 오류 안내",
+    "mobile_path": "images/mobile-form-validation.png"
+  },
+  {
     "name": "scans",
     "path": "images/scans.png",
     "title": "진단 작업",

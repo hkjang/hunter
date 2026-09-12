@@ -1,0 +1,60 @@
+/* Keyboard access for the shared shell; field sizes and typography stay local. */
+.skip-to-content {
+  position: fixed;
+  z-index: 1000;
+  top: 10px;
+  left: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 18px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: #123039;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 3px 14px #12303940;
+  transform: translateY(calc(-100% - 20px));
+}
+.skip-to-content:focus {
+  transform: translateY(0);
+  color: #fff;
+  outline: 3px solid #087f6b;
+  outline-offset: 2px;
+}
+.app-shell :is(a, button, input, textarea, select, [tabindex]):focus-visible,
+.hunter-quick-navigation :is(button, input, [tabindex]):focus-visible {
+  outline: 3px solid #087f6b;
+  outline-offset: 3px;
+}
+.sidebar :is(a, button, [tabindex]):focus-visible {
+  outline-color: #d5f9b0;
+  outline-offset: -3px;
+}
+.main-content [data-main-focus],
+.main-content :is(a, button, input, textarea, select, [tabindex]) {
+  scroll-margin-block: 24px;
+}
+.main-content [data-main-focus]:focus-visible,
+.main-content:focus-visible {
+  outline: 3px solid #087f6b;
+  outline-offset: 6px;
+}
+.sidebar-nav {
+  scroll-padding-block: 12px;
+}
+.sidebar button.nav-group-title {
+  min-height: 32px;
+  cursor: pointer;
+}
+.shell-menu-control {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+@media (forced-colors: active) {
+  .skip-to-content:focus,
+  .app-shell :focus-visible,
+  .hunter-quick-navigation :focus-visible {
+    outline-color: Highlight;
+  }
+}

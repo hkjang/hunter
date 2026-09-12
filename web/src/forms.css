@@ -1,0 +1,105 @@
+.form-feedback {
+  display: flex;
+  gap: 12px;
+  padding: 16px 18px;
+  margin-block: 0 20px;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: 9px;
+  line-height: 1.6;
+  font-size: 15px;
+}
+.form-feedback > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.form-feedback h3 {
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 0 0 5px;
+  font-weight: 700;
+}
+.form-feedback p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.form-feedback ul {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+.form-feedback a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.form-feedback-error {
+  border-color: #c34548;
+  color: #7b252b;
+  background: #fff7f6;
+}
+.form-feedback-error:focus {
+  outline: 3px solid #e4a82b;
+  outline-offset: 3px;
+}
+.form-feedback-success {
+  color: #146e58;
+  border-color: #a4d7c4;
+  background: #f1faf6;
+}
+.form-feedback .form-feedback-help {
+  margin-top: 7px;
+  color: #6a4c4d;
+  font-size: 14px;
+}
+.form-save-status {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: #486b61;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.form-save-status.is-dirty {
+  color: #92550d;
+}
+.form-fields {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.form-fields:disabled {
+  opacity: 0.72;
+}
+.form-required-hint {
+  margin: 0 0 20px;
+  color: #596e77;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.settings-navigation .settings-dirty-marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c17812;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.settings-panel .form-save-actions {
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .form-feedback {
+    padding: 14px;
+  }
+  .form-feedback h3 {
+    font-size: 16px;
+  }
+  .settings-panel .form-save-actions {
+    align-items: stretch;
+  }
+  .settings-panel .form-save-actions > button {
+    width: 100%;
+  }
+}

@@ -1,3 +1,4 @@
+import { ListTools, TableViewport } from "./list-tools";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
@@ -510,11 +511,28 @@ export function AgentsPage() {
             <ListReset view={view} />
           </Group>
         </div>
+        <ListTools
+          view={view}
+          loading={loading}
+          failed={!!error}
+          filterLabels={{
+            status: {
+              label: "상태",
+              value: (value) => runLabels[value] || value,
+            },
+            service: {
+              label: "서비스",
+              value: (value) =>
+                serviceOptions.find((item) => item.value === value)?.label ||
+                value,
+            },
+          }}
+        />
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
           (view.rows.length ? (
-            <Table.ScrollContainer minWidth={1060}>
+            <TableViewport view={view} label="에이전트 실행" minWidth={1060}>
               <Table
                 verticalSpacing="lg"
                 horizontalSpacing="lg"
@@ -592,7 +610,7 @@ export function AgentsPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
+            </TableViewport>
           ) : (
             <Empty
               title={

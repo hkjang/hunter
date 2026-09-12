@@ -32,6 +32,9 @@
 | `web/src/agents.tsx` | 에이전트 목록·상세 다섯 탭 |
 | `web/src/agent-events.ts`, `use-agent-run.ts` | SSE 이벤트 병합·재연결 |
 | `web/src/list-view.ts`, `use-list-view.tsx` | 검색·정렬·페이지 처리, URL 목록 상태와 공통 컨트롤 |
+| `web/src/list-tools.tsx`, `saved-list-views.ts` | 사용자·메뉴별 목록 보기, 결과 수·조건 해제·표 표시 설정 |
+| `web/src/form-feedback.tsx`, `form-state.ts` | 입력 오류 안내, 설정 그룹별 작성 내용 보존 |
+| `web/src/accessibility.ts`, `accessibility.css` | 본문 이동, 모바일 메뉴와 빠른 이동의 키보드 초점 |
 | `web/src/navigation.ts`, `quick-navigation.tsx` | 권한을 적용한 빠른 이동, 사용자별 즐겨찾기·최근 방문 |
 | `web/tests` | 프런트엔드 권한·이벤트 회귀 테스트 |
 | `internal/webassets/dist` | Go 실행 파일에 포함하는 프런트엔드 빌드 결과 |
@@ -168,6 +171,9 @@ python3 -m py_compile scripts/release-notes.py
 - 목록 검색·필터·정렬·페이지는 URL에 보존하고, 다른 상세 링크 매개변수를 지우지 않습니다.
 - 검색 인덱스에는 명시적으로 선택한 표시 필드만 사용하며 비밀값이나 전체 API 응답을 직렬화하지 않습니다.
 - 즐겨찾기·최근 방문은 사용자별로 분리하고 현재 권한과 관리자 승인 메뉴 설정을 적용합니다.
+- 저장한 목록 보기는 사용자·메뉴별로 분리하고 허용된 목록 조건만 보관합니다. 상세 ID·임의 URL 매개변수·폼 초안·비밀값을 저장하지 않습니다.
+- 설정 저장 후에는 저장한 그룹만 갱신하고 다른 그룹의 작성 중인 값을 덮어쓰지 않습니다.
+- 모바일 메뉴가 닫혔을 때 숨겨진 항목에 초점이 들어가지 않아야 합니다. 화면 이동과 팝업 닫힘의 초점 복귀를 함께 확인합니다.
 - 데스크톱과 모바일에서 글자 크기, 가로 넘침, 스크롤바, 오류·빈 상태를 확인합니다.
 - 변경한 페이지는 실제 앱에서 캡처하고 문서용 합성 자료임을 설명합니다.
 - 모의 AI 응답의 통합 검증을 실모델 품질이나 실제 취약점 탐지 성능으로 표현하지 않습니다.

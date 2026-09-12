@@ -23,6 +23,10 @@ await page.goto(base+'/admin/settings');await settle();
 for(const [tab,name] of [['SSO · 로그인','oidc'],['AI 분석','ai'],['에이전트 진단','agents'],['검토 · 승인','workflow'],['보안 · 세션','security'],['역할 · 권한','roles']]){await page.getByRole('button',{name:tab,exact:true}).click();await shot('admin-settings-'+name);}
 // Optional workflow is enabled only for the screenshot, then restored.
 let pendingID;
+const originalSettingsResponse=await context.request.get(base+'/api/settings');
+if(!originalSettingsResponse.ok())throw new Error('Cannot read workflow settings before capture');
+const originalWorkflow=(await originalSettingsResponse.json()).workflow;
+if(!originalWorkflow)throw new Error('Missing workflow settings before capture');
 try {
  const setting=await context.request.put(base+'/api/settings/workflow',{headers:{'X-Hunter-CSRF':'1'},data:{approval_enabled:true}});if(!setting.ok())throw new Error('Workflow enable failed');
  const fixtures=JSON.parse(await readFile('.tmp/demo-fixtures.json','utf8'));
@@ -30,7 +34,8 @@ try {
  await page.goto(base+'/approvals');await shot('approvals');await page.setViewportSize({width:390,height:844});await shot('mobile-approvals');await page.setViewportSize({width:1512,height:1050});
 } finally {
  if(pendingID)await context.request.post(base+`/api/scans/${pendingID}/cancel`,{headers:{'X-Hunter-CSRF':'1'}});
- await context.request.put(base+'/api/settings/workflow',{headers:{'X-Hunter-CSRF':'1'},data:{approval_enabled:false}});
+ const restored=await context.request.put(base+'/api/settings/workflow',{headers:{'X-Hunter-CSRF':'1'},data:originalWorkflow});
+ if(!restored.ok())throw new Error('Workflow restore failed');
 }
 await page.goto(base+'/dashboard');await settle();await page.locator('.profile-trigger').click();await page.getByText('hunter · 서비스 버전 v'+version,{exact:true}).waitFor();await shot('profile-menu');await page.keyboard.press('Escape');
 const mobile=[];

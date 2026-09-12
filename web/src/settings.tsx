@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { ListTools, TableViewport } from "./list-tools";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
@@ -66,6 +67,18 @@ import {
   SortHeader,
   useListView,
 } from "./use-list-view";
+import {
+  FormFeedback,
+  SaveStatus,
+  useUnsavedChanges,
+  type FormIssue,
+} from "./form-feedback";
+import {
+  changed,
+  invalidFields,
+  reconcileDrafts,
+  requiredIssues,
+} from "./form-state";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
   label: `${scopeNames[s]} · ${s}`,
@@ -273,44 +286,124 @@ const settingFields: Record<string, Field[]> = {
     },
   ],
 };
+function settingsGroupValues(group: string, data?: Row): Row {
+  if (group === "roles") return data || {};
+  const values = initialValues(settingFields[group] || [], data);
+  if (group === "oidc") values.clear_client_secret = false;
+  if (group === "ai") values.clear_api_key = false;
+  return values;
+}
+type SaveFeedback = {
+  error?: string;
+  issues?: FormIssue[];
+  attempt?: number;
+  savedAt?: string;
+};
+
 export function SettingsPage() {
-  const { data, loading, error, reload } = useData<Row>("/api/settings");
+  const { data, loading, error, reload, setData } =
+    useData<Row>("/api/settings");
   const { refreshConfig, config } = useSession();
   const [params, setParams] = useSearchParams();
   const tab = settingGroups.some(([key]) => key === params.get("tab"))
     ? params.get("tab")!
     : "general";
-  function setTab(value: string) {
+  function moveTab(value: string) {
     const next = new URLSearchParams(params);
     next.set("tab", value);
     setParams(next, { replace: true });
   }
   const [values, setValues] = useState<Row>({}),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [feedback, setFeedback] = useState<Record<string, SaveFeedback>>({}),
+    [pendingTab, setPendingTab] = useState<string | null>(null);
+  const baseline = useRef<Row>({});
+  const form = useRef<HTMLFormElement>(null);
+  const pendingSaveTab = useRef<string | null>(null);
+  const dirtyGroups = settingGroups
+    .filter(([group]) => changed(baseline.current[group], values[group]))
+    .map(([group]) => group);
+  const dirty = dirtyGroups.includes(tab);
+  const currentFeedback = feedback[tab] || {};
+  useUnsavedChanges(dirtyGroups.length > 0);
+  function setTab(value: string) {
+    if (busy || value === tab) return;
+    if (dirty) setPendingTab(value);
+    else moveTab(value);
+  }
   useEffect(() => {
     if (data) {
       const next: Row = {};
       for (const [g] of settingGroups)
-        next[g] =
-          g === "roles"
-            ? data.roles || {}
-            : initialValues(settingFields[g] || [], data[g]);
-      setValues(next);
+        next[g] = settingsGroupValues(g, data[g]);
+      const previous = baseline.current;
+      baseline.current = next;
+      setValues((current) => reconcileDrafts(previous, current, next));
     }
   }, [data]);
-  async function save() {
-    if (!tab) return;
+  async function save(nextTab?: string) {
+    if (busy) return;
+    const group = tab;
+    const required = requiredIssues(
+      (settingFields[group] || [])
+        .filter((field) => field.required)
+        .map((field) => ({
+          fieldId: `settings-${group}-${field.key}`,
+          label: field.label,
+          value: values[group]?.[field.key],
+        })),
+    );
+    const issues = [
+      ...new Map(
+        [...required, ...(form.current ? invalidFields(form.current) : [])].map(
+          (issue) => [issue.fieldId || issue.message, issue],
+        ),
+      ).values(),
+    ];
+    setFeedback((previous) => ({
+      ...previous,
+      [group]: {
+        ...previous[group],
+        error: undefined,
+        issues,
+        attempt: (previous[group]?.attempt || 0) + 1,
+      },
+    }));
+    if (issues.length) return;
+    const submitted = values[group] || {};
     setBusy(true);
     try {
-      await api(`/api/settings/${tab}`, {
+      const saved = await api<Row>(`/api/settings/${group}`, {
         method: "PUT",
-        body: JSON.stringify(values[tab] || {}),
+        body: JSON.stringify(submitted),
       });
-      success("서비스 설정을 저장했습니다");
+      const normalized = settingsGroupValues(group, saved);
+      baseline.current = { ...baseline.current, [group]: normalized };
+      setValues((current) => ({
+        ...current,
+        [group]: changed(submitted, current[group])
+          ? current[group]
+          : normalized,
+      }));
+      setData((current) => ({ ...current, [group]: saved }));
+      setFeedback((previous) => ({
+        ...previous,
+        [group]: { savedAt: new Date().toISOString() },
+      }));
       refreshConfig();
-      await reload();
+      if (nextTab) moveTab(nextTab);
     } catch (e) {
-      showError(e);
+      setFeedback((previous) => ({
+        ...previous,
+        [group]: {
+          ...previous[group],
+          error:
+            e instanceof Error
+              ? e.message
+              : "설정을 저장하지 못했습니다. 다시 시도하세요.",
+          attempt: (previous[group]?.attempt || 0) + 1,
+        },
+      }));
     } finally {
       setBusy(false);
     }
@@ -331,193 +424,276 @@ export function SettingsPage() {
                 key={key}
                 className={tab === key ? "selected" : ""}
                 onClick={() => setTab(key)}
+                disabled={busy}
+                aria-current={tab === key ? "page" : undefined}
               >
                 <Icon size={20} />
                 <span>{title}</span>
+                {dirtyGroups.includes(key) && (
+                  <span
+                    className="settings-dirty-marker"
+                    role="img"
+                    aria-label={`${title} 저장하지 않은 변경`}
+                  />
+                )}
               </button>
             ))}
           </div>
           <Paper
             className={`settings-panel${tab === "agents" ? " agent-settings" : ""}`}
           >
-            <div className="settings-panel-head">
-              <span className="settings-section-icon">
-                {tab === "ai" ? (
-                  <IconSparkles />
-                ) : tab === "oidc" ? (
-                  <IconShieldCheck />
-                ) : (
-                  <IconSettings />
-                )}
-              </span>
-              <div>
-                <h2>{settingGroups.find((g) => g[0] === tab)?.[1]}</h2>
-                <p>
-                  {tab === "roles"
-                    ? "역할별 접근 가능한 기능을 정의합니다. 개인 키 권한은 소유자 권한을 초과할 수 없습니다."
-                    : "워크스페이스의 설정을 확인하고 변경하세요."}
-                </p>
-              </div>
-            </div>
-            {tab === "roles" ? (
-              <Stack gap="xl">
-                {["admin", "lead", "analyst", "viewer"].map((role) => (
-                  <div key={role}>
-                    <MultiSelect
-                      label={label(role)}
-                      description={
-                        role === "admin"
-                          ? "서비스 관리자는 전체 관리 권한을 가집니다."
-                          : "이 역할에 부여할 권한을 선택하세요."
-                      }
-                      data={scopesOptions}
-                      value={values.roles?.[role] || []}
-                      onChange={(v) =>
-                        setValues({
-                          ...values,
-                          roles: { ...values.roles, [role]: v },
-                        })
-                      }
-                      searchable
-                      disabled={role === "admin"}
-                    />
-                  </div>
-                ))}
-              </Stack>
-            ) : (
-              <FieldForm
-                fields={settingFields[tab || "general"] || []}
-                values={values[tab || "general"] || {}}
-                setValues={(v) =>
-                  setValues({ ...values, [tab || "general"]: v })
-                }
+            <form
+              ref={form}
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                void save();
+              }}
+            >
+              <FormFeedback
+                error={currentFeedback.error}
+                issues={currentFeedback.issues}
+                focusKey={currentFeedback.attempt}
               />
-            )}
-            {tab === "oidc" && (
-              <Alert color="teal" mt="xl" title="Keycloak 연결 안내">
-                <Text size="sm">
-                  Client authentication을 활성화하고 Standard flow를 사용하세요.
-                  Valid redirect URI에 다음 주소를 등록하면 됩니다.
-                </Text>
-                <Code
-                  block
-                  mt="sm"
-                >{`${values.general?.public_url || window.location.origin}/api/auth/oidc/callback`}</Code>
-                {data.oidc?.client_secret_configured && (
-                  <>
-                    <Badge mt="md" color="teal" variant="light">
-                      Client Secret 저장됨
-                    </Badge>
-                    <Checkbox
-                      mt="md"
-                      label="저장된 Client Secret 삭제"
-                      checked={!!values.oidc?.clear_client_secret}
-                      onChange={(e) =>
-                        setValues({
-                          ...values,
-                          oidc: {
-                            ...values.oidc,
-                            clear_client_secret: e.currentTarget.checked,
-                          },
-                        })
-                      }
-                    />
-                  </>
+              <div className="settings-panel-head">
+                <span className="settings-section-icon">
+                  {tab === "ai" ? (
+                    <IconSparkles />
+                  ) : tab === "oidc" ? (
+                    <IconShieldCheck />
+                  ) : (
+                    <IconSettings />
+                  )}
+                </span>
+                <div>
+                  <h2>{settingGroups.find((g) => g[0] === tab)?.[1]}</h2>
+                  <p>
+                    {tab === "roles"
+                      ? "역할별 접근 가능한 기능을 정의합니다. 개인 키 권한은 소유자 권한을 초과할 수 없습니다."
+                      : "워크스페이스의 설정을 확인하고 변경하세요."}
+                  </p>
+                </div>
+              </div>
+              <p className="form-required-hint">
+                별표(*) 항목은 필수입니다. 현재 설정 그룹만 저장됩니다.
+              </p>
+              <fieldset className="form-fields" disabled={busy}>
+                {tab === "roles" ? (
+                  <Stack gap="xl">
+                    {["admin", "lead", "analyst", "viewer"].map((role) => (
+                      <div key={role}>
+                        <MultiSelect
+                          label={label(role)}
+                          description={
+                            role === "admin"
+                              ? "서비스 관리자는 전체 관리 권한을 가집니다."
+                              : "이 역할에 부여할 권한을 선택하세요."
+                          }
+                          data={scopesOptions}
+                          value={values.roles?.[role] || []}
+                          onChange={(v) =>
+                            setValues({
+                              ...values,
+                              roles: { ...values.roles, [role]: v },
+                            })
+                          }
+                          searchable
+                          disabled={role === "admin"}
+                        />
+                      </div>
+                    ))}
+                  </Stack>
+                ) : (
+                  <FieldForm
+                    idPrefix={`settings-${tab}`}
+                    errors={Object.fromEntries(
+                      (currentFeedback.issues || [])
+                        .filter((issue) =>
+                          issue.fieldId?.startsWith(`settings-${tab}-`),
+                        )
+                        .map((issue) => [
+                          issue.fieldId!.slice(`settings-${tab}-`.length),
+                          issue.message,
+                        ]),
+                    )}
+                    fields={settingFields[tab || "general"] || []}
+                    values={values[tab || "general"] || {}}
+                    setValues={(v) =>
+                      setValues({ ...values, [tab || "general"]: v })
+                    }
+                  />
                 )}
-                <Text size="sm" mt="sm">
-                  SSO를 활성화해도 초기 로컬 관리자 계정은 로그인할 수 있습니다.
-                </Text>
-              </Alert>
-            )}
-            {tab === "ai" && (
-              <Alert
-                color="teal"
-                mt="xl"
-                title="기본 스트리밍 · 사람 중심의 분석"
-              >
-                <Text size="sm">
-                  AI 응답은 SSE로 실시간 표시합니다. 분석 도우미는 발견 내용을
-                  설명하고 개선안을 제안합니다. 에이전트 진단은 별도 설정에서
-                  활성화하며 허용된 도구와 실행 한도를 적용합니다.
-                </Text>
-                {data.ai?.api_key_configured && (
-                  <>
-                    <Badge mt="sm" color="teal" variant="light">
-                      AI API 키 저장됨
-                    </Badge>
-                    <Checkbox
-                      mt="md"
-                      label="저장된 AI API 키 삭제"
-                      checked={!!values.ai?.clear_api_key}
-                      onChange={(e) =>
-                        setValues({
-                          ...values,
-                          ai: {
-                            ...values.ai,
-                            clear_api_key: e.currentTarget.checked,
-                          },
-                        })
-                      }
-                    />
-                  </>
+                {tab === "oidc" && (
+                  <Alert color="teal" mt="xl" title="Keycloak 연결 안내">
+                    <Text size="sm">
+                      Client authentication을 활성화하고 Standard flow를
+                      사용하세요. Valid redirect URI에 다음 주소를 등록하면
+                      됩니다.
+                    </Text>
+                    <Code
+                      block
+                      mt="sm"
+                    >{`${values.general?.public_url || window.location.origin}/api/auth/oidc/callback`}</Code>
+                    {data.oidc?.client_secret_configured && (
+                      <>
+                        <Badge mt="md" color="teal" variant="light">
+                          Client Secret 저장됨
+                        </Badge>
+                        <Checkbox
+                          mt="md"
+                          label="저장된 Client Secret 삭제"
+                          checked={!!values.oidc?.clear_client_secret}
+                          onChange={(e) =>
+                            setValues({
+                              ...values,
+                              oidc: {
+                                ...values.oidc,
+                                clear_client_secret: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </>
+                    )}
+                    <Text size="sm" mt="sm">
+                      SSO를 활성화해도 초기 로컬 관리자 계정은 로그인할 수
+                      있습니다.
+                    </Text>
+                  </Alert>
                 )}
-              </Alert>
-            )}
-            {tab === "agents" && (
-              <Alert
-                color="teal"
-                mt="xl"
-                title="PentAGI 코어 · 제한된 도구 실행"
-              >
-                <Text size="sm">
-                  작업 분해와 역할 위임에 PentAGI MIT 코어를 사용합니다. 서비스
-                  정보, 발견 건 조회, 허용된 진단 요청과 결과 조회, 후보 기록,
-                  기억 저장·조회의 7개 도구를 제공합니다.
-                </Text>
-                <Text size="sm" mt="sm">
-                  기존에 저장한 역할 설정에는 새 권한이 자동 추가되지 않을 수
-                  있습니다. 역할 · 권한에서 에이전트·서비스·발견 건·진단 조회
-                  권한을 모두 확인하세요. 실행에는 에이전트 실행 권한과 AI 사용
-                  권한도 필요합니다.
-                </Text>
-                <Text size="sm" c="dimmed" mt="md">
-                  출처: vxcontrol/pentagi · MIT License · 커밋{" "}
-                  {config.agent_upstream_commit || "서버 출처 정보 확인 중"}
-                </Text>
-              </Alert>
-            )}
-            {tab === "workflow" && (
-              <Alert
-                color="teal"
-                mt="xl"
-                title={
-                  values.workflow?.approval_enabled
-                    ? "팀장 검토 절차가 적용됩니다"
-                    : "팀장 검토 절차가 제외됩니다"
-                }
-              >
-                <Text size="sm">
-                  팀장 검토 사용 여부와 관계없이 네트워크 진단에는 관리자에게
-                  승인받은 서비스와 유효한 진단 허용 범위가 필요합니다.
-                </Text>
-              </Alert>
-            )}
-            <Divider my="xl" />
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                환경변수 변경이나 재배포 없이 관리할 수 있습니다.
-              </Text>
-              <Button
-                loading={busy}
-                leftSection={<IconCheck size={18} />}
-                onClick={save}
-              >
-                설정 저장
-              </Button>
-            </Group>
+                {tab === "ai" && (
+                  <Alert
+                    color="teal"
+                    mt="xl"
+                    title="기본 스트리밍 · 사람 중심의 분석"
+                  >
+                    <Text size="sm">
+                      AI 응답은 SSE로 실시간 표시합니다. 분석 도우미는 발견
+                      내용을 설명하고 개선안을 제안합니다. 에이전트 진단은 별도
+                      설정에서 활성화하며 허용된 도구와 실행 한도를 적용합니다.
+                    </Text>
+                    {data.ai?.api_key_configured && (
+                      <>
+                        <Badge mt="sm" color="teal" variant="light">
+                          AI API 키 저장됨
+                        </Badge>
+                        <Checkbox
+                          mt="md"
+                          label="저장된 AI API 키 삭제"
+                          checked={!!values.ai?.clear_api_key}
+                          onChange={(e) =>
+                            setValues({
+                              ...values,
+                              ai: {
+                                ...values.ai,
+                                clear_api_key: e.currentTarget.checked,
+                              },
+                            })
+                          }
+                        />
+                      </>
+                    )}
+                  </Alert>
+                )}
+                {tab === "agents" && (
+                  <Alert
+                    color="teal"
+                    mt="xl"
+                    title="PentAGI 코어 · 제한된 도구 실행"
+                  >
+                    <Text size="sm">
+                      작업 분해와 역할 위임에 PentAGI MIT 코어를 사용합니다.
+                      서비스 정보, 발견 건 조회, 허용된 진단 요청과 결과 조회,
+                      후보 기록, 기억 저장·조회의 7개 도구를 제공합니다.
+                    </Text>
+                    <Text size="sm" mt="sm">
+                      기존에 저장한 역할 설정에는 새 권한이 자동 추가되지 않을
+                      수 있습니다. 역할 · 권한에서 에이전트·서비스·발견 건·진단
+                      조회 권한을 모두 확인하세요. 실행에는 에이전트 실행 권한과
+                      AI 사용 권한도 필요합니다.
+                    </Text>
+                    <Text size="sm" c="dimmed" mt="md">
+                      출처: vxcontrol/pentagi · MIT License · 커밋{" "}
+                      {config.agent_upstream_commit || "서버 출처 정보 확인 중"}
+                    </Text>
+                  </Alert>
+                )}
+                {tab === "workflow" && (
+                  <Alert
+                    color="teal"
+                    mt="xl"
+                    title={
+                      values.workflow?.approval_enabled
+                        ? "팀장 검토 절차가 적용됩니다"
+                        : "팀장 검토 절차가 제외됩니다"
+                    }
+                  >
+                    <Text size="sm">
+                      팀장 검토 사용 여부와 관계없이 네트워크 진단에는
+                      관리자에게 승인받은 서비스와 유효한 진단 허용 범위가
+                      필요합니다.
+                    </Text>
+                  </Alert>
+                )}
+              </fieldset>
+              <Divider my="xl" />
+              <Group justify="space-between" className="form-save-actions">
+                <SaveStatus
+                  dirty={dirty}
+                  saving={busy}
+                  savedAt={currentFeedback.savedAt}
+                />
+                <Button
+                  loading={busy}
+                  leftSection={<IconCheck size={18} />}
+                  type="submit"
+                >
+                  설정 저장
+                </Button>
+              </Group>
+            </form>
           </Paper>
         </div>
       )}
+      <Modal
+        opened={!!pendingTab}
+        onClose={() => setPendingTab(null)}
+        onExitTransitionEnd={() => {
+          const target = pendingSaveTab.current;
+          pendingSaveTab.current = null;
+          if (target) void save(target);
+        }}
+        title="저장하지 않은 설정이 있습니다"
+        centered
+      >
+        <Text>
+          ‘{settingGroups.find(([group]) => group === tab)?.[1]}’의 변경 사항이
+          아직 적용되지 않았습니다. 저장한 뒤 이동하거나 현재 입력을 유지할 수
+          있습니다.
+        </Text>
+        <Group justify="flex-end" mt="xl">
+          <Button variant="default" onClick={() => setPendingTab(null)}>
+            계속 수정
+          </Button>
+          <Button
+            variant="light"
+            onClick={() => {
+              if (pendingTab) moveTab(pendingTab);
+              setPendingTab(null);
+            }}
+          >
+            입력 유지하고 이동
+          </Button>
+          <Button
+            onClick={() => {
+              pendingSaveTab.current = pendingTab;
+              setPendingTab(null);
+            }}
+          >
+            저장 후 이동
+          </Button>
+        </Group>
+      </Modal>
     </>
   );
 }
@@ -529,35 +705,91 @@ export function ProfilePage() {
     [current, setCurrent] = useState(""),
     [password, setPassword] = useState(""),
     [confirm, setConfirm] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState<"profile" | "password" | null>(null),
+    [profileFeedback, setProfileFeedback] = useState<SaveFeedback>({}),
+    [passwordFeedback, setPasswordFeedback] = useState<SaveFeedback>({});
+  const profileBaseline = useRef<Row | null>(null);
+  const profileDirty =
+    profileBaseline.current !== null &&
+    changed(profileBaseline.current, { name, preferences: pref });
+  const passwordDirty = !!(current || password || confirm);
+  useUnsavedChanges(profileDirty || passwordDirty);
   useEffect(() => {
     if (data) {
-      setName(data.name || data.user?.name || "");
-      setPref(data.preferences || data.user?.preferences || {});
+      const next = {
+        name: data.name || data.user?.name || "",
+        preferences: data.preferences || data.user?.preferences || {},
+      };
+      if (
+        !profileBaseline.current ||
+        !changed(profileBaseline.current, { name, preferences: pref })
+      ) {
+        setName(next.name);
+        setPref(next.preferences);
+      }
+      profileBaseline.current = next;
     }
   }, [data]);
-  async function save() {
-    setBusy(true);
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const issues = [
+      ...new Map(
+        [
+          ...requiredIssues([
+            { fieldId: "profile-name", label: "표시 이름", value: name },
+          ]),
+          ...invalidFields(event.currentTarget),
+        ].map((issue) => [issue.fieldId || issue.message, issue]),
+      ).values(),
+    ];
+    setProfileFeedback((previous) => ({
+      ...previous,
+      error: undefined,
+      issues,
+      attempt: (previous.attempt || 0) + 1,
+    }));
+    if (issues.length) return;
+    const submitted = { name, preferences: pref };
+    setBusy("profile");
     try {
       await api("/api/profile", {
         method: "PUT",
-        body: JSON.stringify({ name, preferences: pref }),
+        body: JSON.stringify(submitted),
       });
-      if (user) setUser({ ...user, name, preferences: pref });
-      success("프로필을 저장했습니다");
+      profileBaseline.current = submitted;
+      if (user) setUser({ ...user, ...submitted });
+      setProfileFeedback({ savedAt: new Date().toISOString() });
     } catch (e) {
-      showError(e);
+      setProfileFeedback((previous) => ({
+        ...previous,
+        error:
+          e instanceof Error
+            ? e.message
+            : "프로필을 저장하지 못했습니다. 다시 시도하세요.",
+        attempt: (previous.attempt || 0) + 1,
+      }));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
-  async function changePassword(e: React.FormEvent) {
+  async function changePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (password !== confirm) {
-      showError(new Error("새 비밀번호가 일치하지 않습니다."));
-      return;
-    }
-    setBusy(true);
+    if (busy) return;
+    const issues = invalidFields(e.currentTarget);
+    if (confirm && password !== confirm)
+      issues.push({
+        fieldId: "profile-confirm-password",
+        message: "새 비밀번호와 확인 값을 같게 입력하세요.",
+      });
+    setPasswordFeedback((previous) => ({
+      ...previous,
+      error: undefined,
+      issues,
+      attempt: (previous.attempt || 0) + 1,
+    }));
+    if (issues.length) return;
+    setBusy("password");
     try {
       await api("/api/profile/password", {
         method: "POST",
@@ -566,14 +798,21 @@ export function ProfilePage() {
           new_password: password,
         }),
       });
-      success("비밀번호를 변경했습니다");
       setCurrent("");
       setPassword("");
       setConfirm("");
+      setPasswordFeedback({ savedAt: new Date().toISOString() });
     } catch (e) {
-      showError(e);
+      setPasswordFeedback((previous) => ({
+        ...previous,
+        error:
+          e instanceof Error
+            ? e.message
+            : "비밀번호를 변경하지 못했습니다. 다시 시도하세요.",
+        attempt: (previous.attempt || 0) + 1,
+      }));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
   return (
@@ -587,44 +826,73 @@ export function ProfilePage() {
       {!loading && !error && (
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
           <Paper className="content-card">
-            <div className="profile-card-header">
-              <div className="profile-monogram">
-                {(user?.name || user?.username || "H")[0]}
-              </div>
-              <div>
-                <h2>{user?.name || user?.username}</h2>
-                <Badge color="teal" variant="light">
-                  {label(user?.role)}
-                </Badge>
-              </div>
-            </div>
-            <Stack mt="xl">
-              <TextInput label="아이디" value={user?.username || ""} disabled />
-              <TextInput
-                label="표시 이름"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
+            <form noValidate onSubmit={save}>
+              <FormFeedback
+                error={profileFeedback.error}
+                issues={profileFeedback.issues}
+                focusKey={profileFeedback.attempt}
               />
-              <Select
-                label="기본 시작 화면"
-                data={[
-                  { value: "/dashboard", label: "보안 현황" },
-                  { value: "/services", label: "서비스 자산" },
-                  { value: "/findings", label: "발견 건" },
-                ]}
-                value={pref.home_page || "/dashboard"}
-                onChange={(v) => setPref({ ...pref, home_page: v })}
-              />
-              <Text size="sm" c="dimmed">
-                저장한 시작 화면은 다음 로그인에 적용됩니다.
-              </Text>
-              <Group justify="flex-end">
-                <Button loading={busy} onClick={save}>
+              <div className="profile-card-header">
+                <div className="profile-monogram">
+                  {(user?.name || user?.username || "H")[0]}
+                </div>
+                <div>
+                  <h2>{user?.name || user?.username}</h2>
+                  <Badge color="teal" variant="light">
+                    {label(user?.role)}
+                  </Badge>
+                </div>
+              </div>
+              <p className="form-required-hint">별표(*) 항목은 필수입니다.</p>
+              <fieldset className="form-fields" disabled={!!busy}>
+                <Stack mt="xl">
+                  <TextInput
+                    label="아이디"
+                    value={user?.username || ""}
+                    disabled
+                  />
+                  <TextInput
+                    label="표시 이름"
+                    id="profile-name"
+                    error={
+                      profileFeedback.issues?.find(
+                        (issue) => issue.fieldId === "profile-name",
+                      )?.message
+                    }
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                  <Select
+                    label="기본 시작 화면"
+                    data={[
+                      { value: "/dashboard", label: "보안 현황" },
+                      { value: "/services", label: "서비스 자산" },
+                      { value: "/findings", label: "발견 건" },
+                    ]}
+                    value={pref.home_page || "/dashboard"}
+                    onChange={(v) => setPref({ ...pref, home_page: v })}
+                  />
+                  <Text size="sm" c="dimmed">
+                    저장한 시작 화면은 다음 로그인에 적용됩니다.
+                  </Text>
+                </Stack>
+              </fieldset>
+              <Group justify="space-between" mt="xl">
+                <SaveStatus
+                  dirty={profileDirty}
+                  saving={busy === "profile"}
+                  savedAt={profileFeedback.savedAt}
+                />
+                <Button
+                  loading={busy === "profile"}
+                  disabled={!!busy}
+                  type="submit"
+                >
                   프로필 저장
                 </Button>
               </Group>
-            </Stack>
+            </form>
           </Paper>
           <Paper className="content-card">
             <h2>비밀번호 변경</h2>
@@ -632,37 +900,81 @@ export function ProfilePage() {
               로컬 계정의 비밀번호를 변경합니다. SSO 비밀번호는 사내 인증
               시스템에서 관리하세요.
             </Text>
-            <form onSubmit={changePassword}>
-              <Stack>
-                <PasswordInput
-                  label="현재 비밀번호"
-                  required
-                  autoComplete="current-password"
-                  value={current}
-                  onChange={(e) => setCurrent(e.target.value)}
-                />
-                <PasswordInput
-                  label="새 비밀번호"
-                  description="12자 이상의 비밀번호를 사용하세요."
-                  minLength={12}
-                  required
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <PasswordInput
-                  label="새 비밀번호 확인"
-                  required
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                />
-                <Group justify="flex-end" mt="sm">
-                  <Button variant="light" type="submit" loading={busy}>
-                    비밀번호 변경
-                  </Button>
-                </Group>
-              </Stack>
+            <form noValidate onSubmit={changePassword}>
+              <FormFeedback
+                error={passwordFeedback.error}
+                issues={passwordFeedback.issues}
+                focusKey={passwordFeedback.attempt}
+                success={
+                  passwordFeedback.savedAt && !passwordDirty
+                    ? "비밀번호를 변경했습니다."
+                    : undefined
+                }
+              />
+              <p className="form-required-hint">
+                세 항목을 모두 입력하세요. 입력값은 이 화면에만 유지됩니다.
+              </p>
+              <fieldset className="form-fields" disabled={!!busy}>
+                <Stack>
+                  <PasswordInput
+                    label="현재 비밀번호"
+                    id="profile-current-password"
+                    error={
+                      passwordFeedback.issues?.find(
+                        (issue) => issue.fieldId === "profile-current-password",
+                      )?.message
+                    }
+                    required
+                    autoComplete="current-password"
+                    value={current}
+                    onChange={(e) => setCurrent(e.target.value)}
+                  />
+                  <PasswordInput
+                    label="새 비밀번호"
+                    id="profile-new-password"
+                    error={
+                      passwordFeedback.issues?.find(
+                        (issue) => issue.fieldId === "profile-new-password",
+                      )?.message
+                    }
+                    description="12자 이상의 비밀번호를 사용하세요."
+                    minLength={12}
+                    required
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <PasswordInput
+                    label="새 비밀번호 확인"
+                    id="profile-confirm-password"
+                    error={
+                      passwordFeedback.issues?.find(
+                        (issue) => issue.fieldId === "profile-confirm-password",
+                      )?.message
+                    }
+                    required
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                  />
+                </Stack>
+              </fieldset>
+              <Group justify="space-between" mt="xl">
+                {(passwordDirty || busy === "password") && (
+                  <SaveStatus
+                    dirty={passwordDirty}
+                    saving={busy === "password"}
+                  />
+                )}
+                <Button
+                  variant="light"
+                  type="submit"
+                  loading={busy === "password"}
+                  disabled={!!busy}
+                >
+                  비밀번호 변경
+                </Button>
+              </Group>
             </form>
           </Paper>
         </SimpleGrid>
@@ -873,11 +1185,27 @@ export function KeysPage() {
             </ActionIcon>
           </Group>
         </div>
+        <ListTools
+          view={view}
+          loading={loading}
+          failed={!!error}
+          filterLabels={{
+            status: {
+              label: "상태",
+              value: (value) =>
+                keyStateLabels[value as keyof typeof keyStateLabels] || value,
+            },
+            scope: {
+              label: "권한",
+              value: (value) => scopeNames[value] || value,
+            },
+          }}
+        />
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
           (view.rows.length ? (
-            <Table.ScrollContainer minWidth={980}>
+            <TableViewport view={view} label="개인 API 키" minWidth={980}>
               <Table verticalSpacing="md" horizontalSpacing="lg">
                 <Table.Thead>
                   <Table.Tr>
@@ -983,7 +1311,7 @@ export function KeysPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
+            </TableViewport>
           ) : (
             <Empty
               title={
@@ -1308,11 +1636,29 @@ export function UsersPage() {
             <ListReset view={view} />
           </Group>
         </div>
+        <ListTools
+          view={view}
+          loading={loading}
+          failed={!!error}
+          filterLabels={{
+            role: { label: "역할" },
+            status: {
+              label: "상태",
+              value: (value) =>
+                value === "active"
+                  ? "활성"
+                  : value === "disabled"
+                    ? "비활성"
+                    : value,
+            },
+            team: { label: "담당 조직" },
+          }}
+        />
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
           (view.rows.length ? (
-            <Table.ScrollContainer minWidth={940}>
+            <TableViewport view={view} label="사용자" minWidth={940}>
               <Table
                 verticalSpacing="md"
                 horizontalSpacing="lg"
@@ -1392,7 +1738,7 @@ export function UsersPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
+            </TableViewport>
           ) : (
             <Empty
               title="일치하는 사용자가 없습니다"
@@ -1592,11 +1938,27 @@ export function AuditPage() {
             <ListReset view={view} />
           </Group>
         </div>
+        <ListTools
+          view={view}
+          loading={loading}
+          failed={!!error}
+          filterLabels={{
+            action: { label: "작업" },
+            actor: { label: "수행자" },
+            period: {
+              label: "기간",
+              value: (value) =>
+                ({ day: "최근 24시간", week: "최근 7일", month: "최근 30일" })[
+                  value
+                ] || value,
+            },
+          }}
+        />
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
           (view.rows.length ? (
-            <Table.ScrollContainer minWidth={800}>
+            <TableViewport view={view} label="감사 기록" minWidth={800}>
               <Table
                 verticalSpacing="md"
                 horizontalSpacing="lg"
@@ -1645,7 +2007,7 @@ export function AuditPage() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
+            </TableViewport>
           ) : (
             <Empty
               title={

@@ -1,9 +1,9 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 사용자 가이드 | v1.2.0</title><meta name="description" content="일상 업무, 발견 건, 진단, 개인화와 API 키 사용 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/user-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="user-guide.md">Markdown</a><a href="user-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-시작하기">1. 시작하기</a></li><li><a href="#2-보안-현황-읽기">2. 보안 현황 읽기</a></li><li><a href="#3-서비스-자산-등록과-수정">3. 서비스 자산 등록과 수정</a></li><li><a href="#4-발견-건-관리">4. 발견 건 관리</a></li><li><a href="#5-진단-요청부터-재검증까지">5. 진단 요청부터 재검증까지</a></li><li><a href="#6-관계-그래프">6. 관계 그래프</a></li><li><a href="#7-업무-권한-검증-시나리오">7. 업무 권한 검증 시나리오</a></li><li><a href="#8-보고서와-기여-현황">8. 보고서와 기여 현황</a></li><li><a href="#9-ai-분석-도우미">9. AI 분석 도우미</a></li><li><a href="#10-에이전트-진단">10. 에이전트 진단</a></li><li><a href="#11-선택적-팀장-검토-승인">11. 선택적 팀장 검토·승인</a></li><li><a href="#12-개인화와-계정-보안">12. 개인화와 계정 보안</a></li><li><a href="#13-자주-겪는-문제">13. 자주 겪는 문제</a></li><li><a href="#14-전체-화면-바로가기">14. 전체 화면 바로가기</a></li></ol><a class="guide-other" href="admin-guide.html">관리자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-사용자-가이드">Hunter 사용자 가이드</h1>
-<p><strong>버전 1.2.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 사용자 가이드 | v1.3.0</title><meta name="description" content="일상 업무, 발견 건, 진단, 개인화와 API 키 사용 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/user-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="user-guide.md">Markdown</a><a href="user-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-시작하기">1. 시작하기</a></li><li><a href="#2-보안-현황-읽기">2. 보안 현황 읽기</a></li><li><a href="#3-서비스-자산-등록과-수정">3. 서비스 자산 등록과 수정</a></li><li><a href="#4-발견-건-관리">4. 발견 건 관리</a></li><li><a href="#5-진단-요청부터-재검증까지">5. 진단 요청부터 재검증까지</a></li><li><a href="#6-관계-그래프">6. 관계 그래프</a></li><li><a href="#7-업무-권한-검증-시나리오">7. 업무 권한 검증 시나리오</a></li><li><a href="#8-보고서와-기여-현황">8. 보고서와 기여 현황</a></li><li><a href="#9-ai-분석-도우미">9. AI 분석 도우미</a></li><li><a href="#10-에이전트-진단">10. 에이전트 진단</a></li><li><a href="#11-선택적-팀장-검토-승인">11. 선택적 팀장 검토·승인</a></li><li><a href="#12-개인화와-계정-보안">12. 개인화와 계정 보안</a></li><li><a href="#13-자주-겪는-문제">13. 자주 겪는 문제</a></li><li><a href="#14-전체-화면-바로가기">14. 전체 화면 바로가기</a></li></ol><a class="guide-other" href="admin-guide.html">관리자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-사용자-가이드">Hunter 사용자 가이드</h1>
+<p><strong>버전 1.3.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
 <p>Hunter는 사내 서비스의 자산, 보안 진단, 발견 건, 개선 상태와 재검증을 연결하는 플랫폼입니다. 이 가이드는 일상적으로 사용하는 개발자, 운영 담당자, 보안 분석가와 검토자를 대상으로 합니다.</p>
 <p><a href="../index.html">프로젝트 소개</a> · <a href="admin-guide.html">관리자 가이드</a> · <a href="user-guide.html">HTML</a> · <a href="user-guide.pdf">PDF</a> · <a href="../screenshots.html">전체 화면</a></p>
 <blockquote>
-<p>화면은 실제 Hunter 실행 화면을 사용합니다. 캡처에 등장하는 예시 데이터는 문서용이며 신규 설치 시 자동으로 등록되지 않습니다. 사용 권한과 관리자 설정에 따라 보이는 메뉴가 다를 수 있습니다. 에이전트 화면의 응답과 진행 이력은 로컬 SSE 모의 모델로 검증한 예시이며 실제 모델의 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p>
+<p>화면은 실제 Hunter 실행 화면을 사용합니다. 저장 보기·표 표시 설정·입력 오류 안내 장면은 브라우저에서 합성 API 응답 또는 저장 실패 응답을 주입한 설명용 화면입니다. 캡처에 등장하는 예시 데이터는 문서용이며 신규 설치 시 자동으로 등록되지 않습니다. 사용 권한과 관리자 설정에 따라 보이는 메뉴가 다를 수 있습니다. 에이전트 화면의 응답과 진행 이력은 로컬 SSE 모의 모델로 검증한 예시이며 실제 모델의 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p>
 </blockquote>
 <h2 id="1-시작하기">1. 시작하기</h2>
 <h3 id="1-1-로그인과-버전-확인">1.1 로그인과 버전 확인</h3>
@@ -112,12 +112,30 @@
 <li>목록 검색창에 이름, 서비스, 조직이나 화면에 보이는 상태를 입력합니다. 예를 들어 발견 건에서 <code>심각</code>, 서비스에서 <code>운영</code>을 검색할 수 있습니다. 띄어 쓴 여러 단어는 모두 포함하는 항목을 찾습니다.</li>
 <li>상태·심각도·환경·서비스 등의 필터로 범위를 좁힙니다. 검색어와 필터는 함께 적용됩니다.</li>
 <li>표의 열 제목을 선택하면 오름차순, 다시 선택하면 내림차순으로 바뀝니다. 화살표로 현재 방향을 확인합니다. 숫자는 수치 순서로, 심각도는 위험 단계 순서로 정렬합니다.</li>
-<li>목록 아래에서 전체 일치 건수와 현재 표시 범위를 확인하고 페이지를 이동합니다. <strong>페이지당 표시 수</strong>는 10·25·50·100개 중 선택하며 기본값은 25개입니다. 페이지가 5개를 넘으면 <strong>이동할 페이지</strong>에 번호를 입력하고 <strong>이동</strong>을 선택해 바로 갈 수 있습니다.</li>
-<li>조건을 모두 지우려면 <strong>조건 초기화</strong>를 선택합니다. 검색어만 지우려면 검색창의 지우기 버튼을 사용합니다.</li>
+<li>목록 위에서 <strong>결과 수 / 조회 수</strong>를 확인합니다. 예를 들어 <code>8개 결과 / 조회 37개</code>는 현재 조회한 37개 중 조건에 맞는 항목이 8개라는 뜻입니다. 목록 아래에서는 현재 표시 범위를 확인하고 페이지를 이동합니다. <strong>페이지당 표시 수</strong>는 10·25·50·100개 중 선택하며 기본값은 25개입니다. 페이지가 5개를 넘으면 <strong>이동할 페이지</strong>에 번호를 입력하고 <strong>이동</strong>을 선택해 바로 갈 수 있습니다.</li>
+<li><strong>적용 중</strong> 영역의 조건을 선택하면 해당 검색어나 필터 하나만 해제합니다. 나머지 조건·정렬·표시 수는 유지됩니다. 전체 검색·필터·정렬·페이지·표시 수를 기본으로 돌리려면 <strong>조건 초기화</strong>를 선택합니다.</li>
 </ol>
 <p>검색·필터·정렬·페이지·표시 수는 주소에 보존됩니다. 새로고침과 브라우저 뒤로·앞으로 이동에서도 해당 주소의 조건으로 돌아옵니다. 검색어를 입력할 때는 현재 방문 기록을 갱신하므로 글자 하나마다 뒤로가기 기록이 생기지는 않습니다. 검색·필터·정렬·표시 수를 변경하면 첫 페이지부터 확인합니다.</p>
 <p>이 기능은 서버에서 <strong>현재 조회한 자료 범위 안에서</strong> 동작합니다. 화면의 페이지 이동이 서버의 전체 과거 이력을 추가 조회한다는 뜻은 아닙니다. 자료가 많다면 보고서 절의 조회 한도를 함께 확인합니다. 모바일에서는 목록 조건이 여러 줄로 배치되며 넓은 표 안을 좌우로 스크롤할 수 있습니다.</p>
-<h3 id="1-5-권한을-이해하기">1.5 권한을 이해하기</h3>
+<h3 id="1-5-반복해서-쓰는-목록-보기">1.5 반복해서 쓰는 목록 보기</h3>
+<p><strong>저장한 보기</strong>는 현재 검색어·필터·정렬·페이지당 표시 수를 이름과 함께 저장합니다. 예를 들어 <code>운영 결제 서비스</code>나 <code>심각한 확인 건</code>을 만들어 반복 조회에 사용할 수 있습니다.</p>
+<ol>
+<li>원하는 목록 조건을 정한 뒤 <strong>저장한 보기</strong>를 엽니다.</li>
+<li><strong>보기 이름</strong>을 입력하고 <strong>현재 조건 저장</strong>을 선택합니다. 이름은 최대 60자이고 같은 이름은 중복으로 저장할 수 없습니다.</li>
+<li>나중에 <strong>저장한 보기</strong>에서 이름을 선택하면 저장된 조건으로 <strong>1페이지부터</strong> 표시합니다. 특정 상세 항목과 이전 페이지 번호는 보기의 저장 대상이 아닙니다.</li>
+<li>휴지통 버튼으로 필요 없는 보기를 삭제합니다. 보기 삭제는 실제 서비스나 발견 건을 삭제하지 않습니다.</li>
+</ol>
+<p><img src="../images/list-saved-view.png" alt="검색 조건을 이름으로 저장하는 보기 메뉴 — 합성 자료"></p>
+<p>저장 보기는 <strong>이 브라우저에서 사용자·메뉴별로 최대 8개</strong>를 보관합니다. 발견 건에서 저장한 보기가 서비스 목록이나 다른 계정에 함께 나타나지 않습니다. 다른 브라우저·기기에 자동 동기화되지 않으며 사이트 데이터를 삭제하면 지워집니다. 브라우저 저장소를 사용할 수 없는 경우 안내가 나타나고 현재 화면에서만 적용됩니다.</p>
+<p>적용한 저장 보기와 조건이 일치하면 결과 수 옆에 보기 이름이 나타납니다. 조건을 바꾸면 이름 표시가 사라지므로 저장본과 현재 조건을 구분할 수 있습니다. 조회는 항상 현재 계정의 권한 안에서 이루어집니다. 예전에 볼 수 있었던 서비스가 삭제되거나 권한에서 제외되면 같은 보기를 적용해도 결과가 달라질 수 있습니다.</p>
+<h3 id="1-6-긴-표-읽기와-키보드-이동">1.6 긴 표 읽기와 키보드 이동</h3>
+<p>긴 표는 표 안에서 스크롤하며 읽습니다. 기본 보기에서는 세로로 이동해도 열 제목이 남습니다. 넓은 화면에서는 가로로 이동해도 첫 번째 이름·제목 열을 고정하며, 좁은 모바일 화면에서는 첫 열 고정을 해제해 다른 열을 읽을 공간을 확보합니다.</p>
+<p><strong>표 표시 설정 → 행 간격 → 촘촘하게</strong>를 선택하면 글자 크기를 유지하면서 행 여백을 줄입니다. <strong>기본</strong>으로 돌아오면 여유 있는 간격을 사용합니다. 이 설정도 현재 브라우저의 사용자·메뉴별로 보관됩니다.</p>
+<p><img src="../images/list-display-settings.png" alt="행 간격과 표 전체 펼치기 설정 — 합성 자료"></p>
+<p><strong>표 전체 펼치기</strong>를 켜면 표의 높이 제한을 없애 문서 전체를 스크롤합니다. 이 모드에서 문서를 세로로 이동할 때는 열 제목이 화면 상단에 고정되지 않습니다. 표 안 스크롤과 헤더 고정을 다시 사용하려면 해당 옵션을 끕니다.</p>
+<p>키보드에서는 첫 Tab으로 <strong>본문 바로가기</strong>를 표시할 수 있습니다. 스크롤 가능한 표에 초점이 있으면 방향키로 이동하고, 열 제목의 버튼을 선택해 정렬합니다. 행에 초점이 있으면 Enter로 상세를 열 수 있습니다. 모바일 메뉴는 열린 동안 키보드 초점이 메뉴 안에 머물고 Esc로 닫으면 열기 버튼으로 돌아갑니다. 빠른 이동도 화살표·Enter·Esc를 지원합니다.</p>
+<p>이는 제공하는 키보드 동작의 설명입니다. WCAG 인증이나 모든 보조기기 조합의 적합성을 의미하지 않습니다. 실제 검증 화면 크기와 범위는 <a href="../validation.md">검증 기록</a>을 참고하세요.</p>
+<h3 id="1-7-권한을-이해하기">1.7 권한을 이해하기</h3>
 <p>기능 사용 권한과 데이터 접근 범위는 함께 적용됩니다. 관리자는 전체 운영을 관리하며 팀장은 검토 업무를 수행할 수 있습니다. 일반 사용자는 자신에게 허용된 서비스와 관련 데이터를 사용합니다. 관리자 역할 설정에 따라 세부 권한은 바뀔 수 있습니다.</p>
 <p>버튼이 없거나 접근이 거부되면 개인 API 키를 새로 만드는 것으로 권한을 늘릴 수 없습니다. 소유자 계정의 현재 권한과 키 자체에 지정한 권한의 교집합만 적용됩니다.</p>
 <h2 id="2-보안-현황-읽기">2. 보안 현황 읽기</h2>
@@ -187,6 +205,10 @@
 </tbody>
 </table>
 <p>목록에서 항목을 선택하면 상세 패널이 열리고 선택한 항목이 주소에 보존됩니다. 새로고침해도 같은 상세를 다시 표시하며 <strong>이전 항목·다음 항목</strong>으로 현재 검색·필터·정렬 범위의 다른 항목을 확인할 수 있습니다. 패널을 닫아도 목록 조건은 유지됩니다. 행의 작업 메뉴에서 수정할 수 있습니다. <strong>대표 URL, 환경, 망, 조직·담당자, 중요도와 관련 대상을 변경하면 기존 서비스 진단 승인이 해제되므로 관리자가 다시 확인해야 합니다.</strong> 자동발견으로 들어온 항목 역시 승인 전에는 진단 대상이 되지 않습니다.</p>
+<h3 id="3-1-입력-오류가-표시될-때">3.1 입력 오류가 표시될 때</h3>
+<p>저장에 실패하면 폼 안에 오류 안내가 남고 입력한 내용을 유지합니다. 안내를 확인해 수정한 뒤 다시 시도하세요. 개인 프로필이나 관리자 설정에서 필수값·형식 오류가 여러 개라면 상단 요약의 항목을 선택해 해당 입력으로 이동할 수 있습니다. 모든 서버 오류에 입력 항목별 링크가 제공되는 것은 아닙니다.</p>
+<p><img src="../images/form-validation.png" alt="입력값을 유지하는 저장 실패 안내 — 실패 응답을 주입한 설명용 화면"></p>
+<p>저장하지 않은 내용을 남긴 채 폼을 닫거나 다른 페이지로 이동하면 내용을 잃을 수 있습니다. 관리자 설정 그룹을 이동할 때는 별도의 미저장 안내를 제공하며, 자세한 동작은 <a href="admin-guide.html">관리자 가이드</a>를 참고하세요.</p>
 <h2 id="4-발견-건-관리">4. 발견 건 관리</h2>
 <h3 id="4-1-직접-등록">4.1 직접 등록</h3>
 <p><strong>발견 건 → 발견 건 등록</strong>에서 대상 서비스, 제목, 심각도, 재현 조건, 증거와 개선안을 작성합니다. 비밀번호, API 키, 세션 쿠키와 고객 개인정보 원문을 증거에 붙여 넣지 마세요. 합성 테스트 식별자와 마스킹된 필요한 부분을 사용합니다.</p>
@@ -553,4 +575,4 @@
 <h2 id="14-전체-화면-바로가기">14. 전체 화면 바로가기</h2>
 <p><a href="../images/login.png">로그인</a> · <a href="../images/dashboard.png">보안 현황</a> · <a href="../images/services.png">서비스 자산</a> · <a href="../images/findings.png">발견 건</a> · <a href="../images/scans.png">진단 작업</a> · <a href="../images/graph.png">관계 그래프</a> · <a href="../images/scenarios.png">권한 검증</a> · <a href="../images/reports.png">보고서</a> · <a href="../images/contributions.png">기여 현황</a> · <a href="../images/copilot.png">AI 도우미</a> · <a href="../images/agents.png">에이전트 진단</a> · <a href="../images/agent-detail.png">에이전트 상세</a> · <a href="../images/approvals.png">검토·승인</a> · <a href="../images/personal-profile.png">내 프로필</a> · <a href="../images/personal-keys.png">개인 키</a></p>
 <p><a href="admin-guide.html">관리자 운영 절차로 이동</a></p>
-<footer>Hunter v1.2.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
+<footer>Hunter v1.3.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
