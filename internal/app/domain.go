@@ -63,6 +63,9 @@ func (a *App) initDomain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err = a.repairLegacyFindingEvidence(ctx); err != nil {
+		return err
+	}
 	return a.initAgents(ctx)
 }
 
@@ -95,6 +98,7 @@ func (a *App) registerDomain(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/workers/{id}", a.protect("admin:manage", a.updateWorker))
 	mux.HandleFunc("GET /api/policies/{id}/history", a.protect("admin:manage", a.policyHistory))
 	mux.HandleFunc("GET /api/policies/export", a.protect("admin:manage", a.exportPolicies))
+	a.registerFindingBulk(mux)
 }
 
 func elevated(u User) bool   { return u.Role == "admin" }
@@ -170,6 +174,13 @@ func (v domainResource) output() map[string]any {
 
 func (a *App) resourceOutput(v domainResource) map[string]any {
 	m := v.output()
+	if v.Kind == "findings" {
+		if value, exists := v.Data["evidence"]; exists {
+			if _, valid := value.(string); !valid {
+				m["evidence"] = "[기존 증거 형식이 올바르지 않습니다. 항목을 수정하면 마스킹·암호화하여 복구합니다]"
+			}
+		}
+	}
 	if v.Kind == "findings" && boolean(v.Data, "evidence_encrypted") {
 		plain, err := a.decrypt(str(v.Data, "evidence"))
 		if err == nil {
@@ -264,6 +275,14 @@ func (a *App) saveDomain(w http.ResponseWriter, r *http.Request, kind string, up
 		return
 	}
 	u := currentUser(r)
+	for _, key := range []string{"name", "title", "description", "evidence", "remediation"} {
+		if value, exists := m[key]; exists {
+			if _, ok := value.(string); !ok {
+				fail(w, 400, key+" 값은 문자열이어야 합니다")
+				return
+			}
+		}
+	}
 	if kind == "scans" {
 		out, err := a.RequestScan(r.Context(), u, m)
 		if err != nil {
@@ -286,6 +305,18 @@ func (a *App) saveDomain(w http.ResponseWriter, r *http.Request, kind string, up
 			return
 		}
 		v = old
+		if expected, exists := m["expected_updated_at"]; exists {
+			raw, ok := expected.(string)
+			revision, err := time.Parse(time.RFC3339Nano, raw)
+			if !ok || err != nil {
+				fail(w, 400, "expected_updated_at에는 조회한 변경 일시를 입력하세요")
+				return
+			}
+			if !revision.Equal(old.UpdatedAt) {
+				fail(w, 409, errResourceConflict.Error())
+				return
+			}
+		}
 	}
 	previousOwner := v.OwnerID
 	if owner := str(m, "owner_id"); owner != "" && owner != v.OwnerID {
@@ -300,7 +331,7 @@ func (a *App) saveDomain(w http.ResponseWriter, r *http.Request, kind string, up
 		}
 		v.OwnerID = owner
 	}
-	for _, k := range []string{"id", "owner_id", "created_at", "updated_at", "observations", "verification", "verified_at", "resolved_at", "evidence_encrypted", "dispatch_state", "dispatch_started_at", "dispatch_http_status", "external_id", "external_url", "sent_at", "credential_key_id", "last_run_at", "last_scan_id", "last_result", "last_error", "policy_version"} {
+	for _, k := range []string{"id", "owner_id", "created_at", "updated_at", "expected_updated_at", "observations", "verification", "verified_at", "resolved_at", "evidence_encrypted", "dispatch_state", "dispatch_started_at", "dispatch_http_status", "external_id", "external_url", "sent_at", "credential_key_id", "last_run_at", "last_scan_id", "last_result", "last_error", "policy_version"} {
 		delete(m, k)
 	}
 	oldData := cloneMap(v.Data)
@@ -533,8 +564,21 @@ func (a *App) validateResource(ctx context.Context, u User, v *domainResource, o
 
 func (a *App) sealDomainSecrets(v *domainResource, old, input map[string]any) error {
 	if v.Kind == "findings" {
-		if evidence, ok := input["evidence"].(string); ok {
-			sealed, err := a.encrypt(maskEvidence(evidence))
+		evidence, provided := input["evidence"].(string)
+		if !provided {
+			if previous, exists := old["evidence"]; exists {
+				if _, valid := previous.(string); !valid {
+					raw, err := json.Marshal(previous)
+					if err != nil {
+						return errors.New("기존 증거 형식을 복구할 수 없습니다")
+					}
+					evidence = string(raw)
+					provided = true
+				}
+			}
+		}
+		if provided {
+			sealed, err := a.encrypt(maskAgentText(maskEvidence(evidence)))
 			if err != nil {
 				return err
 			}

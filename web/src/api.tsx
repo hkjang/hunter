@@ -38,80 +38,143 @@ export async function api<T = any>(
     headers,
   });
   const type = res.headers.get("content-type") || "";
-  const body = type.includes("json") ? await res.json() : await res.text();
-  if (!res.ok) {
-    if (res.status === 401 && !path.includes("/auth/"))
-      window.dispatchEvent(new Event("hunter:unauthorized"));
+  if (
+    res.status === 401 &&
+    !new URL(path, window.location.origin).pathname.startsWith("/api/auth/")
+  )
+    window.dispatchEvent(new Event("hunter:unauthorized"));
+  if (res.status === 204 || res.status === 205) return null as T;
+  if (res.ok && !type.includes("json"))
     throw new APIError(
-      body?.error || `요청을 처리하지 못했습니다 (${res.status})`,
+      "서버 응답 형식을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      res.status,
+    );
+  let body: any;
+  try {
+    body = type.includes("json") ? await res.json() : await res.text();
+  } catch {
+    throw new APIError(
+      res.ok
+        ? "서버 응답을 읽지 못했습니다. 새로고침 후 다시 시도해 주세요."
+        : `요청을 처리하지 못했습니다 (${res.status})`,
       res.status,
     );
   }
+  if (!res.ok)
+    throw new APIError(
+      typeof body?.error === "string"
+        ? body.error
+        : `요청을 처리하지 못했습니다 (${res.status})`,
+      res.status,
+    );
   return body as T;
 }
 export function useData<T = any>(path: string | null) {
-  const [data, setData] = useState<T | null>(null),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
-  const sequence = useRef(0),
-    active = useRef(0),
-    initialized = useRef(false);
+  type Snapshot = {
+    path: string | null;
+    data: T | null;
+    loading: boolean;
+    error: string;
+  };
+  const [snapshot, setSnapshot] = useState<Snapshot>({
+    path,
+    data: null,
+    loading: !!path,
+    error: "",
+  });
+  const request = useRef<AbortController | null>(null);
+  const currentPath = useRef(path);
+  currentPath.current = path;
   const fetchData = useCallback(
     async (silent: boolean) => {
-      if (!path) {
-        setLoading(false);
-        return;
-      }
-      if (silent && active.current > 0) return;
-      const request = ++sequence.current;
-      active.current++;
-      if (!initialized.current) setLoading(true);
+      if (!path || currentPath.current !== path) return;
+      if (silent && request.current) return;
+      request.current?.abort();
+      const controller = new AbortController();
+      request.current = controller;
+      if (!silent)
+        setSnapshot((previous) => ({
+          path,
+          data: previous.path === path ? previous.data : null,
+          loading: previous.path !== path || previous.data === null,
+          error: "",
+        }));
       try {
-        const next = await api<T>(path);
-        if (request === sequence.current) {
-          setData(next);
-          setError("");
-        }
-      } catch (e) {
-        if (request === sequence.current) setError((e as Error).message);
+        const data = await api<T>(path, { signal: controller.signal });
+        if (!controller.signal.aborted && currentPath.current === path)
+          setSnapshot({ path, data, loading: false, error: "" });
+      } catch (error) {
+        if (!controller.signal.aborted && currentPath.current === path)
+          setSnapshot((previous) => ({
+            path,
+            data: previous.path === path ? previous.data : null,
+            loading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "정보를 불러오지 못했습니다",
+          }));
       } finally {
-        active.current--;
-        if (request === sequence.current) {
-          initialized.current = true;
-          setLoading(false);
-        }
+        if (request.current === controller) request.current = null;
       }
     },
     [path],
   );
   const reload = useCallback(() => fetchData(false), [fetchData]);
   useEffect(() => {
-    initialized.current = false;
-    void reload();
+    if (!path)
+      setSnapshot({ path: null, data: null, loading: false, error: "" });
+    else void reload();
     return () => {
-      sequence.current++;
+      request.current?.abort();
+      request.current = null;
     };
-  }, [reload]);
+  }, [path, reload]);
   useEffect(() => {
     if (
       !path ||
-      ![
-        "/api/dashboard",
-        "/api/scans",
-        "/api/agent-runs",
-        "/api/workers",
-        "/api/approvals",
-        "/api/events",
-        "/api/schedules",
-      ].includes(path)
+      (!/^\/api\/(scans|workers|approvals)\/[^/?]+$/.test(path) &&
+        ![
+          "/api/dashboard",
+          "/api/scans",
+          "/api/agent-runs",
+          "/api/workers",
+          "/api/approvals",
+          "/api/events",
+          "/api/schedules",
+        ].includes(path))
     )
       return;
     const timer = window.setInterval(() => {
-      if (!document.hidden) void fetchData(true);
+      if (!document.hidden && navigator.onLine !== false) void fetchData(true);
     }, 10000);
     return () => window.clearInterval(timer);
   }, [path, fetchData]);
-  return { data, loading, error, reload, setData };
+  const setData = useCallback(
+    (value: T | null | ((previous: T | null) => T | null)) => {
+      if (currentPath.current !== path || !path) return;
+      request.current?.abort();
+      request.current = null;
+      setSnapshot((previous) => ({
+        path,
+        data:
+          typeof value === "function"
+            ? (value as (previous: T | null) => T | null)(
+                previous.path === path ? previous.data : null,
+              )
+            : value,
+        loading: false,
+        error: "",
+      }));
+    },
+    [path],
+  );
+  // A new URL must never render the previous URL's rows, even before effects run.
+  const visible =
+    path && snapshot.path === path
+      ? snapshot
+      : { data: null, loading: !!path, error: "" };
+  return { ...visible, reload, setData };
 }
 export const SessionContext = createContext<{
   user: User | null;

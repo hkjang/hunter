@@ -4,6 +4,7 @@ export type ListColumn<T> = {
   key: string;
   label: string;
   value: (row: T) => unknown;
+  exportValue?: (row: T) => unknown;
   compare?: (a: T, b: T) => number;
 };
 

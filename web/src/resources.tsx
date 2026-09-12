@@ -1,6 +1,7 @@
 import { FindingActivity } from "./triage";
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { BulkFindingActions, useFindingSelection } from "./finding-bulk";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
@@ -34,6 +35,8 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconCode,
+  IconCopy,
+  IconLink,
   IconDots,
   IconDownload,
   IconEdit,
@@ -50,6 +53,7 @@ import {
 } from "@tabler/icons-react";
 import {
   api,
+  APIError,
   colors,
   dateText,
   fullDate,
@@ -64,7 +68,19 @@ import {
 } from "./api";
 import { Empty, LoadState, PageHeader, Status } from "./components";
 import { ListTools, TableViewport } from "./list-tools";
-import { FormFeedback } from "./form-feedback";
+import {
+  FormFeedback,
+  SaveStatus,
+  useUnsavedChanges,
+  type FormIssue,
+} from "./form-feedback";
+import { changed, requiredIssues, invalidFields } from "./form-state";
+import { copyText } from "./list-export";
+import {
+  changeResourceField,
+  withEditRevision,
+  resourceDetailPath,
+} from "./resource-form-state";
 import {
   useListView,
   ListSearch,
@@ -821,7 +837,8 @@ export function FieldForm({
   idPrefix?: string;
 }) {
   const { user } = useSession();
-  const change = (key: string, v: any) => setValues({ ...values, [key]: v });
+  const change = (key: string, v: any) =>
+    setValues(changeResourceField(values, key, v, fields));
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
       {fields
@@ -1061,11 +1078,12 @@ export function ResourcePage({ kind }: { kind: string }) {
       : null,
   );
   const writable = can(cfg.scope);
+  const selection = useFindingSelection(`${kind}:${params.toString()}`);
+  const bulkEnabled = kind === "findings" && writable;
   const [opened, setOpened] = useState(false),
     [edit, setEdit] = useState<Row | null>(null),
     [values, setValues] = useState<Row>({}),
     [busy, setBusy] = useState(false),
-    [detail, setDetail] = useState<Row | null>(null),
     [remove, setRemove] = useState<Row | null>(null),
     [importOpen, setImportOpen] = useState(false),
     [importService, setImportService] = useState<string | null>(null),
@@ -1087,31 +1105,123 @@ export function ResourcePage({ kind }: { kind: string }) {
   useEffect(() => {
     if (opened) setFormError("");
   }, [opened]);
+  const location = useLocation();
+  const selectedId = params.get("item") || params.get("scan") || "";
+  const detailRequest = useData<Row>(
+    selectedId ? `/api/${kind}/${encodeURIComponent(selectedId)}` : null,
+  );
+  const detail =
+    !detailRequest.loading &&
+    !detailRequest.error &&
+    detailRequest.data?.id === selectedId
+      ? detailRequest.data
+      : null;
+  const baseline = useRef<Row>({});
+  const formRef = useRef<HTMLFormElement>(null);
+  const [formIssues, setFormIssues] = useState<FormIssue[]>([]);
+  const [confirmClose, setConfirmClose] = useState(false),
+    [conflict, setConflict] = useState(false),
+    [latest, setLatest] = useState<Row | null>(null),
+    [latestBusy, setLatestBusy] = useState(false);
+  const [activityDirty, setActivityDirty] = useState(false),
+    [activityVisited, setActivityVisited] = useState(false),
+    [pendingDetailAction, setPendingDetailAction] = useState<
+      (() => void) | null
+    >(null);
+  const formDirty = opened && changed(baseline.current, values);
+  useUnsavedChanges(formDirty || (opened && busy) || activityDirty);
+  useEffect(() => {
+    setActivityDirty(false);
+    setActivityVisited(false);
+  }, [selectedId]);
+  useEffect(() => {
+    if (params.get("detail_tab") === "activity") setActivityVisited(true);
+  }, [selectedId, params.get("detail_tab")]);
+  function clearForm() {
+    setOpened(false);
+    setConfirmClose(false);
+    setConflict(false);
+    setLatest(null);
+    setFormError("");
+    setFormIssues([]);
+    setValues({});
+    setEdit(null);
+    baseline.current = {};
+  }
+  function requestCloseForm() {
+    if (busy || latestBusy) return;
+    if (formDirty) setConfirmClose(true);
+    else clearForm();
+  }
+  function detailTransition(action: () => void) {
+    if (activityDirty) setPendingDetailAction(() => action);
+    else action();
+  }
+  async function copyDetail(value: string, caption: string) {
+    try {
+      await copyText(value);
+      success(`${caption}를 복사했습니다.`);
+    } catch (error) {
+      showError(error);
+    }
+  }
+  async function reviewLatest() {
+    if (!edit || latestBusy) return;
+    setLatestBusy(true);
+    try {
+      setLatest(await api<Row>(`/api/${kind}/${encodeURIComponent(edit.id)}`));
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "최신 자료를 불러오지 못했습니다.",
+      );
+    } finally {
+      setLatestBusy(false);
+    }
+  }
+  function replaceWithLatest() {
+    if (!latest) return;
+    const next = initialValues(cfg.fields, latest);
+    setEdit(latest);
+    baseline.current = next;
+    setValues(next);
+    setLatest(null);
+    setConflict(false);
+    setFormError("");
+    setFormIssues([]);
+  }
   const [history, setHistory] = useState<{
     name: string;
     rows: Row[];
     loading: boolean;
     error: string;
   } | null>(null);
-  useEffect(() => {
-    const item = params.get("item");
-    if (item && data) setDetail(data.find((row) => row.id === item) || null);
-    else if (!item && !params.get("scan")) setDetail(null);
-  }, [data, params.get("item"), params.get("scan")]);
   function showDetail(row: Row, replace = false) {
-    const next = new URLSearchParams(params);
-    next.set("item", row.id);
-    next.delete("scan");
-    setDetail(row);
-    setParams(next, { replace, preventScrollReset: true });
+    detailTransition(() => {
+      const next = new URLSearchParams(params);
+      next.set("item", row.id);
+      next.delete("scan");
+      setParams(next, {
+        replace,
+        preventScrollReset: true,
+        state: location.state,
+      });
+    });
   }
-  function closeDetail() {
+  function closeDetailNow() {
     const next = new URLSearchParams(params);
     next.delete("item");
     next.delete("scan");
     next.delete("detail_tab");
-    setDetail(null);
-    setParams(next, { replace: true, preventScrollReset: true });
+    setParams(next, {
+      replace: true,
+      preventScrollReset: true,
+      state: location.state,
+    });
+  }
+  function closeDetail() {
+    detailTransition(closeDetailNow);
   }
   const serviceMap = useMemo(
     () =>
@@ -1204,46 +1314,81 @@ export function ResourcePage({ kind }: { kind: string }) {
     const finding = params.get("finding");
     if (kind === "remediations" && finding) {
       setEdit(null);
-      setValues({
+      const next = {
         ...initialValues(cfg.fields),
         finding_id: finding,
         name: "발견 건 개선 요청",
-      });
+      };
+      baseline.current = next;
+      setValues(next);
+      setFormError("");
+      setFormIssues([]);
+      setConflict(false);
       setOpened(true);
     }
   }, [kind, params.get("finding"), cfg.fields]);
-  useEffect(() => {
-    const scan = params.get("scan");
-    if (kind !== "scans" || !scan) return;
-    const controller = new AbortController();
-    void api<Row>(`/api/scans/${encodeURIComponent(scan)}`, {
-      signal: controller.signal,
-    })
-      .then(setDetail)
-      .catch((e) => {
-        if (!controller.signal.aborted) showError(e);
-      });
-    return () => controller.abort();
-  }, [kind, params.get("scan")]);
   function create() {
     setEdit(null);
-    setValues(initialValues(cfg.fields));
+    const next = initialValues(cfg.fields);
+    baseline.current = next;
+    setValues(next);
+    setFormError("");
+    setFormIssues([]);
+    setConflict(false);
     setOpened(true);
   }
   function editRow(row: Row) {
-    setEdit(row);
-    setValues(initialValues(cfg.fields, row));
-    closeDetail();
-    setOpened(true);
+    detailTransition(() => {
+      setEdit(row);
+      const next = initialValues(cfg.fields, row);
+      baseline.current = next;
+      setValues(next);
+      setFormError("");
+      setFormIssues([]);
+      setConflict(false);
+      closeDetailNow();
+      setOpened(true);
+    });
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setFormError("");
+    setFormIssues([]);
     setSaveAttempt((value) => value + 1);
+    const required = requiredIssues(
+      cfg.fields
+        .filter(
+          (field) => field.required && (!field.admin || user?.role === "admin"),
+        )
+        .map((field) => ({
+          fieldId: `resource-${kind}-${field.key}`,
+          label: field.label,
+          value: values[field.key],
+        })),
+    );
+    if (
+      ["scans", "schedules"].includes(kind) &&
+      values.profile === "authorization" &&
+      !values.scenario_id
+    )
+      required.push({
+        fieldId: `resource-${kind}-scenario_id`,
+        message: "업무 권한 검증 시나리오를 선택하세요.",
+      });
+    const issues = [
+      ...new Map(
+        [
+          ...required,
+          ...(formRef.current ? invalidFields(formRef.current) : []),
+        ].map((issue) => [issue.fieldId || issue.message, issue]),
+      ).values(),
+    ];
+    setFormIssues(issues);
+    if (issues.length) return;
     setBusy(true);
     try {
-      const body = formBody(cfg.fields, values);
+      const body = withEditRevision(formBody(cfg.fields, values), edit);
       await api(`/api/${kind}${edit ? `/${edit.id}` : ""}`, {
         method: edit ? "PUT" : "POST",
         body: JSON.stringify(body),
@@ -1251,9 +1396,10 @@ export function ResourcePage({ kind }: { kind: string }) {
       success(
         `${cfg.singular}${edit ? " 정보를 수정" : "을(를) 등록"}했습니다`,
       );
-      setOpened(false);
+      clearForm();
       await reload();
     } catch (e) {
+      setConflict(!!edit && e instanceof APIError && e.status === 409);
       setFormError(
         e instanceof Error
           ? e.message
@@ -1584,6 +1730,13 @@ export function ResourcePage({ kind }: { kind: string }) {
             ]),
           )}
         />
+        {bulkEnabled && (
+          <BulkFindingActions
+            items={selection.rows}
+            onDone={reload}
+            onClear={selection.clear}
+          />
+        )}
         <LoadState loading={loading} error={error} reload={reload} />
         {!loading &&
           !error &&
@@ -1597,6 +1750,31 @@ export function ResourcePage({ kind }: { kind: string }) {
               >
                 <Table.Thead>
                   <Table.Tr>
+                    {bulkEnabled && (
+                      <Table.Th w={52}>
+                        <Checkbox
+                          aria-label="현재 페이지 발견 건 모두 선택"
+                          checked={
+                            list.rows.length > 0 &&
+                            list.rows.every((row) => selection.selected(row.id))
+                          }
+                          indeterminate={
+                            list.rows.some((row) =>
+                              selection.selected(row.id),
+                            ) &&
+                            !list.rows.every((row) =>
+                              selection.selected(row.id),
+                            )
+                          }
+                          onChange={(event) =>
+                            selection.page(
+                              list.rows,
+                              event.currentTarget.checked,
+                            )
+                          }
+                        />
+                      </Table.Th>
+                    )}
                     {cfg.columns.map((c) => (
                       <SortHeader key={c} view={list} column={c}>
                         {fieldLabels[c] || c}
@@ -1619,6 +1797,17 @@ export function ResourcePage({ kind }: { kind: string }) {
                           showDetail(row);
                       }}
                     >
+                      {bulkEnabled && (
+                        <Table.Td onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            aria-label={`${row.title || row.id} 선택`}
+                            checked={selection.selected(row.id)}
+                            onChange={(event) =>
+                              selection.toggle(row, event.currentTarget.checked)
+                            }
+                          />
+                        </Table.Td>
+                      )}
                       {cfg.columns.map((c) => (
                         <Table.Td key={c}>{cell(row, c)}</Table.Td>
                       ))}
@@ -1908,7 +2097,10 @@ export function ResourcePage({ kind }: { kind: string }) {
       )}
       <Modal
         opened={opened}
-        onClose={() => setOpened(false)}
+        onClose={requestCloseForm}
+        closeOnClickOutside={!busy && !latestBusy}
+        closeOnEscape={!busy && !latestBusy}
+        withCloseButton={!busy && !latestBusy}
         title={
           <strong>
             {cfg.singular} {edit ? "수정" : "등록"}
@@ -1916,50 +2108,104 @@ export function ResourcePage({ kind }: { kind: string }) {
         }
         size="xl"
       >
-        <form onSubmit={save}>
-          <FormFeedback error={formError} focusKey={saveAttempt} />
-          {kind === "scans" && (
-            <Alert color="teal" mb="lg">
-              HTTP 진단은 승인된 URL에 제한된 GET/HEAD 요청을 보내 실제 보안
-              헤더를 점검합니다. 운영계의 임의 능동 공격, 외부 주소로의
-              리다이렉트는 허용하지 않습니다.
+        <form ref={formRef} noValidate onSubmit={save}>
+          <FormFeedback
+            error={formError}
+            issues={formIssues}
+            focusKey={saveAttempt}
+          />
+          {conflict && (
+            <Alert
+              color="orange"
+              mb="lg"
+              title="다른 변경 사항을 먼저 확인하세요"
+            >
+              <Text size="sm">
+                입력 내용은 유지했습니다. 최신 자료를 확인한 후 다시 작성할 수
+                있습니다. 변경 내용을 자동으로 덮어쓰지 않습니다.
+              </Text>
+              <Button
+                mt="sm"
+                variant="light"
+                loading={latestBusy}
+                onClick={reviewLatest}
+              >
+                최신 자료 확인
+              </Button>
             </Alert>
           )}
-          <FieldForm
-            fields={cfg.fields}
-            values={values}
-            setValues={setValues}
-            services={servicesData.data || []}
-            scopes={scopesData.data || []}
-            scenarios={scenariosData.data || []}
-            choices={{
-              user: usersData.data || [],
-              auth: authData.data || [],
-              finding: findingData.data || [],
-              integration: integrationData.data || [],
-            }}
-          />
-          <Group justify="flex-end" mt="xl">
-            <Button variant="default" onClick={() => setOpened(false)}>
-              취소
-            </Button>
-            <Button type="submit" loading={busy}>
-              {kind === "scans"
-                ? "진단 요청"
-                : edit
-                  ? "변경 사항 저장"
-                  : "등록"}
-            </Button>
-          </Group>
+          {(edit || formDirty || busy) && (
+            <SaveStatus dirty={formDirty} saving={busy} />
+          )}
+          <fieldset className="form-fields" disabled={busy || latestBusy}>
+            {kind === "scans" && (
+              <Alert color="teal" mb="lg">
+                HTTP 진단은 승인된 URL에 제한된 GET/HEAD 요청을 보내 실제 보안
+                헤더를 점검합니다. 운영계의 임의 능동 공격, 외부 주소로의
+                리다이렉트는 허용하지 않습니다.
+              </Alert>
+            )}
+            <FieldForm
+              idPrefix={`resource-${kind}`}
+              errors={Object.fromEntries(
+                formIssues
+                  .filter((issue) =>
+                    issue.fieldId?.startsWith(`resource-${kind}-`),
+                  )
+                  .map((issue) => [
+                    issue.fieldId!.slice(`resource-${kind}-`.length),
+                    issue.message,
+                  ]),
+              )}
+              fields={cfg.fields}
+              values={values}
+              setValues={setValues}
+              services={servicesData.data || []}
+              scopes={scopesData.data || []}
+              scenarios={scenariosData.data || []}
+              choices={{
+                user: usersData.data || [],
+                auth: authData.data || [],
+                finding: findingData.data || [],
+                integration: integrationData.data || [],
+              }}
+            />
+            <Group justify="flex-end" mt="xl">
+              <Button
+                variant="default"
+                onClick={requestCloseForm}
+                disabled={busy || latestBusy}
+              >
+                취소
+              </Button>
+              <Button type="submit" loading={busy}>
+                {kind === "scans"
+                  ? "진단 요청"
+                  : edit
+                    ? "변경 사항 저장"
+                    : "등록"}
+              </Button>
+            </Group>
+          </fieldset>
         </form>
       </Modal>
       <Drawer
-        opened={!!detail}
+        opened={!!selectedId}
         onClose={closeDetail}
         title={`${cfg.singular} 상세`}
         position="right"
         size="lg"
       >
+        <LoadState
+          loading={detailRequest.loading}
+          error={detailRequest.error}
+          reload={detailRequest.reload}
+        />
+        {detailRequest.error && (
+          <Button mt="md" variant="default" onClick={closeDetail}>
+            목록으로 돌아가기
+          </Button>
+        )}
         {detail && (
           <Stack>
             {detailIndex >= 0 && (
@@ -2000,6 +2246,27 @@ export function ResourcePage({ kind }: { kind: string }) {
               </h2>
               {detail.status && <Status value={detail.status} />}
             </Group>
+            <Group gap="sm">
+              <Button
+                variant="default"
+                leftSection={<IconCopy size={16} />}
+                onClick={() => copyDetail(String(detail.id), "식별자")}
+              >
+                ID 복사
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconLink size={16} />}
+                onClick={() =>
+                  copyDetail(
+                    `${window.location.origin}${resourceDetailPath(kind, String(detail.id), params.get("detail_tab") === "activity")}`,
+                    "상세 링크",
+                  )
+                }
+              >
+                상세 링크 복사
+              </Button>
+            </Group>
             {writable && !cfg.readOnly && kind !== "scans" && (
               <Button
                 variant="light"
@@ -2019,9 +2286,12 @@ export function ResourcePage({ kind }: { kind: string }) {
                 const next = new URLSearchParams(params);
                 if (value === "activity") next.set("detail_tab", "activity");
                 else next.delete("detail_tab");
-                setParams(next, { preventScrollReset: true });
+                setParams(next, {
+                  preventScrollReset: true,
+                  state: location.state,
+                });
               }}
-              keepMounted={false}
+              keepMounted
             >
               {kind === "findings" && (
                 <Tabs.List mb="md">
@@ -2070,13 +2340,91 @@ export function ResourcePage({ kind }: { kind: string }) {
               </Tabs.Panel>
               {kind === "findings" && (
                 <Tabs.Panel value="activity">
-                  <FindingActivity key={detail.id} findingId={detail.id} />
+                  {(activityVisited ||
+                    params.get("detail_tab") === "activity") && (
+                    <FindingActivity
+                      key={detail.id}
+                      findingId={detail.id}
+                      onDirtyChange={setActivityDirty}
+                    />
+                  )}
                 </Tabs.Panel>
               )}
             </Tabs>
           </Stack>
         )}
       </Drawer>
+      <Modal
+        opened={confirmClose}
+        onClose={() => setConfirmClose(false)}
+        title="작성 중인 내용을 닫을까요?"
+        size="sm"
+      >
+        <Text>
+          저장하지 않은 입력이 있습니다. 계속 작성하거나 입력을 버리고 닫을 수
+          있습니다.
+        </Text>
+        <Group justify="flex-end" mt="lg">
+          <Button variant="default" onClick={() => setConfirmClose(false)}>
+            계속 작성
+          </Button>
+          <Button color="red" onClick={clearForm}>
+            입력 버리고 닫기
+          </Button>
+        </Group>
+      </Modal>
+      <Modal
+        opened={!!latest}
+        onClose={() => setLatest(null)}
+        title="최신 자료 확인"
+        size="md"
+      >
+        <Stack>
+          <Text fw={600}>{latest?.name || latest?.title || cfg.singular}</Text>
+          <Text size="sm">최근 변경: {dateText(latest?.updated_at)}</Text>
+          {latest?.status && <Status value={latest.status} />}
+          <Alert color="orange">
+            최신 자료로 다시 작성하면 현재 입력한 내용을 대체합니다. 취소하면
+            현재 입력을 유지합니다.
+          </Alert>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setLatest(null)}>
+              입력 유지
+            </Button>
+            <Button onClick={replaceWithLatest}>최신 자료로 다시 작성</Button>
+          </Group>
+        </Stack>
+      </Modal>
+      <Modal
+        opened={!!pendingDetailAction}
+        onClose={() => setPendingDetailAction(null)}
+        title="작성 중인 댓글이 있습니다"
+        size="sm"
+      >
+        <Text>
+          아직 등록하지 않은 댓글이 있습니다. 계속 작성하거나 댓글을 버리고
+          이동하세요.
+        </Text>
+        <Group justify="flex-end" mt="lg">
+          <Button
+            variant="default"
+            onClick={() => setPendingDetailAction(null)}
+          >
+            계속 작성
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              const action = pendingDetailAction;
+              setPendingDetailAction(null);
+              setActivityDirty(false);
+              action?.();
+            }}
+          >
+            댓글 버리고 이동
+          </Button>
+        </Group>
+      </Modal>
       <Modal
         opened={!!remove}
         onClose={() => setRemove(null)}

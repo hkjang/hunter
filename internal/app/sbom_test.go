@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func sampleSBOM(version string) map[string]any {
@@ -14,6 +15,25 @@ func sampleSBOM(version string) map[string]any {
 		map[string]any{"bom-ref": "pkg-a", "type": "library", "name": "auth-library", "version": version, "purl": "pkg:npm/auth-library@" + version, "licenses": []any{map[string]any{"license": map[string]any{"id": "MIT"}}}, "properties": []any{map[string]any{"name": "password", "value": "not-retained-password"}}},
 		map[string]any{"bom-ref": "pkg-b", "type": "library", "name": "common-core", "version": "3.0", "licenses": []any{map[string]any{"expression": "MIT OR Apache-2.0"}}},
 	}, "dependencies": []any{map[string]any{"ref": "pkg-a", "dependsOn": []string{"pkg-b", "missing"}}}}
+}
+
+func TestSBOMLabelsEnforceUTF8ByteLimits(t *testing.T) {
+	_, s := testApp(t)
+	admin := loginTest(t, s, "admin", "test-password-1234")
+	service := mustRequest(t, s, "POST", "/api/services", map[string]any{"name": strings.Repeat("한", 100), "environment": "staging"}, admin, 200)
+	out := mustRequest(t, s, "POST", "/api/sboms/import", map[string]any{"service_id": service["id"], "document": sampleSBOM("1")}, admin, 200)
+	label := str(out, "label")
+	if len(label) > 200 || !utf8.ValidString(label) || !strings.HasSuffix(label, " SBOM") {
+		t.Fatal("default label is too long or breaks UTF-8")
+	}
+	for _, label := range []string{strings.Repeat("한", 67), strings.Repeat("a", 201), "line\nbreak"} {
+		mustRequest(t, s, "POST", "/api/sboms/import", map[string]any{"service_id": service["id"], "label": label, "document": sampleSBOM("2")}, admin, 400)
+	}
+	valid := strings.Repeat("한", 66)
+	out = mustRequest(t, s, "POST", "/api/sboms/import", map[string]any{"service_id": service["id"], "label": valid, "document": sampleSBOM("2")}, admin, 200)
+	if str(out, "label") != valid {
+		t.Fatal("valid multibyte label changed")
+	}
 }
 func TestSBOMParsersAndAmbiguousComparison(t *testing.T) {
 	raw, _ := json.Marshal(sampleSBOM("1.0"))

@@ -8,6 +8,7 @@ import "@mantine/notifications/styles.css";
 import "@fontsource-variable/noto-sans-kr";
 import "./styles.css";
 import App from "./App";
+import { RenderBoundary } from "./render-boundary";
 const theme = createTheme({
   primaryColor: "teal",
   primaryShade: 8,
@@ -46,7 +47,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <MantineProvider theme={theme}>
       <Notifications position="top-right" />
       <BrowserRouter>
-        <App />
+        <RenderBoundary>
+          <App />
+        </RenderBoundary>
       </BrowserRouter>
     </MantineProvider>
   </React.StrictMode>,

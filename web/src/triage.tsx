@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Group,
   Pagination,
   Paper,
@@ -16,10 +17,26 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { IconMessage, IconRefresh, IconSearch } from "@tabler/icons-react";
-import { dateText, fullDate, useCan, useData, success } from "./api";
+import {
+  IconDownload,
+  IconLink,
+  IconMessage,
+  IconRefresh,
+  IconSearch,
+} from "@tabler/icons-react";
+import {
+  dateText,
+  fullDate,
+  useCan,
+  useData,
+  success,
+  showError,
+  label,
+} from "./api";
 import { Empty, LoadState, PageHeader, Status } from "./components";
-import { FormFeedback } from "./form-feedback";
+import { BulkFindingActions, useFindingSelection } from "./finding-bulk";
+import { copyText, downloadCSV } from "./list-export";
+import { FormFeedback, useUnsavedChanges } from "./form-feedback";
 import { Metric } from "./workflow-components";
 import {
   workflowAPI,
@@ -85,6 +102,8 @@ function Priority({ item }: { item: QueueItem }) {
 export function TriagePage() {
   const [params, setParams] = useSearchParams();
   const state = readQueueParams(params);
+  const can = useCan();
+  const selection = useFindingSelection(params.toString());
   const { data, loading, error, reload } = useData<FindingQueue>(
     queueRequest(params),
   );
@@ -112,13 +131,89 @@ export function TriagePage() {
         title="조치함"
         description="기한과 위험 근거를 함께 확인하고, 먼저 조치할 발견 건부터 이어서 처리하세요."
         action={
-          <Button
-            variant="default"
-            leftSection={<IconRefresh size={17} />}
-            onClick={reload}
-          >
-            새로고침
-          </Button>
+          <Group gap="xs">
+            <Button
+              variant="default"
+              leftSection={<IconDownload size={17} />}
+              disabled={loading || !!error || !data?.items.length}
+              onClick={() => {
+                downloadCSV(
+                  data?.items || [],
+                  [
+                    {
+                      key: "title",
+                      label: "발견 건",
+                      value: (item) => item.title,
+                    },
+                    {
+                      key: "service",
+                      label: "서비스",
+                      value: (item) => item.service_name,
+                    },
+                    {
+                      key: "severity",
+                      label: "심각도",
+                      value: (item) => label(item.severity),
+                    },
+                    {
+                      key: "status",
+                      label: "상태",
+                      value: (item) => label(item.status),
+                    },
+                    {
+                      key: "assignee",
+                      label: "담당자",
+                      value: (item) => item.assignee,
+                    },
+                    {
+                      key: "priority",
+                      label: "우선순위",
+                      value: (item) => item.priority.score,
+                    },
+                    {
+                      key: "due",
+                      label: "조치 기한",
+                      value: (item) => item.sla.due_date,
+                    },
+                    { key: "cve", label: "CVE", value: (item) => item.cve },
+                    {
+                      key: "epss",
+                      label: "EPSS",
+                      value: (item) => item.intelligence.epss,
+                    },
+                  ],
+                  "조치함-현재페이지",
+                );
+                success(
+                  `현재 페이지 ${data?.items.length || 0}개 항목을 내보냈습니다.`,
+                );
+              }}
+            >
+              현재 페이지 CSV
+            </Button>
+            <Button
+              variant="default"
+              leftSection={<IconLink size={17} />}
+              onClick={async () => {
+                try {
+                  const query = queueRequest(params).split("?")[1];
+                  await copyText(`${window.location.origin}/triage?${query}`);
+                  success("조치함 주소를 복사했습니다.");
+                } catch (error) {
+                  showError(error);
+                }
+              }}
+            >
+              주소 복사
+            </Button>
+            <Button
+              variant="default"
+              leftSection={<IconRefresh size={17} />}
+              onClick={reload}
+            >
+              새로고침
+            </Button>
+          </Group>
         }
       />
       {data && !error && (
@@ -196,6 +291,13 @@ export function TriagePage() {
         </Stack>
       </Paper>
       <Paper className="data-panel">
+        {can("findings:write") && !loading && !error && (
+          <BulkFindingActions
+            items={selection.rows}
+            onDone={reload}
+            onClear={selection.clear}
+          />
+        )}
         <LoadState loading={loading} error={error} reload={reload} />
         {data && !loading && !error && (
           <>
@@ -213,6 +315,31 @@ export function TriagePage() {
                 >
                   <Table.Thead>
                     <Table.Tr>
+                      {can("findings:write") && (
+                        <Table.Th scope="col">
+                          <Checkbox
+                            aria-label="현재 페이지 발견 건 모두 선택"
+                            checked={
+                              data.items.length > 0 &&
+                              data.items.every((item) =>
+                                selection.selected(item.id),
+                              )
+                            }
+                            indeterminate={
+                              selection.rows.length > 0 &&
+                              !data.items.every((item) =>
+                                selection.selected(item.id),
+                              )
+                            }
+                            onChange={(event) =>
+                              selection.page(
+                                data.items,
+                                event.currentTarget.checked,
+                              )
+                            }
+                          />
+                        </Table.Th>
+                      )}
                       {[
                         "발견 건 · 서비스",
                         "우선순위",
@@ -230,6 +357,20 @@ export function TriagePage() {
                   <Table.Tbody>
                     {data.items.map((item) => (
                       <Table.Tr key={item.id}>
+                        {can("findings:write") && (
+                          <Table.Td>
+                            <Checkbox
+                              aria-label={`${item.title} 선택`}
+                              checked={selection.selected(item.id)}
+                              onChange={(event) =>
+                                selection.toggle(
+                                  item,
+                                  event.currentTarget.checked,
+                                )
+                              }
+                            />
+                          </Table.Td>
+                        )}
                         <Table.Td miw={260}>
                           <Link
                             className="workflow-link"
@@ -355,17 +496,38 @@ export function TriagePage() {
     </>
   );
 }
-export function FindingActivity({ findingId }: { findingId: string }) {
+export function FindingActivity({
+  findingId,
+  onDirtyChange,
+}: {
+  findingId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const can = useCan();
   const [page, setPage] = useState(1),
     [body, setBody] = useState(""),
     [busy, setBusy] = useState(false),
     [formError, setFormError] = useState("");
+  const submitting = useRef(false);
+  const dirtyCallback = useRef(onDirtyChange);
+  dirtyCallback.current = onDirtyChange;
+  useUnsavedChanges(!!body.trim());
+  useEffect(() => {
+    dirtyCallback.current?.(!!body.trim());
+  }, [body]);
+  useEffect(
+    () => () => {
+      dirtyCallback.current?.(false);
+    },
+    [],
+  );
+  const bytes = new TextEncoder().encode(body).length;
   const result = useData<ActivityPage>(
     `/api/findings/${encodeURIComponent(findingId)}/activity?page=${page}&size=25`,
   );
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitting.current) return;
     setFormError("");
     if (!body.trim()) {
       setFormError("댓글 내용을 입력하세요.");
@@ -375,6 +537,7 @@ export function FindingActivity({ findingId }: { findingId: string }) {
       setFormError("댓글은 UTF-8 기준 16,000바이트까지 입력할 수 있습니다.");
       return;
     }
+    submitting.current = true;
     setBusy(true);
     try {
       await workflowAPI.comment(findingId, body);
@@ -385,6 +548,7 @@ export function FindingActivity({ findingId }: { findingId: string }) {
     } catch (e) {
       setFormError((e as Error).message);
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -412,10 +576,22 @@ export function FindingActivity({ findingId }: { findingId: string }) {
             value={body}
             onChange={(event) => setBody(event.currentTarget.value)}
             disabled={busy}
+            error={bytes > 16000 ? "16,000바이트를 초과했습니다." : undefined}
+            onKeyDown={(event) => {
+              if (
+                (event.ctrlKey || event.metaKey) &&
+                event.key === "Enter" &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
           />
           <Text size="xs" c="dimmed" mt="xs">
             자격 증명이나 개인정보 원문을 입력하지 마세요. UTF-8 기준 최대
-            16,000바이트입니다.
+            16,000바이트입니다. ({bytes.toLocaleString()}/16,000) ·
+            Ctrl/⌘+Enter로 등록
           </Text>
           <Group justify="flex-end" mt="sm">
             <Button
@@ -463,6 +639,35 @@ export function FindingActivity({ findingId }: { findingId: string }) {
                 <Text className="workflow-pre" mt="xs">
                   {item.body || item.summary}
                 </Text>
+                {item.action === "finding.bulk_update" &&
+                  item.details?.fields && (
+                    <Stack gap={4} mt="sm">
+                      {["assignee", "due_date", "status"]
+                        .filter((key) => item.details?.fields[key])
+                        .map((key) => {
+                          const change = item.details!.fields[key];
+                          const display = (value: unknown) =>
+                            value == null || value === ""
+                              ? "미지정"
+                              : key === "due_date"
+                                ? dateText(value)
+                                : label(value);
+                          return (
+                            <Text size="sm" key={key} className="workflow-pre">
+                              {
+                                {
+                                  assignee: "담당자",
+                                  due_date: "조치 기한",
+                                  status: "진행 상태",
+                                }[key]
+                              }
+                              : {display(change.before)} →{" "}
+                              {display(change.after)}
+                            </Text>
+                          );
+                        })}
+                    </Stack>
+                  )}
               </article>
             ))
           )}

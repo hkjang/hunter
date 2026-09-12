@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -523,8 +524,8 @@ func (a *App) importSBOM(w http.ResponseWriter, r *http.Request) {
 		Label     string          `json:"label"`
 		Document  json.RawMessage `json:"document"`
 	}
-	if decode(r, &in) != nil || len(in.Label) > 200 {
-		fail(w, 400, "서비스와 200자 이내 이름, SBOM JSON이 필요합니다")
+	if decode(r, &in) != nil {
+		fail(w, 400, "서비스와 UTF-8 200바이트 이내 이름, SBOM JSON이 필요합니다")
 		return
 	}
 	s, err := a.resource(r.Context(), "services", in.ServiceID)
@@ -538,7 +539,19 @@ func (a *App) importSBOM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(in.Label) == "" {
-		in.Label = str(s.Data, "name") + " SBOM"
+		name := str(s.Data, "name")
+		if len(name) > 195 {
+			cut := 195
+			for cut > 0 && !utf8.RuneStart(name[cut]) {
+				cut--
+			}
+			name = name[:cut]
+		}
+		in.Label = name + " SBOM"
+	}
+	if !sbomSafeIdentifier(in.Label, 200) {
+		fail(w, 400, "문서 이름은 줄바꿈 없이 UTF-8 200바이트 이하로 입력하세요")
+		return
 	}
 	// The digest identifies the exact submitted JSON bytes, not a claim of a
 	// supplier signature or a vulnerability database verification.

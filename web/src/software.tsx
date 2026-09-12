@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   useLocation,
@@ -44,9 +44,22 @@ import {
   type SBOMComparison,
 } from "./workflow-api";
 import { parseSBOM, safeListReturn } from "./workflow-state";
+import {
+  normalizeSoftwareParams,
+  sbomLabelError,
+  switchWorkflowTab,
+  utf8Length,
+} from "./workflow-navigation";
 
 function ComponentInfo({ item }: { item: SoftwareComponent }) {
   const can = useCan();
+  const location = useLocation();
+  const returnTo = safeListReturn(
+    location.pathname === "/software"
+      ? location.pathname + location.search
+      : location.state?.from,
+    "/software",
+  );
   return (
     <Stack>
       <Text fw={700} size="xl">
@@ -77,6 +90,7 @@ function ComponentInfo({ item }: { item: SoftwareComponent }) {
             key={`${service.id}-${service.sbom_id}`}
             component={Link}
             to={`/software/${service.sbom_id}`}
+            state={{ from: returnTo }}
             variant="light"
             justify="flex-start"
           >
@@ -124,7 +138,14 @@ function componentColumns(
       key: "name",
       label: "구성요소",
       value: (item) =>
-        [item.name, item.group, item.purl].filter(Boolean).join(" "),
+        [
+          item.name,
+          item.group,
+          item.purl,
+          ...(item.services || []).map((service) => service.name),
+        ]
+          .filter(Boolean)
+          .join(" "),
       render: (item) => (
         <>
           <Button
@@ -192,11 +213,18 @@ function ComponentList({
   loading = false,
   error = "",
   reload,
+  filterLabels = {},
+  scoped = false,
 }: {
   rows: SoftwareComponent[];
   loading?: boolean;
   error?: string;
   reload?: () => void;
+  filterLabels?: Record<
+    string,
+    { label: string; value?: (value: string) => string }
+  >;
+  scoped?: boolean;
 }) {
   const can = useCan();
   const [params, setParams] = useSearchParams();
@@ -216,6 +244,16 @@ function ComponentList({
         rows={rows}
         columns={componentColumns(select, can("findings:read"))}
         name="구성요소"
+        preferenceContext="components"
+        filters={
+          scoped
+            ? {
+                service_id: (item, value) =>
+                  (item.services || []).some((service) => service.id === value),
+              }
+            : {}
+        }
+        filterLabels={filterLabels}
         rowKey={(item) => `${item.id}:${item.bom_ref}`}
         loading={loading}
         error={error}
@@ -240,7 +278,14 @@ export function SoftwarePage() {
     navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "components" ? "components" : "documents";
-  const serviceId = params.get("service") || "";
+  const serviceId = params.get("f_service_id") || params.get("service") || "";
+  useEffect(() => {
+    if (params.has("service"))
+      setParams(normalizeSoftwareParams(params), {
+        replace: true,
+        state: location.state,
+      });
+  }, [params, location.state, setParams]);
   const documents = useData<{ items: SBOMDocument[]; total: number }>(
     `/api/sboms?service_id=${encodeURIComponent(serviceId)}`,
   );
@@ -260,8 +305,16 @@ export function SoftwarePage() {
     [file, setFile] = useState<File | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const serviceLabels = {
+    service_id: {
+      label: "서비스",
+      value: (value: string) =>
+        services.data?.find((item) => item.id === value)?.name ||
+        "현재 선택 서비스",
+    },
+  };
   function change(key: string, value: string | null) {
-    const next = new URLSearchParams(params);
+    const next = normalizeSoftwareParams(params);
     next.delete("page");
     next.delete("component");
     if (value) next.set(key, value);
@@ -273,6 +326,11 @@ export function SoftwarePage() {
     setError("");
     if (!service || !file) {
       setError("서비스와 SBOM JSON 파일을 선택하세요.");
+      return;
+    }
+    const labelProblem = sbomLabelError(label);
+    if (labelProblem) {
+      setError(labelProblem);
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
@@ -391,12 +449,23 @@ export function SoftwarePage() {
           label: item.name,
         }))}
         value={serviceId || null}
-        onChange={(value) => change("service", value)}
+        onChange={(value) => change("f_service_id", value)}
         maw={420}
       />
       <Tabs
         value={tab}
-        onChange={(value) => change("tab", value)}
+        onChange={(value) =>
+          setParams(
+            switchWorkflowTab(
+              params,
+              tab,
+              value || "documents",
+              ["documents", "components"],
+              { components: ["component"] },
+            ),
+            { state: location.state },
+          )
+        }
         className="workflow-tabs"
       >
         <Tabs.List>
@@ -413,6 +482,8 @@ export function SoftwarePage() {
       {tab === "components" ? (
         <ComponentList
           rows={components.data?.items || []}
+          scoped
+          filterLabels={serviceLabels}
           loading={components.loading}
           error={components.error}
           reload={components.reload}
@@ -422,6 +493,9 @@ export function SoftwarePage() {
           rows={documents.data?.items || []}
           columns={columns}
           name="SBOM 문서"
+          preferenceContext="documents"
+          filters={{ service_id: (item, value) => item.service_id === value }}
+          filterLabels={serviceLabels}
           rowKey={(item) => item.id}
           loading={documents.loading}
           error={documents.error}
@@ -459,6 +533,8 @@ export function SoftwarePage() {
               placeholder="예: 결제 서비스 2.4.0"
               value={label}
               onChange={(event) => setLabel(event.currentTarget.value)}
+              description={`${utf8Length(label.trim())}/200바이트 · 한글은 보통 글자당 3바이트`}
+              error={sbomLabelError(label) || undefined}
               maxLength={200}
               disabled={busy}
             />
@@ -480,7 +556,11 @@ export function SoftwarePage() {
               >
                 취소
               </Button>
-              <Button type="submit" loading={busy}>
+              <Button
+                type="submit"
+                loading={busy}
+                disabled={!!sbomLabelError(label)}
+              >
                 검증하고 반입
               </Button>
             </Group>
@@ -548,6 +628,7 @@ function SBOMCompare({
               </SimpleGrid>
               <WorkflowTable
                 name="구성 변경"
+                preferenceContext="compare"
                 rowKey={(item) => item.key}
                 rows={[
                   ...result.data.added.map((item, i) => ({
@@ -702,10 +783,13 @@ function SoftwareDetail({ id }: { id: string }) {
             value={tab}
             className="workflow-tabs"
             onChange={(value) => {
-              const next = new URLSearchParams(params);
-              next.set("tab", value || "components");
-              next.delete("page");
-              next.delete("component");
+              const next = switchWorkflowTab(
+                params,
+                tab,
+                value || "components",
+                ["components", "dependencies", "compare", "metadata"],
+                { components: ["component"], compare: ["baseline"] },
+              );
               setParams(next, { state: location.state });
             }}
           >
@@ -727,6 +811,7 @@ function SoftwareDetail({ id }: { id: string }) {
           {tab === "dependencies" && (
             <WorkflowTable
               name="의존 관계"
+              preferenceContext="dependencies"
               rows={(doc.dependencies || []).flatMap((item) =>
                 (item.dependsOn || item.depends_on || []).map((target) => ({
                   key: `${item.ref}-${target}`,

@@ -3,6 +3,25 @@
   max-width: 100%;
   flex: 1 1 220px;
 }
+.finding-bulk-bar {
+  background: #eaf6f2;
+  border-top: 1px solid #cee9de;
+  border-bottom: 1px solid #cee9de;
+}
+.finding-bulk-form summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+}
+.finding-bulk-form details ul {
+  max-height: 200px;
+  overflow: auto;
+  padding-inline-start: 24px;
+}
+.finding-bulk-form li {
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
 .table-toolbar .list-search input {
   height: 42px;
   min-height: 42px;

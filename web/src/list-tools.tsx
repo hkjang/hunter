@@ -17,9 +17,12 @@ import {
   IconCheck,
   IconTrash,
   IconX,
+  IconDownload,
+  IconLink,
 } from "@tabler/icons-react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import { label, useSession } from "./api";
+import { label, useSession, success, showError } from "./api";
+import { copyText, downloadCSV, listSharePath } from "./list-export";
 import type { ListView } from "./use-list-view";
 import {
   applySavedListQuery,
@@ -29,10 +32,13 @@ import {
   type ListPreferences,
 } from "./saved-list-views";
 
-export function useListPreferences() {
+export function useListPreferences(context?: string) {
   const { user } = useSession();
   const { pathname } = useLocation();
-  const key = listPreferenceKey(user?.id || "", pathname);
+  const key = listPreferenceKey(
+    user?.id || "",
+    pathname + (context ? `#${context}` : ""),
+  );
   function read() {
     try {
       return readListPreferences(localStorage.getItem(key));
@@ -185,6 +191,43 @@ export function ListTools<T>({
           )}
         </div>
         <Group gap="xs" className="list-view-actions">
+          <Button
+            variant="default"
+            leftSection={<IconDownload size={17} />}
+            disabled={loading || failed || !view.filteredRows.length}
+            title={`현재 조회 자료 중 검색·정렬을 적용한 ${view.filteredRows.length.toLocaleString()}개 결과를 내보냅니다.`}
+            onClick={() => {
+              downloadCSV(view.filteredRows, view.columns, "검색결과");
+              success(
+                `${view.filteredRows.length.toLocaleString()}개 검색 결과를 CSV로 내보냈습니다.`,
+              );
+            }}
+          >
+            CSV 내보내기
+          </Button>
+          <Button
+            variant="default"
+            leftSection={<IconLink size={17} />}
+            onClick={async () => {
+              try {
+                const path = listSharePath(
+                  location.pathname,
+                  params,
+                  view.columns.map((column) => column.key),
+                  Object.keys(view.filters),
+                  view.page,
+                );
+                await copyText(new URL(path, window.location.origin).href);
+                success(
+                  "목록 주소를 복사했습니다. 받는 사람의 접근 권한에 따라 결과가 표시됩니다.",
+                );
+              } catch (error) {
+                showError(error);
+              }
+            }}
+          >
+            목록 주소 복사
+          </Button>
           <Popover
             opened={opened}
             onChange={setOpened}

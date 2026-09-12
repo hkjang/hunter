@@ -103,7 +103,7 @@ func (a *App) findingActivity(w http.ResponseWriter, r *http.Request) {
  SELECT id,'comment' AS kind,author_id,author_name,created_at,body_encrypted,'' AS action,'{}'::jsonb AS detail FROM finding_comments WHERE finding_id=$1
  UNION ALL
  SELECT id,'audit',user_id,username,created_at,'',action,detail FROM audit_logs
- WHERE target=$1 AND action IN ('findings.save','finding.acceptance_expired')
+ WHERE target=$1 AND action IN ('findings.save','finding.acceptance_expired','finding.bulk_update')
  UNION ALL
  SELECT 'observation-'||ord::text,'observation','','',hunter_finding_timestamp(obs->>'observed_at'),'','scanner.observed',obs
  FROM jsonb_array_elements(CASE WHEN jsonb_typeof($2::jsonb->'observations')='array' THEN $2::jsonb->'observations' ELSE '[]'::jsonb END) WITH ORDINALITY AS values(obs,ord)
@@ -149,6 +149,17 @@ func (a *App) findingActivity(w http.ResponseWriter, r *http.Request) {
 			item.Summary = "댓글을 남겼습니다"
 		case "audit":
 			item.Summary = "발견 건을 저장했습니다"
+			if entry.Action == "finding.bulk_update" {
+				fields := map[string]any{}
+				for _, key := range []string{"assignee", "due_date", "status"} {
+					if raw, exists := object(entry.Detail["fields"])[key]; exists {
+						change := object(raw)
+						fields[key] = map[string]any{"before": findingBulkAuditValue(change["before"]), "after": findingBulkAuditValue(change["after"])}
+					}
+				}
+				item.Details["fields"] = fields
+				item.Summary = findingBulkSummary(fields)
+			}
 			if entry.Action == "finding.acceptance_expired" {
 				item.Summary = "위험 수용 기간이 만료되어 재검토 대상으로 돌아왔습니다"
 			}

@@ -182,7 +182,7 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.4.0" });
+    [config, setConfig] = useState<Row>({ version: "1.5.0" });
   const refreshConfig = () => {
     api("/api/settings/public")
       .then(setConfig)
@@ -416,7 +416,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.4.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.5.0"}</b>
           </span>
         </footer>
       </section>
@@ -637,7 +637,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.4.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.5.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -673,7 +673,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.4.0"}
+                hunter · 서비스 버전 v{config.version || "1.5.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"

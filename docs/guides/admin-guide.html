@@ -1,5 +1,5 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.4.0</title><meta name="description" content="폐쇄망 설치, SLA·위협 정보·운영 점검, Keycloak·AI·권한·정책·백업 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp">15. REST API와 MCP</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
-<p><strong>버전 1.4.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.5.0</title><meta name="description" content="폐쇄망 설치, SLA·위협 정보·운영 점검, Keycloak·AI·권한·정책·백업 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp">15. REST API와 MCP</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
+<p><strong>버전 1.5.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
 <p>이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.</p>
 <p><a href="../index.html">프로젝트 소개</a> · <a href="user-guide.html">사용자 가이드</a> · <a href="admin-guide.html">HTML</a> · <a href="admin-guide.pdf">PDF</a> · <a href="../screenshots.html">전체 화면</a></p>
 <blockquote>
@@ -8,7 +8,7 @@
 <h2 id="1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</h2>
 <h3 id="1-1-구성">1.1 구성</h3>
 <p>Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.</p>
-<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.4.0 → 사내 PostgreSQL
+<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.5.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -140,7 +140,7 @@
 </tr>
 <tr>
 <td>반입 파일</td>
-<td>릴리즈의 <code>hunter-v1.4.0.tar.gz</code>, compose.yaml, .env.example</td>
+<td>릴리즈의 <code>hunter-v1.5.0.tar.gz</code>, compose.yaml, .env.example</td>
 </tr>
 <tr>
 <td>백업</td>
@@ -153,8 +153,8 @@
 <h2 id="3-오프라인-배포">3. 오프라인 배포</h2>
 <h3 id="3-1-릴리즈-파일-검증과-반입">3.1 릴리즈 파일 검증과 반입</h3>
 <p>인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.</p>
-<pre><code class="language-sh">sha256sum hunter-v1.4.0.tar.gz
-gzip --test hunter-v1.4.0.tar.gz
+<pre><code class="language-sh">sha256sum hunter-v1.5.0.tar.gz
+gzip --test hunter-v1.5.0.tar.gz
 </code></pre>
 <p>첨부 자산은 <code>hunter-v버전.tar.gz</code> 한 개이며 내부 이미지 이름은 <code>hunter:v버전</code>입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.</p>
 <h3 id="3-2-네-가지-환경변수-설정">3.2 네 가지 환경변수 설정</h3>
@@ -203,8 +203,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 <p>런타임 설정용 환경변수는 위 네 가지입니다. 서비스명, 공개 주소, OIDC, AI, 세션, 권한, 연동과 진단 정책은 관리자 화면에서 저장합니다.</p>
 <p><strong>암호화 키를 재기동마다 생성하면 안 됩니다.</strong> 기존 DB에 다른 키를 제공하면 시작 검증이 실패합니다. 초기 관리자 환경변수를 바꾸는 것으로 기존 관리자 계정을 복구하거나 비밀번호를 바꿀 수 없습니다.</p>
 <h3 id="3-3-이미지-불러오기와-실행">3.3 이미지 불러오기와 실행</h3>
-<pre><code class="language-sh">docker load -i hunter-v1.4.0.tar.gz
-docker image inspect hunter:v1.4.0
+<pre><code class="language-sh">docker load -i hunter-v1.5.0.tar.gz
+docker image inspect hunter:v1.5.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -661,7 +661,8 @@ curl --fail http://localhost:8080/api/health
 </code></pre>
 <p>반입 파일 자체의 날짜를 현재 날짜로 바꾸어 오래된 자료를 최신으로 표시하지 않습니다. 조회한 KEV 포함 여부가 <code>false</code>라면 반입 목록에 없다는 뜻이며, <code>null</code>은 자료 또는 유효한 CVE를 확인하지 못했다는 뜻입니다. EPSS <code>null</code>은 실제 0과 다릅니다.</p>
 <h3 id="12-6-sbom-반입-운영">12.6 SBOM 반입 운영</h3>
-<p>사용자는 <strong>소프트웨어 명세</strong>에서 현재 접근 가능한 서비스의 SBOM을 반입합니다. 조회는 <code>services:read</code>, 반입·삭제는 <code>services:write</code>가 필요하며 연결된 발견 건을 보려면 <code>findings:read</code>도 필요합니다. 개별 문서 작성자가 아니라 현재 부모 서비스 권한으로 열람·비교·영향 집계를 검사합니다.</p>
+<p>사용자는 <strong>소프트웨어 구성</strong>에서 현재 접근 가능한 서비스의 SBOM을 반입합니다. 조회는 <code>services:read</code>, 반입·삭제는 <code>services:write</code>가 필요하며 연결된 발견 건을 보려면 <code>findings:read</code>도 필요합니다. 개별 문서 작성자가 아니라 현재 부모 서비스 권한으로 열람·비교·영향 집계를 검사합니다.</p>
+<p>문서 이름은 UTF-8 기준 200바이트까지입니다. 화면의 바이트 수와 오류를 확인하며 한글·이모지를 포함한 이름이 한도를 넘으면 전송 전에 줄입니다. 빈 이름에는 서비스명 기반 기본값을 사용하며 서버도 UTF-8 문자 경계를 지켜 200바이트로 제한합니다.</p>
 <p>지원 형식은 CycloneDX 1.4·1.5·1.6 JSON, SPDX 2.2·2.3 JSON입니다. 본문 8 MiB·구성요소 1~10,000개·중첩 64단계·구성요소별 라이선스 50개를 제한하며, 입력 의존 관계는 미등록 참조까지 포함해 100,000개 이하입니다. 빈 문서·중복 참조·지원 필드의 잘못된 타입은 거부하고 이전 최신 명세를 유지합니다. purl 기본 구조·버전 일치·인코딩·자격 정보 qualifier를 검사하지만 전체 표준 스키마 검증기는 아닙니다. XML·태그 값 형식·SBOM 생성·취약점 DB 자동 분석은 현재 범위가 아닙니다.</p>
 <p>동일 서비스에 같은 JSON 바이트가 이미 있으면 기존 문서를 재사용합니다. 주의 메시지를 확인하고 서로 다른 배포본을 같은 서비스에 보관해 비교하세요. 임의의 공급자 속성과 파일을 그대로 저장하지 않고 필요한 구성요소·관계 메타데이터를 정규화합니다. 같은 패키지·버전의 서로 다른 라이선스는 별도 행으로 보존합니다. 문서 <code>bom-ref</code> 변경만으로 메타데이터 변경으로 세지 않으며 여러 버전 변경은 임의로 짝짓지 않고 추가·제거로 표시합니다. 이름·버전이 서로 다른 purl이나 구성요소 식별자에 걸쳐 모호하면 발견 건을 <code>이름@버전</code>으로 연결하지 않습니다. 새로운 문서 반입·삭제·패키지 제거만으로 발견 건 상태가 해결로 바뀌지 않습니다.</p>
 <h2 id="13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</h2>
@@ -673,7 +674,7 @@ curl --fail http://localhost:8080/api/health
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.4.0 --worker-only --worker-id worker-dmz
+  hunter:v1.5.0 --worker-only --worker-id worker-dmz
 </code></pre>
 <p>워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 <strong>정확히 일치</strong>해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.</p>
 <p>각 망의 실제 방화벽·라우팅 정책으로 워커가 승인된 대상과 PostgreSQL에만 접근하도록 구성합니다. 같은 DB에 접근할 수 없는 완전 분리망 사이를 자동 연결하지 않습니다. DB 자격 증명이 있는 워커는 신뢰된 실행 구성요소이므로 일반 사용자에게 워커 실행 호스트의 관리 권한을 제공하지 않습니다.</p>
@@ -704,7 +705,7 @@ curl --fail http://localhost:8080/api/health
 <h3 id="13-5-캠페인-운영과-재실행">13.5 캠페인 운영과 재실행</h3>
 <p>캠페인은 최대 20개 서비스·프로파일·시나리오 조합을 하나의 작업으로 관리합니다. 생성·시작에는 <code>services:read</code>, <code>scans:read</code>, <code>scans:write</code>가 필요하고 모든 대상의 현재 서비스 접근을 검사합니다. 관리자의 대상 승인·유효 범위·선택적 팀장 승인·긴급 중지와 기존 망별 워커를 그대로 사용합니다.</p>
 <p>시작 전 정책 준비를 마친 뒤 DB 트랜잭션에서 캠페인 잠금, 현재 부모 권한·긴급 중지 확인, 전체 진단·큐·승인·연결 저장을 처리합니다. 동시 요청이나 응답 재시도로 같은 캠페인이 중복 실행되지 않습니다. 이미 시작한 캠페인은 기존 결과를 돌려주므로 새 검증에는 새 캠페인을 만듭니다. 개별 진단을 취소해도 캠페인의 연결 이력은 유지합니다.</p>
-<p>비교는 같은 서비스·프로파일·시나리오 구성과 같은 실행 조건의 내장 완료 진단에 한정합니다. 정책·범위·인증·신뢰 CA·엔진 버전이 바뀌면 비교 불가입니다. 외부 결과 반입·이전 버전·실패·취소·스냅샷 없는 실행도 비교하지 않습니다. 비교용 관측 결과는 증거·비밀값 없이 실행별로 고정 보존하며 건당 최대 5,000개입니다.</p>
+<p>비교는 같은 서비스·프로파일·시나리오 구성과 같은 실행 조건의 내장 완료 진단에 한정합니다. 정책·범위·인증·신뢰 CA·엔진 버전이 바뀌면 비교 불가입니다. 외부 결과 반입·이전 버전·실패·취소·스냅샷 없는 실행도 비교하지 않습니다. 비교용 관측 결과는 증거·비밀값 없이 실행별로 고정 보존하며 건당 최대 5,000개입니다. 반복 검증은 기존 캠페인의 <strong>같은 대상으로 새 캠페인</strong>에서 현재 접근 권한을 다시 조회하고 새 초안을 검토해 등록할 수 있습니다. 이전 진단 ID·결과·실행 상태는 복사하지 않으며 별도의 시작이 필요합니다.</p>
 <p>새 배포 후 기준과 동일한 진단을 실행하고 신규·반복·변경·미관측을 검토합니다. 미관측은 해결이 아니며 기존 지원 재검증 절차를 통해 해결을 확정합니다. 이 기능의 결과만으로 외부 스캐너의 실행 완전성이나 모든 업무 권한의 안전을 주장하지 않습니다.</p>
 <h2 id="14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</h2>
 <h3 id="14-1-사내-ai-연결">14.1 사내 AI 연결</h3>
@@ -846,6 +847,10 @@ curl --fail http://localhost:8080/api/health
 <td>외부 진단 결과 수입</td>
 </tr>
 <tr>
+<td>POST /api/findings/bulk</td>
+<td>현재 권한·수정 버전 확인 후 최대 100개 담당자·기한·허용 진행 상태 변경</td>
+</tr>
+<tr>
 <td>GET /api/finding-queue</td>
 <td>서버 검색·페이지·SLA·위협 정보와 공통 원인 후보</td>
 </tr>
@@ -940,7 +945,25 @@ curl --fail http://localhost:8080/api/health
 </tbody>
 </table>
 <p>모든 자원이 모든 HTTP 메서드를 제공하는 것은 아닙니다. 워커·승인 이력 등은 직접 CRUD 대상이 아닌 경우가 있으며 실행 중 서비스의 OpenAPI와 API 오류 메시지를 확인합니다.</p>
-<h3 id="15-2-mcp-연결">15.2 MCP 연결</h3>
+<h3 id="15-2-일반-자원-수정-충돌과-일괄-변경">15.2 일반 자원 수정 충돌과 일괄 변경</h3>
+<p>일반 자원 수정 API에는 조회한 <code>updated_at</code>을 <code>expected_updated_at</code>으로 전달하세요. 화면은 편집을 시작한 자료의 기준 시각을 자동 전달합니다. 다른 변경이 반영된 경우 <code>409</code>를 반환하므로 최신 자료를 다시 조회해 내 변경과 비교한 뒤 재작성합니다. 이 기준값을 폼에서 임의의 현재 시각으로 만들거나 <code>409</code>를 무시해 반복 전송하지 않습니다.</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;검토 후 변경한 서비스 이름&quot;,
+  &quot;expected_updated_at&quot;: &quot;2026-09-12T01:02:03.123456Z&quot;
+}
+</code></pre>
+<p>이 보호는 서비스·발견 건·정책·허용 범위·대상 인증·연동·자동발견 후보·보고서 자원·권한 시나리오·개선 요청·예약의 일반 저장 경로에 적용합니다. 사용자·개인 프로필·관리자 설정·워커의 별도 handler는 같은 버전 비교 계약이 아닙니다. 기존 API 클라이언트와의 호환을 위해 기준 필드는 선택적이지만, 조회 후 사용자가 수정하는 클라이언트에는 명시적으로 전달하는 것을 권장합니다.</p>
+<p><code>POST /api/findings/bulk</code>는 최대 100개 발견 건의 담당자·수동 기한·허용된 진행 상태를 한 번에 변경합니다. <code>findings:read</code>와 <code>findings:write</code>가 모두 필요합니다. 각 항목의 현재 <code>updated_at</code>을 포함하며 현재 사용자·역할·개인 키와 부모 서비스 접근을 트랜잭션 안에서 다시 확인합니다.</p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    {&quot;id&quot;: &quot;FINDING_ID_FROM_GET&quot;, &quot;updated_at&quot;: &quot;2026-09-12T01:02:03.123456Z&quot;}
+  ],
+  &quot;patch&quot;: {&quot;assignee&quot;: &quot;보안운영팀&quot;, &quot;status&quot;: &quot;in_progress&quot;}
+}
+</code></pre>
+<p><code>patch</code>는 <code>assignee</code>, <code>due_date</code>, <code>status</code>만 허용하며 누락한 필드는 유지합니다. 담당자 빈 문자열은 지정 해제, 수동 기한 해제는 SLA 계산으로 돌아갈 수 있음을 뜻합니다. 상태는 <code>candidate</code>, <code>confirmed</code>, <code>in_progress</code>, <code>retest</code>, <code>inconclusive</code>만 허용합니다. 해결·위험 수용·오탐의 설정이나 해당 상태에서의 재개는 개별 검토로 처리합니다. 권한 변경·누락·수정 충돌이 하나라도 있으면 일부 성공 없이 전체 롤백합니다. <code>404</code>·<code>409</code>에서는 목록을 다시 조회하고 재선택합니다.</p>
+<p>응답은 <code>updated</code>, 변경된 <code>items</code>, 공통 <code>operation_id</code>를 반환합니다. 실제 바뀐 항목만 갱신하며 같은 값 재적용으로 감사 기록을 불필요하게 늘리지 않습니다. 일괄 변경의 세 필드 변경 내역은 개별 활동과 감사 기록에 연결됩니다. 이 API를 진단 실행이나 재검증 없이 해결 상태를 만드는 용도로 사용하지 않습니다.</p>
+<h3 id="15-3-mcp-연결">15.3 MCP 연결</h3>
 <p>HTTP 엔드포인트는 <code>/mcp</code>입니다. MCP 프로토콜 2025-06-18과 2025-11-25에 대한 초기화 협상을 지원하고, 개인 API 키 인증으로 사용합니다. OAuth 자동 등록과 브라우저 인증을 요구하는 MCP 클라이언트는 그대로 연결되지 않을 수 있습니다.</p>
 <pre><code class="language-json">{
   &quot;url&quot;: &quot;https://hunter.internal/mcp&quot;,
@@ -1025,7 +1048,7 @@ docker compose up -d
 <li>검증계의 승인된 작은 진단으로 기능을 확인한 뒤 운영 전환합니다.</li>
 </ol>
 <pre><code class="language-sh">pg_restore --dbname=&quot;$RESTORE_POSTGRES_DSN&quot; --no-owner hunter-backup.dump
-docker load -i hunter-v1.4.0.tar.gz
+docker load -i hunter-v1.5.0.tar.gz
 docker compose up -d
 </code></pre>
 <p>새 DB를 위한 자동 초기 관리자 생성과 기존 DB 복원 절차를 혼동하지 않습니다. 복원한 DB에 사용자가 있으면 bootstrap 환경변수로 계정을 다시 생성하지 않습니다.</p>
@@ -1041,6 +1064,10 @@ docker compose up -d
 <li><code>compose.yaml</code>의 이미지 태그를 새 버전으로 바꿉니다.</li>
 <li>상태·버전과 주요 화면을 확인하고 진단을 다시 허용합니다.</li>
 </ol>
+<h3 id="18-1-v1-5-증거-형식-보완과-기존-자료-복구">18.1 v1.5 증거 형식 보완과 기존 자료 복구</h3>
+<p>증거 입력은 문자열을 사용합니다. 객체·배열·숫자 등 구조형 값을 직접 전달하면 입력 오류로 거부합니다. JSON 증거가 필요하면 마스킹할 텍스트로 직렬화해서 제출하세요. API 호출에서 객체로 전달한 과거 증거가 암호화 경로를 벗어날 수 있었던 문제를 보완했습니다.</p>
+<p>v1.5는 기존 <code>ENCRYPTION_KEY</code>가 DB와 맞는지 먼저 검증한 뒤 HTTP 서버·워커를 시작하기 전에 남아 있는 구조형 증거를 복구합니다. 50행씩 잠금을 얻어 JSON 텍스트 변환·기존 길이 제한·마스킹·암호화를 적용하고 변경 시각과 원문 없는 건수 감사를 남깁니다. 완료한 배치는 보존하며 중단 후 다시 시작하면 남은 항목을 처리합니다.</p>
+<p>잠긴 행을 처리 완료로 간주하지 않습니다. DB 접근 오류나 잠금 때문에 최대 2분 안에 복구를 끝내지 못하면 시작을 거부하므로 DB 잠금과 오류를 확인한 뒤 같은 암호화 키로 다시 시작하세요. 과거 백업·스냅샷·별도 복제본의 내용을 소급해서 정리하지는 않습니다. 업그레이드 전후 백업은 조직의 접근·암호화·보존 절차로 관리합니다. 이 복구는 마스터 키 변경 기능이 아닙니다.</p>
 <p>시작 시 필요한 DB 스키마를 자동으로 준비합니다. 스키마 변경이 있는 업그레이드에서 이전 바이너리만 다시 띄우면 호환되지 않을 수 있습니다. 롤백은 이전 이미지와 대응하는 DB 백업을 함께 복원하는 절차로 검증합니다.</p>
 <h2 id="19-운영-장애-점검">19. 운영 장애 점검</h2>
 <table>
@@ -1054,6 +1081,14 @@ docker compose up -d
 <tr>
 <td>컨테이너 즉시 종료</td>
 <td>네 가지 환경변수, DSN, DB 접근·권한, 32바이트 base64 키</td>
+</tr>
+<tr>
+<td>기존 증거 암호화 복구 미완료</td>
+<td>DB 접근과 장기 잠금 확인, 동일 암호화 키로 재시작. 완료한 배치는 유지됨</td>
+</tr>
+<tr>
+<td>편집·일괄 변경 409</td>
+<td>현재 항목 재조회와 입력 비교, 자동 재전송 대신 명시적 재검토</td>
 </tr>
 <tr>
 <td>기존 DB 복호화 실패</td>
@@ -1177,9 +1212,9 @@ node scripts/check-docs.mjs
 </code></pre>
 <p>실제 화면 캡처는 <code>docs/images</code>에 저장합니다. 운영 데이터·비밀값이 담긴 화면은 공개 문서로 사용하지 않습니다. 가이드의 이미지가 모두 존재해야 PDF를 정상 생성할 수 있습니다.</p>
 <h3 id="20-3-릴리즈-규칙">20.3 릴리즈 규칙</h3>
-<pre><code class="language-sh">bash scripts/release.sh 1.4.0
+<pre><code class="language-sh">bash scripts/release.sh 1.5.0
 </code></pre>
-<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.4.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.4.0</code> 서비스 이미지 하나만 들어갑니다.</p>
+<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.5.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.5.0</code> 서비스 이미지 하나만 들어갑니다.</p>
 <p>GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 <code>docs</code>를 배포합니다. GitHub 저장소의 Pages 배포 소스는 <strong>GitHub Actions</strong>로 설정합니다.</p>
 <h2 id="21-참고-문서">21. 참고 문서</h2>
 <ul>
@@ -1190,4 +1225,4 @@ node scripts/check-docs.mjs
 <li><a href="https://playwright.dev/docs/api/class-page#page-pdf">Playwright PDF 생성</a></li>
 </ul>
 <p><a href="user-guide.html">사용자 일상 업무 가이드로 이동</a></p>
-<footer>Hunter v1.4.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
+<footer>Hunter v1.5.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>

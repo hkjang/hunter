@@ -10,8 +10,8 @@
 - [릴리즈](https://github.com/hkjang/hunter/releases)
 
 ## 핵심 사실
-- 프로젝트명 hunter, 버전 1.4.0.
-- 배포 이미지 hunter:v1.4.0, 서비스 이미지 압축 파일 hunter-v1.4.0.tar.gz.
+- 프로젝트명 hunter, 버전 1.5.0.
+- 배포 이미지 hunter:v1.5.0, 서비스 이미지 압축 파일 hunter-v1.5.0.tar.gz.
 - PostgreSQL은 별도 사내 서비스.
 - 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
 - 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
@@ -38,3 +38,13 @@
 - 관리자 운영점검은 DB·큐·워커·긴급중지·설정여부·자료갱신일을 확인하며 외부연결을 시험하지 않음.
 - 새 읽기전용 MCP도구: hunter_finding_queue, hunter_list_components, hunter_list_campaigns, hunter_compare_campaigns.
 - [공식 자료 조사와 채택 범위](https://hkjang.github.io/hunter/research-v140.md). 이번 운영기능은 Hunter 자체코드, PentAGI 원본312파일 그대로.
+
+## v1.5 반복 업무 편의
+
+- 발견 건 현재 페이지에서 최대100개 담당자·기한·허용 진행 상태 일괄 변경. 각 updated_at 및 현재 사용자/역할/키/부모 서비스 접근 검사, 한 항목 실패도 전체 롤백. 해결·오탐·위험 수용 일괄처리 없음.
+- 일반 목록 CSV는 현재 검색·정렬을 적용한 조회 범위 전체, 조치함 CSV는 현재 서버 페이지. 표시 필드만 내보내고 수식 시작 문자를 텍스트 처리.
+- 정제 목록 주소와 일반 상세 ID/링크 복사. 받은 사람의 현재 권한 적용.
+- 일반 자원 수정의 expected_updated_at과409입력유지/최신자료검토. 설정·사용자·프로필·워커 별도 API는 같은 계약 아님.
+- SBOM·캠페인 탭별 URL 조건과 사용자/경로/탭별 저장 보기. 서비스 필터 f_service_id, 이전 service주소호환.
+- 같은 대상으로 새 캠페인은 현재 접근 재조회 후 새 초안 폼, 등록/실제 시작 별도. 기존 진단결과복사나재실행 없음.
+- SBOM 이름UTF8최대200바이트(한글보통3바이트). 구조형 evidence입력거부. 기존 DB구조형증거는 키정합성검사후 시작전50행배치마스킹/암호화,2분내완료못하면시작거부. 과거백업/별도복제본소급정리없음.

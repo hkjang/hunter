@@ -7,6 +7,7 @@ export type FindingRef = {
   status: string;
 };
 export type QueueItem = FindingRef & {
+  updated_at: string;
   service_id: string;
   service_name: string;
   team?: string;

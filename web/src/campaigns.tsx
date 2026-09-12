@@ -23,6 +23,7 @@ import {
 } from "@mantine/core";
 import {
   IconArrowLeft,
+  IconCopy,
   IconGitCompare,
   IconPlayerPlay,
   IconPlus,
@@ -30,6 +31,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import {
+  api,
   dateText,
   label,
   type Row,
@@ -58,27 +60,36 @@ import {
   safeListReturn,
   unchangedObservations,
 } from "./workflow-state";
+import { copyCampaignDraft, switchWorkflowTab } from "./workflow-navigation";
 const profiles = ["http-baseline", "authorization", "import-only"].map(
   (value) => ({ value, label: label(value) }),
 );
 function CampaignForm({
   onClose,
   onCreated,
+  source,
+  onBusyChange,
 }: {
   onClose: () => void;
   onCreated: (campaign: Campaign) => void;
+  source?: Campaign;
+  onBusyChange?: (value: boolean) => void;
 }) {
   const services = useData<Row[]>("/api/services"),
     scopes = useData<Row[]>("/api/scopes"),
     scenarios = useData<Row[]>("/api/scenarios");
   const { config } = useSession();
-  const [name, setName] = useState(""),
-    [description, setDescription] = useState(""),
-    [targets, setTargets] = useState<CampaignTarget[]>([
-      { service_id: "", profile: "http-baseline" },
-    ]),
+  const initial = source ? copyCampaignDraft(source) : null;
+  const [name, setName] = useState(initial?.name || ""),
+    [description, setDescription] = useState(initial?.description || ""),
+    [targets, setTargets] = useState<CampaignTarget[]>(
+      initial?.targets || [{ service_id: "", profile: "http-baseline" }],
+    ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
   function update(index: number, change: Partial<CampaignTarget>) {
     setTargets((current) =>
       current.map((target, i) =>
@@ -122,6 +133,13 @@ function CampaignForm({
     <form onSubmit={submit}>
       <Stack>
         <FormFeedback error={error} />
+        {source && (
+          <Alert color="teal" title="대상을 복사한 새 초안">
+            기존 캠페인의 목적과 대상을 가져왔습니다. 이름·배포 정보·현재 허용
+            범위를 검토한 뒤 등록하세요. 기존 진단 결과는 복사하지 않으며,
+            등록만으로 진단을 실행하지 않습니다.
+          </Alert>
+        )}
         <LoadState
           loading={services.loading}
           error={services.error || scopes.error || scenarios.error}
@@ -279,7 +297,8 @@ export function CampaignsPage() {
   const result = useData<{ items: Campaign[]; total: number }>(
     "/api/campaigns",
   );
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(false),
+    [creating, setCreating] = useState(false);
   const can = useCan(),
     navigate = useNavigate(),
     location = useLocation();
@@ -357,12 +376,15 @@ export function CampaignsPage() {
       />
       <Modal
         opened={opened}
-        onClose={() => setOpened(false)}
+        onClose={() => {
+          if (!creating) setOpened(false);
+        }}
         title="진단 캠페인 등록"
         size="lg"
       >
         {opened && (
           <CampaignForm
+            onBusyChange={setCreating}
             onClose={() => setOpened(false)}
             onCreated={(campaign) => {
               setOpened(false);
@@ -495,6 +517,7 @@ function CampaignCompare({ campaign }: { campaign: Campaign }) {
                 </SimpleGrid>
                 <WorkflowTable
                   name="관측 결과 비교"
+                  preferenceContext="compare"
                   rowKey={(item) => item.key}
                   rows={changes}
                   columns={[
@@ -584,7 +607,8 @@ function CampaignDetail({ id }: { id: string }) {
   const result = useData<Campaign>(`/api/campaigns/${encodeURIComponent(id)}`);
   const services = useData<Row[]>("/api/services");
   const can = useCan(),
-    location = useLocation();
+    location = useLocation(),
+    navigate = useNavigate();
   const { config } = useSession();
   const [params, setParams] = useSearchParams();
   const tab =
@@ -592,8 +616,24 @@ function CampaignDetail({ id }: { id: string }) {
       ? "compare"
       : "runs";
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [copySource, setCopySource] = useState<Campaign | null>(null);
   const campaign = result.data;
+  async function copyTargets() {
+    setBusy(true);
+    setError("");
+    try {
+      // A fresh read checks live access to every parent service before copying.
+      const fresh = await api<Campaign>(
+        `/api/campaigns/${encodeURIComponent(id)}`,
+      );
+      setCopySource(fresh);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     if (
       !campaign ||
@@ -676,6 +716,16 @@ function CampaignDetail({ id }: { id: string }) {
             >
               새로고침
             </Button>
+            {can("scans:write") && campaign && (
+              <Button
+                variant="default"
+                leftSection={<IconCopy size={17} />}
+                loading={busy}
+                onClick={copyTargets}
+              >
+                같은 대상으로 새 캠페인
+              </Button>
+            )}
             {can("scans:write") && campaign?.status === "draft" && (
               <Button
                 loading={busy}
@@ -745,9 +795,13 @@ function CampaignDetail({ id }: { id: string }) {
           <Tabs
             value={tab}
             onChange={(value) => {
-              const next = new URLSearchParams(params);
-              next.set("tab", value || "runs");
-              next.delete("page");
+              const next = switchWorkflowTab(
+                params,
+                tab,
+                value || "runs",
+                ["runs", "compare"],
+                { compare: ["baseline"] },
+              );
               setParams(next, { state: location.state });
             }}
             className="workflow-tabs"
@@ -767,6 +821,7 @@ function CampaignDetail({ id }: { id: string }) {
           {tab === "runs" ? (
             <WorkflowTable
               name="캠페인 실행"
+              preferenceContext="runs"
               rowKey={(item) => item.id}
               rows={campaign.scans || []}
               columns={columns}
@@ -781,6 +836,30 @@ function CampaignDetail({ id }: { id: string }) {
           )}
         </>
       )}
+      <Modal
+        opened={!!copySource}
+        onClose={() => {
+          if (!busy) setCopySource(null);
+        }}
+        title="같은 대상으로 새 캠페인"
+        size="lg"
+      >
+        {copySource && (
+          <CampaignForm
+            source={copySource}
+            onBusyChange={setBusy}
+            onClose={() => setCopySource(null)}
+            onCreated={(created) => {
+              setCopySource(null);
+              navigate(`/campaigns/${created.id}`, {
+                state: {
+                  from: safeListReturn(location.state?.from, "/campaigns"),
+                },
+              });
+            }}
+          />
+        )}
+      </Modal>
     </>
   );
 }

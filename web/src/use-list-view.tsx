@@ -39,16 +39,18 @@ export function useListView<T>({
   searchValues,
   defaultSort = null,
   filters = {},
+  preferenceContext,
 }: {
   rows: T[];
   columns: ListColumn<T>[];
   searchValues?: (row: T) => unknown[];
   defaultSort?: ListSort | null;
   filters?: Record<string, (row: T, value: string) => boolean>;
+  preferenceContext?: string;
 }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
-  const presentation = useListPreferences();
+  const presentation = useListPreferences(preferenceContext);
   // Keep consecutive changes in the same event (clear/search/filter) atomic;
   // useSearchParams callbacks do not queue updates like React state setters.
   const latest = useRef(params);

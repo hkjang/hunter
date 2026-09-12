@@ -112,6 +112,48 @@
     "mobile_path": "images/mobile-operations.png"
   },
   {
+    "name": "finding-bulk",
+    "path": "images/finding-bulk.png",
+    "title": "발견 건 일괄 변경",
+    "description": "선택한 항목의 담당자·기한·허용 진행 상태",
+    "mobile_path": "images/mobile-finding-bulk.png"
+  },
+  {
+    "name": "edit-conflict",
+    "path": "images/edit-conflict.png",
+    "title": "편집 충돌 안내",
+    "description": "합성 서비스 실제 동시 수정: 입력 유지와 최신 자료 확인",
+    "mobile_path": "images/mobile-edit-conflict.png"
+  },
+  {
+    "name": "unsaved-changes",
+    "path": "images/unsaved-changes.png",
+    "title": "작성 중 입력 보호",
+    "description": "입력을 유지하거나 명시적으로 폐기하고 닫기",
+    "mobile_path": "images/mobile-unsaved-changes.png"
+  },
+  {
+    "name": "campaign-copy",
+    "path": "images/campaign-copy.png",
+    "title": "같은 대상으로 새 캠페인",
+    "description": "합성 자료: 현재 대상 재조회 후 검토하는 새 초안",
+    "mobile_path": "images/mobile-campaign-copy.png"
+  },
+  {
+    "name": "software-service-view",
+    "path": "images/software-service-view.png",
+    "title": "소프트웨어 서비스 보기",
+    "description": "합성 자료: 서비스명 검색과 저장한 서비스 조건",
+    "mobile_path": "images/mobile-software-service-view.png"
+  },
+  {
+    "name": "sbom-name-validation",
+    "path": "images/sbom-name-validation.png",
+    "title": "한글 문서명 입력 안내",
+    "description": "합성 입력: UTF-8 바이트 수와 초과 전송 차단",
+    "mobile_path": "images/mobile-sbom-name-validation.png"
+  },
+  {
     "name": "list-saved-view",
     "path": "images/list-saved-view.png",
     "title": "저장한 보기",

@@ -26,6 +26,9 @@ export function WorkflowTable<T>({
   empty,
   defaultSort = null,
   extra,
+  filters = {},
+  filterLabels = {},
+  preferenceContext,
 }: {
   rows: T[];
   columns: WorkflowColumn<T>[];
@@ -37,8 +40,20 @@ export function WorkflowTable<T>({
   empty?: string;
   defaultSort?: ListSort | null;
   extra?: ReactNode;
+  filters?: Record<string, (row: T, value: string) => boolean>;
+  filterLabels?: Record<
+    string,
+    { label: string; value?: (value: string) => string }
+  >;
+  preferenceContext?: string;
 }) {
-  const view = useListView({ rows, columns, defaultSort });
+  const view = useListView({
+    rows,
+    columns,
+    defaultSort,
+    filters,
+    preferenceContext,
+  });
   return (
     <Paper className="data-panel workflow-table">
       <div className="table-toolbar">
@@ -58,7 +73,12 @@ export function WorkflowTable<T>({
           </Button>
         )}
       </div>
-      <ListTools view={view} loading={loading} failed={!!error} />
+      <ListTools
+        view={view}
+        loading={loading}
+        failed={!!error}
+        filterLabels={filterLabels}
+      />
       <LoadState loading={loading} error={error} reload={reload} />
       {!loading && !error && (
         <>
