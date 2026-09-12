@@ -154,6 +154,62 @@
     "mobile_path": "images/mobile-sbom-name-validation.png"
   },
   {
+    "name": "notifications-channels",
+    "path": "images/notifications-channels.png",
+    "title": "알림 채널",
+    "description": "관리자 SMTP·문자·카카오톡·HTTP 채널과 설정 상태",
+    "mobile_path": "images/mobile-notifications-channels.png"
+  },
+  {
+    "name": "notifications-rules",
+    "path": "images/notifications-rules.png",
+    "title": "발송 규칙",
+    "description": "이벤트·필터·고정 수신자와 메시지 템플릿",
+    "mobile_path": "images/mobile-notifications-rules.png"
+  },
+  {
+    "name": "notifications-history",
+    "path": "images/notifications-history.png",
+    "title": "전달 이력",
+    "description": "발송 대기·게이트웨이 접수·재시도·결과 확인",
+    "mobile_path": "images/mobile-notifications-history.png"
+  },
+  {
+    "name": "notification-channel-smtp",
+    "path": "images/notification-channel-smtp.png",
+    "title": "SMTP 채널 설정",
+    "description": "사내 릴레이·TLS·인증을 사용하는 합성 설정",
+    "mobile_path": "images/mobile-notification-channel-smtp.png"
+  },
+  {
+    "name": "notification-channel-http",
+    "path": "images/notification-channel-http.png",
+    "title": "메시지 API 설정",
+    "description": "합성 게이트웨이의 인증·본문·성공 판정 매핑",
+    "mobile_path": "images/mobile-notification-channel-http.png"
+  },
+  {
+    "name": "notification-rule-preview",
+    "path": "images/notification-rule-preview.png",
+    "title": "알림 템플릿 미리보기",
+    "description": "외부 발송 없이 합성 값으로 확인하는 메시지",
+    "mobile_path": "images/mobile-notification-rule-preview.png"
+  },
+  {
+    "name": "notification-test",
+    "path": "images/notification-test.png",
+    "title": "채널 테스트 발송",
+    "description": "로컬 모의 수신 대상으로 확인하는 명시적 시험",
+    "mobile_path": "images/mobile-notification-test.png"
+  },
+  {
+    "name": "notification-delivery",
+    "path": "images/notification-delivery.png",
+    "title": "전달 이력 상세",
+    "description": "마스킹 수신자·본문과 시도별 안전한 결과 안내",
+    "mobile_path": "images/mobile-notification-delivery.png"
+  },
+  {
     "name": "list-saved-view",
     "path": "images/list-saved-view.png",
     "title": "저장한 보기",

@@ -22,8 +22,8 @@ COPY --from=upstream /src/third_party/pentagi/backend ./third_party/pentagi/back
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./internal/webassets/dist
-ARG VERSION=1.4.0
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/hunter ./cmd/hunter
+ARG VERSION
+RUN build_version="${VERSION:-$(cat VERSION)}" && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.version=${build_version}" -o /out/hunter ./cmd/hunter
 RUN go run ./scripts/license-notices -out /out/licenses
 COPY --from=web /out/npm-licenses /out/licenses/npm
 

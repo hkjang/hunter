@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "hunter API",
-    "version": "1.5.0",
-    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다."
+    "version": "1.6.0",
+    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다. 알림센터는 admin:manage 전용이며 접수 상태는 최종 수신을 뜻하지 않습니다. 채널·규칙 수정은 expected_updated_at을 요구합니다."
   },
   "servers": [
     {
@@ -5679,6 +5679,721 @@
           }
         }
       }
+    },
+    "/api/notification-channels": {
+      "get": {
+        "summary": "알림 채널 목록",
+        "operationId": "get_api_notification_channels",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChannelList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "인증 비밀은 항상 빈 값, secret_configured로 저장 여부만 반환."
+      },
+      "post": {
+        "summary": "알림 채널 등록",
+        "operationId": "post_api_notification_channels",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChannel"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "최대200개. 기본 비활성. 설정/비밀값은 암호화 저장.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationChannelInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-channels/{id}": {
+      "put": {
+        "summary": "알림 채널 수정",
+        "operationId": "put_api_notification_channels_id",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChannel"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "현재 expected_updated_at 필수. 수정 시 기존 queued/retry 취소. 이미 발송한 메시지는 회수되지 않음.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationChannelUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "알림 채널 삭제",
+        "operationId": "delete_api_notification_channels_id",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "연결 규칙 또는 sending 항목이 있으면409. 남은 queued/retry 취소.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-rules": {
+      "get": {
+        "summary": "발송 규칙과 지원 이벤트·변수 목록",
+        "operationId": "get_api_notification_rules",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRuleList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "발송 규칙 등록",
+        "operationId": "post_api_notification_rules",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRule"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "최대500개. 고정 수신자는 관리자에게만 반환하며 규칙 설정은 암호화 저장.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-rules/{id}": {
+      "put": {
+        "summary": "발송 규칙 수정",
+        "operationId": "put_api_notification_rules_id",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRule"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "현재 expected_updated_at 필수. 수정 시 기존 queued/retry 취소.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "발송 규칙 삭제",
+        "operationId": "delete_api_notification_rules_id",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "규칙의 queued/retry 취소. 이미 발송한 메시지는 회수되지 않음.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-rules/preview": {
+      "post": {
+        "summary": "합성 값으로 알림 템플릿 미리보기",
+        "operationId": "post_api_notification_rules_preview",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "저장된 채널과 유효한 규칙 입력 필요. 합성 변수만 사용하며 발송하지 않음.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification-channels/{id}/test": {
+      "post": {
+        "summary": "저장된 채널에 실제 테스트 발송 요청",
+        "operationId": "post_api_notification_channels_id_test",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "201": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "비활성 채널도 명시적 테스트 가능. 즉시 수신 성공이 아니라 큐 생성이며 manual.test로 표시. 발송 전 현재 요청자의 admin:manage 및 키 상태 재검사.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationTestInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-deliveries": {
+      "get": {
+        "summary": "전달 이력 서버 페이지 조회",
+        "operationId": "get_api_notification_deliveries",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "수신자 원문·본문을 검색하지 않음. summary는 전체 이력, total은 필터 적용 건수.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "sending",
+                "sent",
+                "retry",
+                "failed",
+                "uncertain",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "finding.created",
+                "finding.updated",
+                "finding.due",
+                "scan.completed",
+                "scan.failed",
+                "approval.pending",
+                "manual.test"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "전달ID·채널명·규칙명·이벤트종류의 대소문자 무관 부분 문자열 검색. UTF-8 최대500바이트.",
+              "x-max-bytes": 500
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "available_at",
+                "status",
+                "attempts"
+              ],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-deliveries/{id}": {
+      "get": {
+        "summary": "전달 본문과 시도 이력 조회",
+        "operationId": "get_api_notification_deliveries_id",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-deliveries/{id}/retry": {
+      "post": {
+        "summary": "실패·결과 불명 알림의 수동 재시도",
+        "operationId": "post_api_notification_deliveries_id_retry",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "failed/uncertain만 허용. uncertain은 중복 위험 확인 true와 사유8바이트 이상 필요. 전달ID·원래 본문·설정 기준은 유지하고 attempts를0으로 초기화하되 전체 시도 이력은 보존. 현재 설정과 맞지 않으면 발송 단계에서 취소.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRetryInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/notification-deliveries/{id}/cancel": {
+      "post": {
+        "summary": "대기 취소 또는 발송 중 취소 요청",
+        "operationId": "post_api_notification_deliveries_id_cancel",
+        "x-required-scope": "admin:manage",
+        "tags": [
+          "알림센터"
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "queued/retry는 cancelled, sending은 cancel_requested를 설정. 이미 접수된 메시지 회수 불가. 다른 상태·중복 취소는409.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -7906,6 +8621,1133 @@
             "description": "이 요청의 일괄 변경 식별자. 값이 변경된 경우 허용 필드의 마스킹된 before/after 감사에 연결됩니다."
           }
         }
+      },
+      "NotificationSMTPConfig": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "maxLength": 253
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "tls",
+              "starttls",
+              "none"
+            ],
+            "description": "tls는 연결 즉시 TLS, starttls는 협상 필수. none은 사용자/비밀번호 없는 릴레이 전용."
+          },
+          "from": {
+            "type": "string",
+            "description": "발신 메일 주소. ASCII envelope 주소 하나."
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 320
+          },
+          "auth": {
+            "type": "string",
+            "enum": [
+              "",
+              "plain",
+              "login"
+            ],
+            "default": "plain"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 20
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "security",
+          "from"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationHTTPConfig": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096,
+            "description": "고정 HTTP(S) URL. URL 템플릿 금지."
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "",
+              "POST",
+              "PUT"
+            ],
+            "default": "POST"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "",
+              "json",
+              "form"
+            ],
+            "default": "json"
+          },
+          "auth": {
+            "type": "string",
+            "enum": [
+              "",
+              "none",
+              "bearer",
+              "basic",
+              "header",
+              "headers",
+              "ncp"
+            ],
+            "default": "none"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Basic 사용자 또는 NCP Access Key"
+          },
+          "auth_header": {
+            "type": "string",
+            "description": "auth=header일 때 지정할 인증 헤더 이름"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "maxProperties": 30,
+            "description": "전체 16KiB 이하, 제어 문자·대소문자 중복·전송 경로 헤더 금지. 인증은 별도 secret 사용."
+          },
+          "body_template": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "64KiB 이하의 JSON 객체. 중첩 값의 지원 변수를 치환. form은 문자열 값만 허용. 생성한 본문 최대256KiB."
+          },
+          "success_path": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "점으로 구분한 성공 필드·배열 번호. 예 header.isSuccessful 또는 results.0.ok"
+          },
+          "success_value": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "id_path": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "허용된 문자열·숫자 접수 ID 필드 경로"
+          },
+          "idempotency_header": {
+            "type": "string",
+            "description": "hunter-전달ID를 보낼 헤더 이름"
+          },
+          "idempotency_supported": {
+            "type": "boolean",
+            "default": false,
+            "description": "공급자가 동일 식별자 중복 처리를 보장할 때만 true"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 20
+          }
+        },
+        "required": [
+          "endpoint"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationChannel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "sms",
+              "kakao",
+              "webhook"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotificationSMTPConfig"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationHTTPConfig"
+              }
+            ]
+          },
+          "secret": {
+            "type": "string",
+            "const": "",
+            "description": "비밀 원문은 반환하지 않음"
+          },
+          "secret_configured": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "enabled",
+          "config",
+          "secret",
+          "secret_configured",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "NotificationChannelInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "sms",
+              "kakao",
+              "webhook"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotificationSMTPConfig"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationHTTPConfig"
+              }
+            ]
+          },
+          "secret": {
+            "type": "string",
+            "description": "UTF-8 기준 16000바이트 이하. 생략/빈 값은 기존 비밀 유지. clear_secret과 동시 지정 금지.",
+            "writeOnly": true,
+            "x-max-bytes": 16000
+          },
+          "clear_secret": {
+            "type": "boolean",
+            "default": false
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "config"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationChannelUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "sms",
+              "kakao",
+              "webhook"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "config": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NotificationSMTPConfig"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationHTTPConfig"
+              }
+            ]
+          },
+          "secret": {
+            "type": "string",
+            "description": "UTF-8 기준 16000바이트 이하. 생략/빈 값은 기존 비밀 유지. clear_secret과 동시 지정 금지.",
+            "writeOnly": true,
+            "x-max-bytes": 16000
+          },
+          "clear_secret": {
+            "type": "boolean",
+            "default": false
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "config",
+          "expected_updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationFilters": {
+        "type": "object",
+        "properties": {
+          "severities": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "critical",
+                "high",
+                "medium",
+                "low",
+                "info"
+              ]
+            },
+            "maxItems": 5
+          },
+          "service_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100
+          },
+          "teams": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+              "x-max-bytes": 200
+            },
+            "maxItems": 100
+          }
+        },
+        "additionalProperties": false,
+        "description": "필터 종류 간 AND, 각 배열 안 OR. 빈 조건은 제한하지 않음. 심각도 없는 진단/승인 이벤트는 심각도 필터와 일치하지 않음."
+      },
+      "NotificationRuleInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finding.created",
+                "finding.updated",
+                "finding.due",
+                "scan.completed",
+                "scan.failed",
+                "approval.pending"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "filters": {
+            "$ref": "#/components/schemas/NotificationFilters"
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "채널 유형별 이메일·전화번호·일반 식별자"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "subject_template": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하, 줄바꿈 불가. 빈 값은 기본 템플릿.",
+            "x-max-bytes": 200
+          },
+          "body_template": {
+            "type": "string",
+            "description": "UTF-8 16000바이트 이하, 빈 값은 기본 템플릿.",
+            "x-max-bytes": 16000
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5,
+            "default": 3,
+            "description": "1~5회. 생략/0은 기본3회."
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          }
+        },
+        "required": [
+          "name",
+          "channel_id",
+          "events",
+          "recipients"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationRuleUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finding.created",
+                "finding.updated",
+                "finding.due",
+                "scan.completed",
+                "scan.failed",
+                "approval.pending"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "filters": {
+            "$ref": "#/components/schemas/NotificationFilters"
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "채널 유형별 이메일·전화번호·일반 식별자"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "subject_template": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하, 줄바꿈 불가. 빈 값은 기본 템플릿.",
+            "x-max-bytes": 200
+          },
+          "body_template": {
+            "type": "string",
+            "description": "UTF-8 16000바이트 이하, 빈 값은 기본 템플릿.",
+            "x-max-bytes": 16000
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5,
+            "default": 3,
+            "description": "1~5회. 생략/0은 기본3회."
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "현재 조회한 updated_at. PUT에는 필수이며 불일치하면 409, 없거나 형식이 틀리면 400."
+          }
+        },
+        "required": [
+          "name",
+          "channel_id",
+          "events",
+          "recipients",
+          "expected_updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationRule": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+            "x-max-bytes": 200
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finding.created",
+                "finding.updated",
+                "finding.due",
+                "scan.completed",
+                "scan.failed",
+                "approval.pending"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "severities": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "info"
+                      ]
+                    },
+                    "maxItems": 5
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "service_ids": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "teams": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "제어 문자 없는 이름. UTF-8 기준 200바이트 이하.",
+                      "x-max-bytes": 200
+                    },
+                    "maxItems": 100
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "채널 유형별 이메일·전화번호·일반 식별자"
+            },
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "subject_template": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하, 줄바꿈 불가. 빈 값은 기본 템플릿.",
+            "x-max-bytes": 200
+          },
+          "body_template": {
+            "type": "string",
+            "description": "UTF-8 16000바이트 이하, 빈 값은 기본 템플릿.",
+            "x-max-bytes": 16000
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "channel_id",
+          "enabled",
+          "events",
+          "filters",
+          "recipients",
+          "subject_template",
+          "body_template",
+          "max_attempts",
+          "id",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "NotificationPreview": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "sample": {
+            "type": "boolean",
+            "const": true
+          },
+          "recipients_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "subject",
+          "body",
+          "variables",
+          "sample",
+          "recipients_count"
+        ]
+      },
+      "NotificationChannelList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannel"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "NotificationRuleList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationRule"
+            }
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "finding.created",
+                "finding.updated",
+                "finding.due",
+                "scan.completed",
+                "scan.failed",
+                "approval.pending"
+              ]
+            }
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "event.type",
+                "event.label",
+                "event.time",
+                "service.id",
+                "service.name",
+                "service.team",
+                "resource.id",
+                "resource.title",
+                "resource.status",
+                "resource.status_label",
+                "resource.url",
+                "finding.id",
+                "finding.title",
+                "finding.severity",
+                "finding.severity_label",
+                "finding.status",
+                "finding.due_date",
+                "finding.assignee",
+                "finding.cve",
+                "scan.id",
+                "scan.name",
+                "scan.status",
+                "approval.id",
+                "approval.status"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items",
+          "events",
+          "variables"
+        ]
+      },
+      "NotificationDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "finding.created",
+              "finding.updated",
+              "finding.due",
+              "scan.completed",
+              "scan.failed",
+              "approval.pending",
+              "manual.test"
+            ]
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "rule_name": {
+            "type": "string"
+          },
+          "channel_id": {
+            "type": "string"
+          },
+          "channel_name": {
+            "type": "string"
+          },
+          "channel_type": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "sms",
+              "kakao",
+              "webhook"
+            ]
+          },
+          "recipient_masked": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "retry",
+              "failed",
+              "uncertain",
+              "cancelled"
+            ],
+            "description": "sent는 게이트웨이 접수이며 최종 수신·읽음 확인이 아님"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_error": {
+            "type": "string",
+            "description": "정규화한 안전 안내. 공급자 원문 없음."
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_test": {
+            "type": "boolean"
+          },
+          "cancel_requested": {
+            "type": "boolean"
+          },
+          "can_retry": {
+            "type": "boolean"
+          },
+          "can_cancel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "event_type",
+          "rule_id",
+          "rule_name",
+          "channel_id",
+          "channel_name",
+          "channel_type",
+          "recipient_masked",
+          "subject",
+          "status",
+          "attempts",
+          "max_attempts",
+          "available_at",
+          "last_error",
+          "provider_id",
+          "created_at",
+          "updated_at",
+          "sent_at",
+          "is_test",
+          "cancel_requested",
+          "can_retry",
+          "can_cancel"
+        ]
+      },
+      "NotificationAttempt": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "retry",
+              "failed",
+              "uncertain",
+              "cancelled"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "attempt",
+          "status",
+          "code",
+          "detail",
+          "provider_id",
+          "started_at",
+          "finished_at"
+        ]
+      },
+      "NotificationDeliveryDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/NotificationDelivery"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "body": {
+                "type": "string",
+                "description": "마스킹한 메시지 본문. 상세에서만 반환."
+              },
+              "attempt_log": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/NotificationAttempt"
+                }
+              }
+            }
+          }
+        ],
+        "description": "본문이 비어 있거나 시도 기록이 아직 없으면 body/attempt_log는 생략할 수 있음."
+      },
+      "NotificationDeliveryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDelivery"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "현재 필터의 전체 건수"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "queued": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sending": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retry": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uncertain": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cancelled": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "queued",
+              "sending",
+              "sent",
+              "retry",
+              "failed",
+              "uncertain",
+              "cancelled"
+            ],
+            "description": "현재 검색·필터와 무관한 전체 전달 이력의 상태별 건수"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "summary",
+          "as_of"
+        ]
+      },
+      "NotificationTestInput": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string",
+            "description": "UTF-8 200바이트 이하. 빈 값은 기본 시험 제목.",
+            "x-max-bytes": 200
+          },
+          "body": {
+            "type": "string",
+            "description": "UTF-8 16000바이트 이하. 빈 값은 기본 시험 본문.",
+            "x-max-bytes": 16000
+          }
+        },
+        "required": [
+          "recipient"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationRetryInput": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "1000바이트 이하. uncertain에서는 공백 제거 후 8바이트 이상 필수.",
+            "x-max-bytes": 1000
+          },
+          "confirm_duplicate_risk": {
+            "type": "boolean",
+            "default": false,
+            "description": "uncertain에서 반드시 true. 공급자 접수 결과와 중복 위험을 운영자가 확인한 의미."
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {

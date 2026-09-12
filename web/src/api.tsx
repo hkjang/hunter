@@ -180,8 +180,8 @@ export const SessionContext = createContext<{
   user: User | null;
   setUser: (v: User | null) => void;
   config: Row;
-  refreshConfig: () => void;
-}>({ user: null, setUser: () => {}, config: {}, refreshConfig: () => {} });
+  refreshConfig: () => Promise<void>;
+}>({ user: null, setUser: () => {}, config: {}, refreshConfig: async () => {} });
 export const useSession = () => useContext(SessionContext);
 export function useCan() {
   const { user } = useSession();

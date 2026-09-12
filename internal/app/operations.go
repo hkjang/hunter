@@ -81,6 +81,19 @@ func (a *App) Operations(ctx context.Context) (map[string]any, error) {
 		status = "warning"
 	}
 	add("queue", "진단 대기열", status, fmt.Sprintf("대기 %d · 실행 %d · 승인 대기 %d · 임대 만료 %d", queued, running, blocked, expired))
+	var notificationQueued, notificationSending, notificationFailed, notificationUncertain, notificationDelayed int
+	err = a.DB.QueryRow(ctx, `SELECT count(*) FILTER(WHERE status IN('queued','retry')),count(*) FILTER(WHERE status='sending'),count(*) FILTER(WHERE status='failed'),count(*) FILTER(WHERE status='uncertain'),count(*) FILTER(WHERE status IN('queued','retry') AND available_at<now()-interval '10 minutes') FROM notification_deliveries`).Scan(&notificationQueued, &notificationSending, &notificationFailed, &notificationUncertain, &notificationDelayed)
+	if err != nil {
+		return nil, err
+	}
+	counts["notification_queued"] = notificationQueued
+	counts["notification_failed"] = notificationFailed
+	counts["notification_uncertain"] = notificationUncertain
+	status = "ok"
+	if notificationFailed > 0 || notificationUncertain > 0 || notificationDelayed > 0 {
+		status = "warning"
+	}
+	add("notifications", "알림 발송", status, fmt.Sprintf("대기 %d · 발송 중 %d · 실패 %d · 결과 확인 필요 %d · 10분 이상 지연 %d. 관리자 알림 센터에서 발송 이력을 확인하세요", notificationQueued, notificationSending, notificationFailed, notificationUncertain, notificationDelayed))
 	status = "ok"
 	if staleWorkers > 0 || enabledWorkers == 0 {
 		status = "warning"

@@ -10,8 +10,8 @@
 - [릴리즈](https://github.com/hkjang/hunter/releases)
 
 ## 핵심 사실
-- 프로젝트명 hunter, 버전 1.5.0.
-- 배포 이미지 hunter:v1.5.0, 서비스 이미지 압축 파일 hunter-v1.5.0.tar.gz.
+- 프로젝트명 hunter, 버전 1.6.0.
+- 배포 이미지 hunter:v1.6.0, 서비스 이미지 압축 파일 hunter-v1.6.0.tar.gz.
 - PostgreSQL은 별도 사내 서비스.
 - 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
 - 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
@@ -48,3 +48,12 @@
 - SBOM·캠페인 탭별 URL 조건과 사용자/경로/탭별 저장 보기. 서비스 필터 f_service_id, 이전 service주소호환.
 - 같은 대상으로 새 캠페인은 현재 접근 재조회 후 새 초안 폼, 등록/실제 시작 별도. 기존 진단결과복사나재실행 없음.
 - SBOM 이름UTF8최대200바이트(한글보통3바이트). 구조형 evidence입력거부. 기존 DB구조형증거는 키정합성검사후 시작전50행배치마스킹/암호화,2분내완료못하면시작거부. 과거백업/별도복제본소급정리없음.
+
+## 알림센터
+
+- v1.6.0의 알림센터는 admin:manage 전용이며 SMTP·문자·카카오톡·일반 HTTP 채널을 지원한다. 규칙의 고정 수신자는 관리자만 관리한다.
+- 채널·인증값·규칙 수신자·전달 본문은 PostgreSQL에 암호화 저장한다. 네 환경변수와 단일 이미지 배포를 유지한다.
+- 발견 등록·변경·기한, 진단 완료·실패, 승인 대기 여섯 이벤트와 제한된 템플릿 변수를 지원한다. 원본 증거·AI 대화 전문을 알림 변수로 제공하지 않는다.
+- SMTP는 TLS·필수 STARTTLS 또는 무인증 사내 릴레이, HTTP는 JSON·Form과 인증/성공 응답 매핑을 지원한다. NCP HMAC 서명 외의 공급자별 OAuth 자동 토큰 갱신은 제공하지 않는다.
+- 게이트웨이 접수는 단말 수신·읽음 보장이 아니다. 결과 불명은 접수 여부 확인과 명시적 중복 위험 확인 후 처리한다. 모의 SMTP·HTTP 검증과 실계정 검증을 구분한다.
+- [공식 설계 근거](https://hkjang.github.io/hunter/research-notifications.md)

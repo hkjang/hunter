@@ -1,6 +1,6 @@
 import { ListTools, TableViewport } from "./list-tools";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
@@ -28,6 +28,7 @@ import {
 } from "@mantine/core";
 import {
   IconAdjustments,
+  IconBell,
   IconCheck,
   IconCopy,
   IconEdit,
@@ -378,7 +379,7 @@ const settingFields: Record<string, Field[]> = {
       label: "사내 신뢰 CA 인증서 (PEM)",
       type: "textarea",
       description:
-        "사내 HTTPS 인증기관의 인증서 체인을 붙여 넣으세요. OIDC, AI, 연동 및 진단의 TLS 검증에 적용됩니다.",
+        "사내 HTTPS 인증기관의 인증서 체인을 붙여 넣으세요. OIDC, AI, 연동, 알림 및 진단의 TLS 검증에 적용됩니다.",
     },
   ],
 };
@@ -510,6 +511,16 @@ export function SettingsPage() {
         eyebrow="ADMINISTRATION"
         title="서비스 설정"
         description="서비스 운영에 필요한 모든 설정을 관리합니다. 변경 사항은 데이터베이스에 안전하게 저장됩니다."
+        action={
+          <Button
+            component={Link}
+            to="/admin/notifications"
+            variant="default"
+            leftSection={<IconBell size={17} />}
+          >
+            알림센터
+          </Button>
+        }
       />
       <LoadState loading={loading} error={error} reload={reload} />
       {!loading && !error && data && (

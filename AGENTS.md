@@ -21,7 +21,7 @@
 | `internal/app` | Go HTTP API, 인증·권한, 설정, 자산·발견 건·진단·연동 |
 | `internal/app/campaigns.go` | 캠페인 원자적 시작·현재 부모 권한·불변 관측 비교 |
 | `internal/app/finding_ops*.go`, `finding_bulk.go` | 조치함·SLA·위협 정보·댓글·현재 권한의 원자적 일괄 변경 |
-| `internal/app/finding_evidence.go` | 시작 전 기존 구조형 증거의 마스킹·암호화 배치 복구 |
+| `internal/app/finding_evidence.go`, `notifications*.go` | 기존 증거 배치 복구, 암호화 알림 큐·규칙·SMTP/HTTP 전송 |
 | `internal/app/sbom.go`, `operations.go` | SBOM 구성·비교·영향 범위와 관리자 운영 점검 |
 | `internal/app/agents.go` | 에이전트 실행 API, 조회·생성·중지·SSE |
 | `internal/app/agents_runner.go` | 원본 코어와 Hunter 실행 수명·한도 연결 |
@@ -37,7 +37,7 @@
 | `web/src/agent-events.ts`, `use-agent-run.ts` | SSE 이벤트 병합·재연결 |
 | `web/src/list-view.ts`, `use-list-view.tsx` | 검색·정렬·페이지 처리, URL 목록 상태와 공통 컨트롤 |
 | `web/src/list-tools.tsx`, `saved-list-views.ts` | 사용자·메뉴별 목록 보기, 결과 수·조건 해제·표 표시 설정 |
-| `web/src/form-feedback.tsx`, `form-state.ts` | 입력 오류 안내, 설정 그룹별 작성 내용 보존 |
+| `web/src/form-feedback.tsx`, `form-state.ts`, `notification-*.ts`, `notifications*.tsx` | 입력 보호·알림센터·미리보기·전달 이력 |
 | `web/src/accessibility.ts`, `accessibility.css` | 본문 이동, 모바일 메뉴와 빠른 이동의 키보드 초점 |
 | `web/src/navigation.ts`, `quick-navigation.tsx` | 권한을 적용한 빠른 이동, 사용자별 즐겨찾기·최근 방문 |
 | `web/tests` | 프런트엔드 권한·이벤트 회귀 테스트 |
@@ -54,7 +54,7 @@
   - `BOOTSTRAP_ADMIN`
   - `BOOTSTRAP_ADMIN_PASSWORD`
   - `ENCRYPTION_KEY`
-- OIDC, AI, 역할 권한, 연동, 정책, 내부 CA, 에이전트 한도는 관리자 화면과 DB 설정으로 관리합니다.
+- OIDC, AI, 역할·정책, 내부 CA, 에이전트와 알림 채널·규칙은 관리자 화면과 DB 설정으로 관리합니다.
 - 편의상 새 런타임 환경변수나 별도 필수 서비스를 추가하지 않습니다.
 - PostgreSQL은 사내 별도 서비스입니다. 에이전트 코어도 같은 DSN의 일반 PostgreSQL을 사용합니다.
 - 사용자 데이터가 있는 DB에서 bootstrap 설정으로 계정을 재생성하거나 비밀번호를 덮어쓰지 않습니다.
@@ -118,7 +118,7 @@
 - 네트워크 진단에는 승인 서비스·유효 범위·현재 정책이 항상 필요합니다.
 - 팀장 검토·승인·반려는 관리자 설정이 켜졌을 때만 적용하며 대상 범위 승인과 구분합니다.
 - 대상 DNS·주소·경로·리다이렉트·요청량 검사를 우회하는 새 도구나 연동을 만들지 않습니다.
-- 외부 REST 발송은 명시적 발송 경로와 중복 방지를 유지하고, 불확실한 결과를 자동 재발송하지 않습니다.
+- 외부 발송은 접수와 수신을 구분합니다. 알림은 admin:manage·암호화 큐·시도 한도를 지키며 결과 불명 재발송은 명시적 중복 위험 확인을 요구합니다.
 - 외부 스캐너 JSON 수입과 실제 내장 HTTP·권한 진단의 제공 범위를 정확히 설명합니다.
 - 캠페인 시작은 정책 준비 후 트랜잭션에서 일괄 삽입합니다. 풀 조회와 잠금 대기의 연결 고갈을 피합니다.
 - 실행 스냅샷을 덮어쓰지 않으며 외부 수입·실패·조건 변경·이전 실행을 비교해 자동 해결하지 않습니다.
@@ -186,7 +186,7 @@ python3 -m py_compile scripts/release-notes.py
 - 모바일 메뉴가 닫혔을 때 숨겨진 항목에 초점이 들어가지 않아야 합니다. 화면 이동과 팝업 닫힘의 초점 복귀를 함께 확인합니다.
 - 데스크톱과 모바일에서 글자 크기, 가로 넘침, 스크롤바, 오류·빈 상태를 확인합니다.
 - 변경한 페이지는 실제 앱에서 캡처하고 문서용 합성 자료임을 설명합니다.
-- 모의 AI 응답의 통합 검증을 실모델 품질이나 실제 취약점 탐지 성능으로 표현하지 않습니다.
+- 모의 AI·SMTP·HTTP 검증을 실모델 품질·공급 계정 발송·단말 수신으로 표현하지 않고, 외부 실수신자에게 시험 발송하지 않습니다.
 
 ```sh
 npm --prefix docs ci

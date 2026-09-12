@@ -1,5 +1,5 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 사용자 가이드 | v1.5.0</title><meta name="description" content="조치함·SBOM·캠페인 비교, 발견 건·진단·개인화·API 키 사용 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/user-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="user-guide.md">Markdown</a><a href="user-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-시작하기">1. 시작하기</a></li><li><a href="#2-보안-현황-읽기">2. 보안 현황 읽기</a></li><li><a href="#3-서비스-자산-등록과-수정">3. 서비스 자산 등록과 수정</a></li><li><a href="#4-발견-건-관리">4. 발견 건 관리</a></li><li><a href="#5-진단-요청부터-재검증까지">5. 진단 요청부터 재검증까지</a></li><li><a href="#6-관계-그래프">6. 관계 그래프</a></li><li><a href="#7-업무-권한-검증-시나리오">7. 업무 권한 검증 시나리오</a></li><li><a href="#8-보고서와-기여-현황">8. 보고서와 기여 현황</a></li><li><a href="#9-ai-분석-도우미">9. AI 분석 도우미</a></li><li><a href="#10-에이전트-진단">10. 에이전트 진단</a></li><li><a href="#11-선택적-팀장-검토-승인">11. 선택적 팀장 검토·승인</a></li><li><a href="#12-개인화와-계정-보안">12. 개인화와 계정 보안</a></li><li><a href="#13-자주-겪는-문제">13. 자주 겪는 문제</a></li><li><a href="#14-전체-화면-바로가기">14. 전체 화면 바로가기</a></li></ol><a class="guide-other" href="admin-guide.html">관리자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-사용자-가이드">Hunter 사용자 가이드</h1>
-<p><strong>버전 1.5.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 사용자 가이드 | v1.6.0</title><meta name="description" content="조치함·SBOM·캠페인 비교, 발견 건·알림·진단·개인화·API 키 사용 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/user-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="user-guide.md">Markdown</a><a href="user-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-시작하기">1. 시작하기</a></li><li><a href="#2-보안-현황-읽기">2. 보안 현황 읽기</a></li><li><a href="#3-서비스-자산-등록과-수정">3. 서비스 자산 등록과 수정</a></li><li><a href="#4-발견-건-관리">4. 발견 건 관리</a></li><li><a href="#5-진단-요청부터-재검증까지">5. 진단 요청부터 재검증까지</a></li><li><a href="#6-관계-그래프">6. 관계 그래프</a></li><li><a href="#7-업무-권한-검증-시나리오">7. 업무 권한 검증 시나리오</a></li><li><a href="#8-보고서와-기여-현황">8. 보고서와 기여 현황</a></li><li><a href="#9-ai-분석-도우미">9. AI 분석 도우미</a></li><li><a href="#10-에이전트-진단">10. 에이전트 진단</a></li><li><a href="#11-선택적-팀장-검토-승인">11. 선택적 팀장 검토·승인</a></li><li><a href="#12-개인화와-계정-보안">12. 개인화와 계정 보안</a></li><li><a href="#13-자주-겪는-문제">13. 자주 겪는 문제</a></li><li><a href="#14-전체-화면-바로가기">14. 전체 화면 바로가기</a></li></ol><a class="guide-other" href="admin-guide.html">관리자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-사용자-가이드">Hunter 사용자 가이드</h1>
+<p><strong>버전 1.6.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
 <p>Hunter는 사내 서비스의 자산, 보안 진단, 발견 건, 개선 상태와 재검증을 연결하는 플랫폼입니다. 이 가이드는 일상적으로 사용하는 개발자, 운영 담당자, 보안 분석가와 검토자를 대상으로 합니다.</p>
 <p><a href="../index.html">프로젝트 소개</a> · <a href="admin-guide.html">관리자 가이드</a> · <a href="user-guide.html">HTML</a> · <a href="user-guide.pdf">PDF</a> · <a href="../screenshots.html">전체 화면</a></p>
 <blockquote>
@@ -112,6 +112,11 @@
 <td>개인화</td>
 <td>개인 API 키</td>
 <td>API·MCP 키 발급, 권한 변경, 회전, 폐기</td>
+</tr>
+<tr>
+<td>관리자</td>
+<td>알림센터</td>
+<td>채널·고정 수신자 규칙·전달 이력 관리</td>
 </tr>
 </tbody>
 </table>
@@ -675,6 +680,11 @@
 </tbody>
 </table>
 <p>MCP에서 진단을 요청해도 서비스 승인, 범위 제한, 팀장 승인 설정과 긴급 중지를 우회하지 않습니다.</p>
+<h3 id="12-5-업무-알림을-받을-때">12.5 업무 알림을 받을 때</h3>
+<p>관리자가 알림 규칙을 켜면 새 발견 건·발견 건 변경·조치 기한·진단 완료·진단 실패·승인 대기를 조직이 지정한 이메일이나 문자·카카오톡 API로 전달할 수 있습니다. 알림을 읽은 뒤 Hunter에서 현재 자료와 담당자·기한을 확인하세요. 알림 자체가 진단 승인이나 발견 건 해결을 수행하지는 않습니다.</p>
+<p>수신자는 관리자가 규칙에 고정하여 지정합니다. 내 프로필을 수정해도 규칙의 이메일·전화번호가 자동으로 바뀌지 않으며 개인 구독·수신 거부 화면은 제공하지 않습니다. 잘못된 주소나 더 이상 필요하지 않은 알림은 관리자에게 규칙 변경을 요청하세요.</p>
+<p><strong>게이트웨이 접수</strong>는 메일 릴레이나 메시지 API가 전달 요청을 받았다는 뜻입니다. 단말 수신·읽음까지 보장하지 않습니다. 받지 못했다면 알림 시각과 관련 업무를 관리자에게 알려 전달 이력을 확인하고, 같은 알림을 반복 발송하기 전에 공급자 결과를 확인합니다.</p>
+<p>알림에 비밀번호·API 키·쿠키·원본 증거를 넣어 공유하지 않습니다. 관리자용 규칙 미리보기는 합성 값 확인이며 외부 발송이 없지만, <strong>테스트 발송</strong>은 실제 요청이므로 시험용으로 허용한 대상만 사용합니다. 자세한 채널 설정과 결과 불명 복구는 <a href="admin-guide.html#13-6-%EC%95%8C%EB%A6%BC%EC%84%BC%ED%84%B0%EC%99%80-%EB%B0%9C%EC%86%A1-%EC%B1%84%EB%84%90">관리자 가이드</a>를 참고하세요.</p>
 <h2 id="13-자주-겪는-문제">13. 자주 겪는 문제</h2>
 <table>
 <thead>
@@ -751,4 +761,4 @@
 <h2 id="14-전체-화면-바로가기">14. 전체 화면 바로가기</h2>
 <p><a href="../images/login.png">로그인</a> · <a href="../images/dashboard.png">보안 현황</a> · <a href="../images/services.png">서비스 자산</a> · <a href="../images/findings.png">발견 건</a> · <a href="../images/scans.png">진단 작업</a> · <a href="../images/graph.png">관계 그래프</a> · <a href="../images/scenarios.png">권한 검증</a> · <a href="../images/reports.png">보고서</a> · <a href="../images/contributions.png">기여 현황</a> · <a href="../images/copilot.png">AI 도우미</a> · <a href="../images/agents.png">에이전트 진단</a> · <a href="../images/agent-detail.png">에이전트 상세</a> · <a href="../images/approvals.png">검토·승인</a> · <a href="../images/personal-profile.png">내 프로필</a> · <a href="../images/personal-keys.png">개인 키</a></p>
 <p><a href="admin-guide.html">관리자 운영 절차로 이동</a></p>
-<footer>Hunter v1.5.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
+<footer>Hunter v1.6.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>

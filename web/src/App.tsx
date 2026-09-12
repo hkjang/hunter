@@ -28,6 +28,7 @@ import {
   IconAdjustments,
   IconArrowRight,
   IconBook2,
+  IconBell,
   IconChevronDown,
   IconChevronRight,
   IconCircleCheck,
@@ -83,6 +84,7 @@ import {
   ContributionsPage,
   CopilotPage,
 } from "./pages";
+import { NotificationsPage } from "./notifications";
 import { ResourcePage } from "./resources";
 import { TriagePage } from "./triage";
 import { SoftwarePage, SoftwareDetailPage } from "./software";
@@ -146,6 +148,7 @@ export const navGroups = [
         label: "위협 정보 반입",
         icon: IconShieldCheck,
       },
+      { path: "/admin/notifications", label: "알림센터", icon: IconBell },
       { path: "/admin/operations", label: "운영 점검", icon: IconActivity },
       { path: "/admin/users", label: "사용자 · 권한", icon: IconUsers },
       { path: "/admin/audit", label: "감사 기록", icon: IconBook2 },
@@ -173,6 +176,7 @@ const routeScopes: Record<string, string | readonly string[]> = {
   "/admin/integrations": "integrations:manage",
   "/admin/discovery": "integrations:manage",
   "/admin/audit": "audit:read",
+  "/admin/notifications": "admin:manage",
 };
 const personalItems = [
   { path: "/personal/profile", label: "내 프로필", icon: IconUser },
@@ -182,32 +186,38 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.5.0" });
-  const refreshConfig = () => {
-    api("/api/settings/public")
+    [config, setConfig] = useState<Row>({ version: "1.6.0" });
+  const refreshConfig = () =>
+    api<Row>("/api/settings/public")
       .then(setConfig)
       .catch(() => {});
-  };
   useEffect(() => {
-    api<{ user: User }>("/api/auth/me")
-      .then((v) => {
-        setUser(v.user);
+    let active = true;
+    async function initialize() {
+      // Route availability depends on both authentication and public settings.
+      const [auth] = await Promise.allSettled([
+        api<{ user: User }>("/api/auth/me"),
+        refreshConfig(),
+      ]);
+      if (!active) return;
+      if (auth.status === "fulfilled") {
+        setUser(auth.value.user);
         const from = readLoginReturn(true);
         if (from) {
           clearLoginReturn();
           navigate(from, { replace: true });
         }
-      })
-      .catch(() => {})
-      .finally(() => setReady(true));
-    refreshConfig();
+      }
+      setReady(true);
+    }
+    void initialize();
     const unauth = () => setUser(null);
     window.addEventListener("hunter:unauthorized", unauth);
-    return () => window.removeEventListener("hunter:unauthorized", unauth);
+    return () => {
+      active = false;
+      window.removeEventListener("hunter:unauthorized", unauth);
+    };
   }, []);
-  useEffect(() => {
-    if (user) refreshConfig();
-  }, [user?.id]);
   if (!ready)
     return (
       <div className="app-loading">
@@ -283,8 +293,8 @@ function Login() {
         : "/dashboard";
       const from = safeReturnPath(location.state?.from) || readLoginReturn();
       saveLoginReturn(from || home);
+      await refreshConfig();
       setUser({ ...result.user, preferences: profile.preferences });
-      refreshConfig();
       navigate(from || home, { replace: true });
     } catch (e) {
       setError((e as Error).message);
@@ -416,7 +426,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.5.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.6.0"}</b>
           </span>
         </footer>
       </section>
@@ -637,7 +647,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.5.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.6.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -673,7 +683,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.5.0"}
+                hunter · 서비스 버전 v{config.version || "1.6.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -914,6 +924,14 @@ function Shell() {
                 }
               />
             ))}
+            <Route
+              path="/admin/notifications"
+              element={
+                <Access required="admin:manage">
+                  <NotificationsPage />
+                </Access>
+              }
+            />
             <Route
               path="/admin/settings"
               element={
