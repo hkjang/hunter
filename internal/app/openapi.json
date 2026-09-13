@@ -8632,7 +8632,7 @@
         "tags": [
           "GraphQL"
         ],
-        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공.",
+        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공. query 성공 JSON 전체는 data 봉투·JSON escape·응답 별칭·구조 문자를 포함해 최대 4MiB입니다. projection 중 보수적 인코딩 예산을 누적하여 초과 전에 중단하며, HTTP400과 data:null·errors[].extensions.code=QUERY_LIMIT만 반환하고 부분 자료는 전송하지 않습니다. 보수적 계산으로 경계 부근 요청은 실제 인코딩 크기가 4MiB 이하여도 거절될 수 있습니다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -8645,11 +8645,28 @@
             }
           },
           "default": {
-            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "description": "인증 보호 단계는 일반 Error, 조회 처리 중 권한·시간·한도 오류는 GraphQLResponse입니다.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GraphQLResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "문법·입력·조회 한도 오류. 총 성공 응답 4MiB 예산 초과는 QUERY_LIMIT이며 data:null과 오류만 반환합니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphQLResponse"
                 }
               }
             }
@@ -8687,7 +8704,7 @@
         "tags": [
           "GraphQL"
         ],
-        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공.",
+        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공. query 성공 JSON 전체는 data 봉투·JSON escape·응답 별칭·구조 문자를 포함해 최대 4MiB입니다. projection 중 보수적 인코딩 예산을 누적하여 초과 전에 중단하며, HTTP400과 data:null·errors[].extensions.code=QUERY_LIMIT만 반환하고 부분 자료는 전송하지 않습니다. 보수적 계산으로 경계 부근 요청은 실제 인코딩 크기가 4MiB 이하여도 거절될 수 있습니다.",
         "responses": {
           "200": {
             "description": "성공",
@@ -8700,11 +8717,28 @@
             }
           },
           "default": {
-            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "description": "인증 보호 단계는 일반 Error, 조회 처리 중 권한·시간·한도 오류는 GraphQLResponse입니다.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GraphQLResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "문법·입력·조회 한도 오류. 총 성공 응답 4MiB 예산 초과는 QUERY_LIMIT이며 data:null과 오류만 반환합니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphQLResponse"
                 }
               }
             }
@@ -15480,7 +15514,7 @@
             }
           }
         },
-        "description": "인증 보호 단계는 일반 Error 응답일 수 있습니다. resolver 권한 실패는 data:null과 errors이며 일부 자료를 반환하지 않습니다."
+        "description": "인증 보호 단계는 일반 Error 응답일 수 있습니다. resolver 권한 실패는 data:null과 errors이며 일부 자료를 반환하지 않습니다. 성공 응답은 JSON 봉투·개행 포함 최대 4MiB이며 보수적 인코딩 예산으로 projection 중 검사합니다. 예산 초과는 HTTP400/QUERY_LIMIT, data:null이며 부분 자료를 반환하지 않습니다."
       }
     },
     "securitySchemes": {

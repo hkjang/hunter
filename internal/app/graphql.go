@@ -80,6 +80,7 @@ type graphExecutor struct {
 	refs     []modelResourceRef
 	required map[string]bool
 	runIDs   []string
+	budget   graphResponseBudget
 }
 
 func (a *App) graphQL(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +165,7 @@ func (a *App) graphQL(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	x := &graphExecutor{a: a, r: r, u: currentUser(r), doc: doc, vars: vars, required: map[string]bool{}}
+	x := &graphExecutor{a: a, r: r, u: currentUser(r), doc: doc, vars: vars, required: map[string]bool{}, budget: newGraphResponseBudget(graphResponseMaxBytes)}
 	if x.cost(op.SelectionSet, "Query", 25) > 10000 {
 		graphFailure(w, &graphFault{400, "QUERY_LIMIT", "예상 응답 복잡도 한도 10,000을 초과했습니다"})
 		return
@@ -324,6 +325,9 @@ func (x *graphExecutor) fields(set ast.SelectionSet, typ string) []*ast.Field {
 	return out
 }
 func (x *graphExecutor) project(o graphObject, set ast.SelectionSet) (map[string]any, error) {
+	if e := x.budget.take(2); e != nil { // Object braces, including an empty selection.
+		return nil, e
+	}
 	out := map[string]any{}
 	for _, f := range x.fields(set, o.Type) {
 		x.nodes++
@@ -337,7 +341,20 @@ func (x *graphExecutor) project(o graphObject, set ast.SelectionSet) (map[string
 		if key == "" {
 			key = f.Name
 		}
+		if e := x.budget.text(key); e != nil {
+			return nil, e
+		}
+		separator := 1 // Colon, plus a comma after the first selected field.
+		if len(out) > 0 {
+			separator++
+		}
+		if e := x.budget.take(separator); e != nil {
+			return nil, e
+		}
 		if f.Name == "__typename" {
+			if e := x.budget.text(o.Type); e != nil {
+				return nil, e
+			}
 			out[key] = o.Type
 			continue
 		}
@@ -353,8 +370,16 @@ func (x *graphExecutor) project(o graphObject, set ast.SelectionSet) (map[string
 			}
 			out[key] = b
 		case []graphObject:
+			if e := x.budget.take(2); e != nil {
+				return nil, e
+			}
 			items := []any{}
-			for _, item := range q {
+			for i, item := range q {
+				if i > 0 {
+					if e := x.budget.take(1); e != nil {
+						return nil, e
+					}
+				}
 				b, e := x.project(item, f.SelectionSet)
 				if e != nil {
 					return nil, e
@@ -363,6 +388,9 @@ func (x *graphExecutor) project(o graphObject, set ast.SelectionSet) (map[string
 			}
 			out[key] = items
 		default:
+			if e := x.budget.scalar(v); e != nil {
+				return nil, e
+			}
 			out[key] = v
 		}
 	}
