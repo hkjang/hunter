@@ -36,13 +36,15 @@ Go + React + Mantine + PostgreSQL로 만들었으며 서비스 서버·화면·�
 
 UI는 Mantine을 사용합니다. 접근 가능한 폼·대화상자·표·메뉴를 일관되게 구성하고, 한국어 폰트를 로컬 번들하여 폐쇄망에서도 읽기 편한 화면을 제공합니다.
 
-v1.8.0은 **에이전트 통합 연동**과 **일시 중지·추가 입력·같은 실행 재개**, 실행별 **MD·HTML·한국어 PDF 보고서**, 인증된 **조회 전용 GraphQL**을 추가합니다. 검색·메모리·모델·격리 실행·관측 수집기를 관리자 화면에서 선택적으로 설정·시험합니다. 연결 장애 시 공급자 대체나 내부 자료·로컬 메모리로 복귀하며, 모든 모델이 불가하면 실행 기록을 유지한 연결 대기로 전환합니다. 네 환경변수와 서비스 이미지 하나의 기본 배포를 유지합니다.
+**에이전트 통합 연동**과 **일시 중지·추가 입력·같은 실행 재개**, 실행별 **MD·HTML·한국어 PDF 보고서**, 인증된 **조회 전용 GraphQL**도 제공합니다. 검색·메모리·모델·격리 실행·관측 수집기를 관리자 화면에서 선택적으로 설정·시험합니다. 연결 장애 시 공급자 대체나 내부 자료·로컬 메모리로 복귀하며, 모든 모델이 불가하면 실행 기록을 유지한 연결 대기로 전환합니다. 네 환경변수와 서비스 이미지 하나의 기본 배포를 유지합니다.
 
 **게이트웨이 접수·공급자 전달 결과·사용자 업무 확인·팀장 승인은 서로 다른 상태입니다.** 불명확한 전달을 자동 재발송하지 않으며 외부 티켓 완료만으로 발견 건을 해결하지 않습니다. 서명 콜백은 Hunter 게이트웨이 규격으로, 공급자나 Git 서비스의 원래 콜백을 그대로 받는 범용 연결은 아닙니다. [공식 설계 근거와 실제 범위](docs/research-automation.md), [상세 운영 절차](docs/guides/admin-guide.md#1310-자동화-관리-시작하기)를 참고하세요.
 
 발견 건 일괄 변경, CSV·주소 복사, 편집 충돌 안내, 입력 보호, 탭별 저장 보기와 새 캠페인 초안도 함께 제공합니다. [기존 운영 기능 조사](docs/research-v140.md)는 공식 프로젝트 문서·GitHub 이슈에 근거하며, 알림과 운영 기능은 Hunter 자체 코드입니다. 기존 PentAGI 원본 코어는 그대로 보존합니다.
 
 캠페인 비교의 **미관측은 해결을 뜻하지 않습니다**. 신뢰할 실행 조건이 없는 외부 반입·이전 버전 결과는 비교하지 않습니다. EPSS 정보 없음은 0과 다르며, SBOM 라이선스 표시는 조직의 검토 규칙에 따른 것으로 법적 적합성 판정이 아닙니다.
+
+v1.9.0은 **기존 SSO 세션 자동 확인**과 관리자 **방문 추적**을 추가합니다. OIDC 자동 진입을 켜면 인증 서버의 세션을 확인해 원래 업무 화면으로 이동하고, 인증이 필요하면 로컬·명시적 SSO 로그인으로 복귀합니다. 방문 추적은 기본 꺼짐이며 관리자 코드와 허용 원점을 저장해 별도 sandbox에서 고정 페이지 경로·제목만 전달합니다. 추적 오류는 일반 업무와 분리합니다. [설정·호환 조건](docs/research-sso-tracking.md)을 참고하세요.
 
 ## 오프라인 설치
 
@@ -51,7 +53,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.8.0.tar.gz
+docker load -i hunter-v1.9.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -77,7 +79,7 @@ curl --fail http://localhost:8080/api/health
 
 ## 인증과 연동
 
-Keycloak에는 `https://hunter.internal/api/auth/oidc/callback`을 redirect URI로 등록합니다. Hunter 관리자 화면에 realm issuer, client ID, client secret을 저장하면 discovery로 연결합니다. 플랫폼 SSO와 진단 대상 테스트 계정은 별도 인증 프로파일로 관리합니다.
+Keycloak에는 `https://hunter.internal/api/auth/oidc/callback`을 redirect URI로 등록합니다. Hunter 관리자 화면에 realm issuer, client ID, client secret을 저장하면 discovery로 연결합니다. 자동 진입은 기본 켜짐(OIDC 활성화 시)이며 `prompt=none`을 지원하는 IdP의 기존 세션을 사용합니다. 세션·동의가 없으면 로그인 화면에 복귀하고 `/login?local=1`로 자동 진입을 건너뛸 수 있습니다. 자동 시도는 10분, 명시 로그아웃은 24시간 자동 재시도를 억제합니다. IdP 주소 자체에 연결하지 못해 callback이 없을 때는 로컬 주소로 직접 돌아와야 합니다. [공식 ReSSO](https://github.com/hkjang/ReSSO)의 OIDC·prompt=none 지원 소스를 확인했으며 실제 운영 계정 연동 검증은 미수행입니다. 플랫폼 SSO와 진단 대상 테스트 계정은 별도 인증 프로파일로 관리합니다.
 
 개인 키는 **개인화 → 개인 API 키**에서 발급합니다. 키의 실제 권한은 소유자의 현재 역할 권한과 키에 설정한 범위의 교집합입니다.
 
@@ -94,6 +96,8 @@ curl 'https://hunter.internal/api/services' \
 - 실행 보고서: `GET /api/agent-runs/{id}/report?format=md|html|pdf`, 기존 에이전트 조회 네 권한과 현재 서비스 접근 적용
 
 MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동적 등록을 제공하지 않습니다. AI 최대 설정은 연결한 실제 모델의 지원 한도에 따라 조정합니다.
+
+방문 추적은 **서비스 설정 → 방문 추적**에서 관리자 브라우저 세션으로만 편집·미리보기 합니다. JavaScript 32KiB 또는 최대10개 script 태그와 정확한 HTTP(S) 원점 최대10개를 허용합니다. 로그인·관리자·개인화 화면과 쿼리·실제 자료 ID·사용자 정보는 페이지 이벤트에서 제외합니다. 브라우저의 IP·User-Agent 등 일반 HTTP 정보는 수집기에서 관측될 수 있으며 쿠키·부모 DOM·스토리지에 의존하는 SDK는 별도 이벤트 어댑터가 필요합니다. 미리보기 준비 완료는 통계 수집 완료가 아닙니다.
 
 ## 진단 범위
 
@@ -167,13 +171,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.8.0 예시 |
+| 항목 | 형식 | v1.9.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.8.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.8.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.9.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.9.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.8.0
+bash scripts/release.sh 1.9.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

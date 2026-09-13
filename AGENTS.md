@@ -27,6 +27,7 @@
 | `internal/app/agent_search*.go`, `agent_memory*.go`, `agent_telemetry*.go` | 선택 검색·로컬 원본 메모리·암호화 관측 큐 |
 | `internal/app/agent_execution*.go`, `agents_control.go` | 고정 mTLS 격리 프로브·체크포인트 제어·입력·도구 영수증 |
 | `internal/app/graphql*.go`, `agent_reports*.go`, `report_assets` | 현재 권한의 조회 GraphQL·오프라인 한글 보고서·폰트 고지 |
+| `internal/app/auth_oidc*.go`, `tracking*.go`, `web/src/auth-flow.ts`, `tracking*` | 한 번의 OIDC 자동 진입·로컬 복구와 관리자 격리 추적 |
 | `internal/app/agents_tools.go` | 여덟 Hunter 도구의 권한·범위·저장 처리 |
 | `internal/app/agents_redaction.go` | 모델·이벤트의 비밀정보 마스킹 |
 | `internal/pentagicore` | 원본 코어 어댑터, 모델·도구 연결, 호환 SQL 저장소 |
@@ -179,7 +180,7 @@ python3 -m py_compile scripts/release-notes.py
 - 네 환경변수·비특권·읽기 전용·소켓 미노출 조건에서 시작·실제 경로·재시작 후 보존을 확인합니다.
 ## 9. 화면과 문서
 
-- 메뉴·버튼·오류는 한국어와 Mantine 체계를 따릅니다. 새로고침 메뉴·탭과 로그인·프로필 버전을 확인합니다.
+- 메뉴·버튼·오류는 한국어와 Mantine 체계를 따릅니다. 새로고침 메뉴·탭과 로그인·프로필 버전을 확인합니다. OIDC auto/mode/return context의 state·nonce·PKCE·1회 소비와 10분 억제·logout24h·local=1 복구를 유지하고 ReSSO 실환경 호환을 추정하지 않습니다.
 - 목록 검색·필터·정렬·페이지는 URL에 보존하고, 다른 상세 링크 매개변수를 지우지 않습니다.
 - 검색 인덱스에는 명시적으로 선택한 표시 필드만 사용하며 비밀값이나 전체 API 응답을 직렬화하지 않습니다.
 - 즐겨찾기·최근 방문은 사용자별로 분리하고 현재 권한과 관리자 승인 메뉴 설정을 적용합니다.
@@ -187,7 +188,7 @@ python3 -m py_compile scripts/release-notes.py
 - 설정 저장 후에는 저장한 그룹만 갱신하고 다른 그룹의 작성 중인 값을 덮어쓰지 않습니다.
 - 모바일 메뉴가 닫혔을 때 숨겨진 항목에 초점이 들어가지 않아야 합니다. 화면 이동과 팝업 닫힘의 초점 복귀를 함께 확인합니다.
 - 데스크톱과 모바일에서 글자 크기, 가로 넘침, 스크롤바, 오류·빈 상태를 확인합니다.
-- 변경한 페이지는 실제 앱에서 캡처하고 문서용 합성 자료임을 설명합니다.
+- 변경한 페이지는 실제 앱에서 캡처하고 문서용 합성 자료임을 설명합니다. 추적은 기본off·관리자 세션 전용·암호화 revision·opaque iframe과 고정 path/title만 사용하며 로그인/admin/personal·사용자/자료ID·쿼리를 제외합니다. 앱 전체 CSP를 완화하지 않고 preview5분1회를 유지하며 준비와 수집기 접수를 구분합니다.
 - 모의 AI·SMTP·HTTP 검증을 실모델 품질·공급 계정 발송·단말 수신으로 표현하지 않고, 외부 실수신자에게 시험 발송하지 않습니다.
 
 ```sh
@@ -216,5 +217,4 @@ gh run list --limit 5
 gh release view "v$(cat VERSION)" --json tagName,assets,url
 ```
 
-완료 보고에는 실제 변경, 통과한 검증, 미검증 한계와 배포 URL·태그를 간결하게 기록합니다.
-단순히 명령을 시작한 상태를 CI·릴리즈·GitHub Pages 배포 완료로 보고하지 않습니다.
+완료 보고에는 실제 변경, 통과한 검증, 미검증 한계와 배포 URL·태그를 간결하게 기록합니다. 단순히 명령을 시작한 상태를 CI·릴리즈·GitHub Pages 배포 완료로 보고하지 않습니다.

@@ -17,7 +17,24 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 8, 0):
+if version >= (1, 9, 0):
+    features = """### 기존 SSO 세션 자동 진입과 관리자 방문 추적
+
+- **로그인 화면을 거치지 않는 업무 복귀**: 유효한 Hunter 세션은 바로 내부 목적지로 이동하고, OIDC 자동 진입을 켜면 prompt=none으로 사내 인증 세션을 확인합니다. 원래 메뉴·검색 조건·해시를 안전한 내부 주소로 보존합니다.
+- **명시 로그인과 복구**: 인증·동의가 필요하면 로컬 또는 명시 SSO 로그인으로 돌아갑니다. 자동 시도10분·명시 로그아웃24시간 재시도 억제와 /login?local=1 복구 경로로 로그인 반복을 줄입니다. 기존 state·nonce·PKCE·서명 토큰·현재 역할 검사를 유지합니다.
+- **관리자 방문 추적**: 서비스 설정에서 공개 JavaScript32KiB 또는 script태그10개와 정확한 허용 원점10개를 관리합니다. 기본 비활성이며 관리자 브라우저 세션·암호화 저장·숫자revision 충돌 보호를 적용합니다.
+- **저장 전 격리 미리보기**: 관리자별5분·1회 초안을 별도 sandbox에서 실행합니다. 일반 메뉴의 고정 경로·제목만 전달하고 로그인·관리자·개인화 화면, 실제 자료ID·사용자·검색어·본문은 페이지 이벤트에서 제외합니다. 추적 오류는 일반 업무와 분리합니다.
+
+[공식 ReSSO](https://github.com/hkjang/ReSSO)의 OIDC·prompt=none 지원 소스를 확인했으며 실제 운영 계정 연동 검증은 미수행입니다. 표준 OIDC Discovery·Code·PKCE·prompt=none 지원 여부를 확인해야 합니다. IdP 주소 자체에 접속할 수 없어 callback이 없으면 Hunter 로컬 복구 주소를 직접 엽니다.
+
+방문 추적의 준비 완료는 수집 서버의 실제 접수 보장이 아닙니다. 쿠키·localStorage·부모 DOM·eval·iframe에 의존하는 SDK는 이벤트 어댑터가 필요하며 HTTP의 IP·User-Agent 정보는 수집기에서 관측할 수 있습니다. 로컬 모의 OIDC·수집기 검증과 실제 운영 계정·통계 수신 검증을 구분합니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[SSO·방문 추적 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 로그인·복구 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [공식 근거와 적용 범위](https://github.com/hkjang/hunter/blob/main/docs/research-sso-tracking.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 8, 0):
     features = """### 에이전트 선택 연동·복구와 실행 보고서
 
 - **모델 네이티브 연결**: OpenAI 호환·Anthropic Messages·Gemini·Ollama의 실제 스트리밍 규격을 사용하고 역할별 순서·우선순위·컨텍스트·출력·연속 실패 보호를 설정합니다. 실패한 응답 조각은 사용자 출력과 도구 실행 전에 폐기합니다.

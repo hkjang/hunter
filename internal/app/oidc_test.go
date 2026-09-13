@@ -79,7 +79,15 @@ func TestOIDCDiscoveryPKCEAndReplay(t *testing.T) {
 	mu.Lock()
 	nonce, challenge = q.Get("nonce"), q.Get("code_challenge")
 	mu.Unlock()
-	stateCookie := strings.Split(start.Header.Get("Set-Cookie"), ";")[0]
+	stateCookie := ""
+	for _, cookie := range start.Cookies() {
+		if cookie.Name == "hunter_oidc_state" {
+			stateCookie = cookie.Name + "=" + cookie.Value
+		}
+	}
+	if stateCookie == "" {
+		t.Fatal("missing browser-bound state cookie")
+	}
 	callback := s.URL + "/api/auth/oidc/callback?state=" + url.QueryEscape(q.Get("state")) + "&code=valid-code"
 	r, _ := http.NewRequest("GET", callback, nil)
 	r.Header.Set("Cookie", stateCookie)

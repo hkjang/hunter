@@ -1,0 +1,47 @@
+.tracking-frame {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  pointer-events: none;
+}
+.tracking-settings[hidden] {
+  display: none;
+}
+.settings-panel[hidden] {
+  display: none;
+}
+.tracking-settings {
+  min-width: 0;
+}
+.tracking-code textarea {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  tab-size: 2;
+}
+.tracking-settings pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tracking-preview .mantine-Badge-root {
+  height: auto;
+  min-height: 28px;
+  padding-block: 5px;
+}
+.tracking-preview .mantine-Badge-label {
+  white-space: normal;
+}
+@media (max-width: 575px) {
+  .tracking-settings .form-save-actions > .mantine-Group-root {
+    width: 100%;
+  }
+  .tracking-settings .form-save-actions button {
+    flex: 1 1 100%;
+  }
+  .tracking-preview .mantine-Select-root {
+    width: 100%;
+  }
+}

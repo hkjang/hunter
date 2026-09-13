@@ -7,6 +7,27 @@
     "mobile_path": "images/mobile-login.png"
   },
   {
+    "name": "sso-local-login",
+    "path": "images/sso-local-login.png",
+    "title": "SSO 확인 후 로컬 로그인",
+    "description": "v1.9 합성 OIDC: 기존 세션 확인 후 명시 로그인 복구",
+    "mobile_path": "images/mobile-sso-local-login.png"
+  },
+  {
+    "name": "admin-tracking",
+    "path": "images/admin-tracking.png",
+    "title": "관리자 방문 추적",
+    "description": "v1.9 공개 코드·허용 원점·암호화 revision 설정",
+    "mobile_path": "images/mobile-admin-tracking.png"
+  },
+  {
+    "name": "tracking-preview",
+    "path": "images/tracking-preview.png",
+    "title": "방문 추적 격리 미리보기",
+    "description": "v1.9 로컬 수집기용 합성 이벤트와 격리 실행 안내",
+    "mobile_path": "images/mobile-tracking-preview.png"
+  },
+  {
     "name": "dashboard",
     "path": "images/dashboard.png",
     "title": "보안 현황",

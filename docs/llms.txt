@@ -10,8 +10,8 @@
 - [릴리즈](https://github.com/hkjang/hunter/releases)
 
 ## 핵심 사실
-- 프로젝트명 hunter, 버전 1.8.0.
-- 배포 이미지 hunter:v1.8.0, 서비스 이미지 압축 파일 hunter-v1.8.0.tar.gz.
+- 프로젝트명 hunter, 버전 1.9.0.
+- 배포 이미지 hunter:v1.9.0, 서비스 이미지 압축 파일 hunter-v1.9.0.tar.gz.
 - PostgreSQL은 별도 사내 서비스.
 - 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
 - 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
@@ -85,3 +85,13 @@
 - 실행별 /api/agent-runs/{id}/report?format=md|html|pdf는 중간·실패 상태도 사실대로 마스킹·내보내기, 내장한국어폰트/외부렌더없음.
 - 관측은 마스킹된 메타데이터만 암호화 outbox 비동기전송. full logs/prompts/evidence·벤더스택 번들 아님. 수집 실패로 업무 응답 중단 없음.
 - [공식 규격과 실제 적용](https://hkjang.github.io/hunter/research-agent-platform.md)
+
+## v1.9 자동 SSO와 관리자 방문 추적
+- OIDC enabled + auto_login에서 기존 세션을 top-level prompt=none으로 확인. Hunter 세션이 있으면 discovery 없이 복귀, 내부 path/search/hash 최대4096B.
+- 표준 인증·동의 오류는 login?sso=skip으로 복구. 자동 시도10분/명시logout24h 억제. /login?local=1 로컬 복구, IdP URL 자체가 불통이면 자동 callback 복귀 보장 없음.
+- 공식 https://github.com/hkjang/ReSSO 소스에서 Code/S256/RS256/query/promptnone/iss 계약 확인(f508c790). 실제 운영 계정 연결 검증 미수행.
+- /admin/settings?tab=tracking 관리자 브라우저 세션으로 공개 코드·허용 원점·사용 여부 관리. 개인 Bearer 키 사용 불가. 기본off·암호화·숫자revision 비교.
+- JavaScript32KiB 또는 script태그10개, 원점10개. 별도 opaque iframe/CSP, 앱 전체CSP 완화 없음. 쿠키·localStorage·parent DOM·eval·iframe 기반 SDK는 이벤트 어댑터 필요.
+- 일반 업무 페이지 고정path/title만 전달. 로그인/admin/personal/실제ID/query/hash/user/evidence 제외. IP·UA 등 일반HTTP정보는 수집기 관측 가능.
+- 미리보기 현재관리자5분1회·운영설정변경없음. 허용된 수집기에 합성이벤트 전송 가능. bridge준비와 수집기접수는 별도. 활성페이지30초설정poll.
+- [공식 근거와 실제 범위](https://hkjang.github.io/hunter/research-sso-tracking.md)

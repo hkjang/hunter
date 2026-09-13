@@ -33,6 +33,7 @@ import {
   IconCopy,
   IconEdit,
   IconExternalLink,
+  IconEye,
   IconKey,
   IconLock,
   IconPlus,
@@ -80,6 +81,7 @@ import {
   reconcileDrafts,
   requiredIssues,
 } from "./form-state";
+import { TrackingSettings } from "./tracking";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
   label: `${scopeNames[s]} · ${s}`,
@@ -94,6 +96,7 @@ const settingGroups: [string, string, any][] = [
   ["risk", "조치 우선순위", IconShieldCheck],
   ["inventory", "소프트웨어 구성", IconSettings],
   ["security", "보안 · 세션", IconLock],
+  ["tracking", "방문 추적", IconEye],
   ["roles", "역할 · 권한", IconUsers],
 ];
 const settingFields: Record<string, Field[]> = {
@@ -202,22 +205,30 @@ const settingFields: Record<string, Field[]> = {
       label: "서비스 외부 접근 주소",
       placeholder: "https://hunter.internal",
       description:
-        "Keycloak의 리다이렉트 URI와 쿠키 보안 설정에 사용합니다. 운영 환경에서는 HTTPS 주소를 지정하세요.",
+        "SSO 리다이렉트 URI와 쿠키 보안 설정에 사용합니다. 운영 환경에서는 HTTPS 주소를 지정하세요.",
     },
   ],
   oidc: [
     {
       key: "enabled",
-      label: "Keycloak OIDC 로그인 사용",
+      label: "OIDC SSO 로그인 사용",
       type: "switch",
       default: false,
+    },
+    {
+      key: "auto_login",
+      label: "기존 SSO 세션으로 자동 로그인",
+      type: "switch",
+      default: true,
+      description:
+        "SSO 사용 시 로그인 화면을 표시하기 전에 사내 세션을 확인합니다. 세션이 없거나 추가 인증이 필요하면 로컬 로그인과 수동 SSO를 제공합니다.",
     },
     {
       key: "issuer",
       label: "Issuer URL",
       placeholder: "https://keycloak.internal/realms/company",
       description:
-        "Realm의 Issuer만 입력하면 OIDC 메타데이터와 서명키를 자동 검색합니다.",
+        "Discovery 문서의 issuer 주소를 마지막 /까지 포함해 정확히 입력하세요. OIDC 메타데이터와 서명키를 자동 검색합니다.",
     },
     { key: "client_id", label: "Client ID", placeholder: "hunter" },
     {
@@ -417,8 +428,14 @@ export function SettingsPage() {
   const baseline = useRef<Row>({});
   const form = useRef<HTMLFormElement>(null);
   const pendingSaveTab = useRef<string | null>(null);
+  const trackingSave = useRef<(() => Promise<boolean>) | null>(null);
+  const [trackingDirty, setTrackingDirty] = useState(false);
   const dirtyGroups = settingGroups
-    .filter(([group]) => changed(baseline.current[group], values[group]))
+    .filter(([group]) =>
+      group === "tracking"
+        ? trackingDirty
+        : changed(baseline.current[group], values[group]),
+    )
     .map(([group]) => group);
   const dirty = dirtyGroups.includes(tab);
   const currentFeedback = feedback[tab] || {};
@@ -441,6 +458,12 @@ export function SettingsPage() {
   async function save(nextTab?: string) {
     if (busy) return;
     const group = tab;
+    if (group === "tracking") {
+      if (await trackingSave.current?.()) {
+        if (nextTab) moveTab(nextTab);
+      }
+      return;
+    }
     const required = requiredIssues(
       (settingFields[group] || [])
         .filter((field) => field.required)
@@ -546,7 +569,14 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
+          <TrackingSettings
+            active={tab === "tracking"}
+            saveRef={trackingSave}
+            onDirtyChange={setTrackingDirty}
+            onBusyChange={setBusy}
+          />
           <Paper
+            hidden={tab === "tracking"}
             className={`settings-panel${tab === "agents" ? " agent-settings" : ""}`}
           >
             <form
@@ -631,7 +661,7 @@ export function SettingsPage() {
                   />
                 )}
                 {tab === "oidc" && (
-                  <Alert color="teal" mt="xl" title="Keycloak 연결 안내">
+                  <Alert color="teal" mt="xl" title="Keycloak · ReSSO 연결 안내">
                     <Text size="sm">
                       Client authentication을 활성화하고 Standard flow를
                       사용하세요. Valid redirect URI에 다음 주소를 등록하면
@@ -640,7 +670,11 @@ export function SettingsPage() {
                     <Code
                       block
                       mt="sm"
-                    >{`${values.general?.public_url || window.location.origin}/api/auth/oidc/callback`}</Code>
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                      }}
+                    >{`${(values.general?.public_url || window.location.origin).replace(/\/$/, "")}/api/auth/oidc/callback`}</Code>
                     {data.oidc?.client_secret_configured && (
                       <>
                         <Badge mt="md" color="teal" variant="light">
@@ -666,6 +700,31 @@ export function SettingsPage() {
                       SSO를 활성화해도 초기 로컬 관리자 계정은 로그인할 수
                       있습니다.
                     </Text>
+                    <Text size="sm" mt="sm">
+                      자동 확인에 실패하거나 로그아웃하면 자동 진입을 잠시
+                      멈춥니다. ReSSO 등 다른 인증 서버는 OIDC
+                      Discovery·Authorization Code·PKCE를 지원해야 하며 실제
+                      연결은 해당 서버에서 확인하세요.
+                    </Text>
+                    <Button
+                      component="a"
+                      href="/login?local=1"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="light"
+                      mt="sm"
+                      rightSection={<IconExternalLink size={16} />}
+                      styles={{
+                        root: {
+                          maxWidth: "100%",
+                          height: "auto",
+                          paddingBlock: 8,
+                        },
+                        label: { whiteSpace: "normal", textAlign: "left" },
+                      }}
+                    >
+                      로컬 로그인 주소 · 새 탭
+                    </Button>
                   </Alert>
                 )}
                 {tab === "ai" && (

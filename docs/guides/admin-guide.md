@@ -1,12 +1,12 @@
 # Hunter 관리자 가이드
 
-**버전 1.8.0 · 한국어 · 최종 갱신 2026-09-13**
+**버전 1.9.0 · 한국어 · 최종 갱신 2026-09-13**
 
 이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.
 
 [프로젝트 소개](../index.html) · [사용자 가이드](user-guide.html) · [HTML](admin-guide.html) · [PDF](admin-guide.pdf) · [전체 화면](../screenshots.html)
 
-> 화면은 실제 애플리케이션을 캡처했습니다. 예시 자산과 발견 건은 문서용 데이터이며 신규 설치 시 자동 생성되지 않습니다. 아래 제공 범위와 확장 범위를 구분하여 운영하세요. 에이전트 화면은 로컬 SSE 모의 모델과 실제 Hunter UI로 검증한 예시이며 실제 모델 품질·취약점 탐지 성능의 검증 결과가 아닙니다.
+> 화면은 실제 애플리케이션을 캡처했습니다. 로그인·OIDC·방문 추적의 변경 장면은 v1.9.0이고, 변경 없는 이전 기능은 v1.8.0의 검증 캡처를 보존했습니다. 예시 자산과 발견 건은 문서용 데이터이며 신규 설치 시 자동 생성되지 않습니다. 아래 제공 범위와 확장 범위를 구분하여 운영하세요. 에이전트 화면은 로컬 SSE 모의 모델과 실제 Hunter UI로 검증한 예시이며 실제 모델 품질·취약점 탐지 성능의 검증 결과가 아닙니다.
 
 ## 1. 아키텍처와 제공 범위
 
@@ -15,7 +15,7 @@
 Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.
 
 ~~~
-사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.8.0 → 사내 PostgreSQL
+사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.9.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -74,7 +74,7 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 | 사용자 접속 | 사내 DNS 이름과 HTTPS 종단 프록시 권장 |
 | 관리자 정보 | 초기 관리자 ID, 고유한 12~72바이트 비밀번호 |
 | 암호화 키 | 무작위 32바이트의 base64 인코딩 값 |
-| 반입 파일 | 릴리즈의 `hunter-v1.8.0.tar.gz`, compose.yaml, .env.example |
+| 반입 파일 | 릴리즈의 `hunter-v1.9.0.tar.gz`, compose.yaml, .env.example |
 | 백업 | DB 백업과 암호화 키를 분리하여 안전하게 보관할 위치 |
 
 서비스 자원은 사용량에 따라 산정합니다. 시작점으로 2 vCPU와 2~4 GiB 메모리를 두고 실제 응답 지연, 연결 수, 진단량에 따라 조정할 수 있으나, 이는 성능 검증 수치나 용량 보장이 아닙니다. 연결한 AI 모델의 메모리·가속기 자원은 Hunter 서버와 별개입니다.
@@ -88,8 +88,8 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.
 
 ~~~sh
-sha256sum hunter-v1.8.0.tar.gz
-gzip --test hunter-v1.8.0.tar.gz
+sha256sum hunter-v1.9.0.tar.gz
+gzip --test hunter-v1.9.0.tar.gz
 ~~~
 
 첨부 자산은 `hunter-v버전.tar.gz` 한 개이며 내부 이미지 이름은 `hunter:v버전`입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.
@@ -127,8 +127,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 ### 3.3 이미지 불러오기와 실행
 
 ~~~sh
-docker load -i hunter-v1.8.0.tar.gz
-docker image inspect hunter:v1.8.0
+docker load -i hunter-v1.9.0.tar.gz
+docker image inspect hunter:v1.9.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -195,7 +195,8 @@ PostgreSQL TLS는 DSN의 `sslmode=verify-full`과 `sslrootcert=/경로/ca.pem` �
 | 설정 그룹 | 주요 내용 |
 | --- | --- |
 | 기본 정보 | 서비스 이름, 외부 접근 주소 |
-| SSO·로그인 | OIDC 활성화, Issuer, Client ID, Client Secret, 신규 계정 역할 |
+| SSO·로그인 | OIDC 활성화·기존 세션 자동 진입, Issuer, Client ID, Client Secret, 신규 계정 역할 |
+| 방문 추적 | 사용 여부·공개 코드·허용 원점과 저장 전 격리 미리보기 |
 | AI 분석 | 활성화, Base URL, API 키, 모델, 최대 출력 토큰, 컨텍스트 창 |
 | 에이전트 진단 | 활성화, 반복·모델·도구 한도, 제한 시간, 진단·후보·기억 허용 |
 | 검토·승인 | 팀장 검토·승인 흐름 활성화 |
@@ -258,7 +259,53 @@ EPSS가 없거나 오래되었으면 가산하지 않습니다. 오래된 KEV의
 
 ![소프트웨어 명세 갱신과 라이선스 검토 설정](../images/admin-settings-inventory.png)
 
-## 6. Keycloak OIDC SSO
+### 5.6 방문 추적 코드 설정
+
+**서비스 설정 → 방문 추적**에서 사용 여부, 이름, 공개 스크립트와 허용 원점을 관리합니다. 기본값은 사용 안 함입니다. 별도 환경변수나 재배포 없이 같은 PostgreSQL에 설정을 암호화 저장합니다. 이 기능은 **관리자 브라우저 세션**이 필요하며 개인 API 키로 관리하거나 미리보기를 실행할 수 없습니다.
+
+![방문 추적 공개 코드·허용 주소 설정 — 합성 자료](../images/admin-tracking.png)
+
+1. 수집 시스템에서 사용할 **공개 코드**를 준비합니다. 비밀 API 키·사용자 인증정보를 브라우저 코드에 넣지 않습니다.
+2. 이름을 1~100자로 입력하고 JavaScript 또는 script 태그를 붙여 넣습니다. 전체 코드는 유효 UTF-8 **32KiB**, HTML 형식의 script 태그는 **최대 10개**입니다. 임의 HTML, noscript, iframe, meta 태그와 배너는 지원하지 않습니다.
+3. **허용된 외부 원점**에 필요한 정확한 원점을 한 줄씩 최대 10개 입력합니다. 예: `https://stats.internal`, `https://assets.internal:8443`. 경로·쿼리·와일드카드·자격정보는 제외합니다. 각 원점 입력은 300바이트, 정규화 후 전체 허용 원점은 1536바이트 이하입니다. 호스트 최대253바이트·DNS 라벨 최대63바이트를 검사하고 국제 도메인 이름은 IDNA로 정규화합니다. 현재 요청 주소 또는 기본 정보에 등록한 Hunter 자체 원점은 허용할 수 없습니다.
+4. **검증 · 격리 미리보기**로 현재 초안을 검사합니다. 설정을 저장하거나 운영 추적을 켜지 않지만, 브라우저는 코드를 실제 실행하여 허용한 수집기에 합성 방문 이벤트를 보낼 수 있습니다. 조직에서 승인한 시험 수집기를 사용합니다.
+5. 문법·원점·연결 결과를 확인하고 수집기에서도 시험 이벤트를 확인합니다. **준비 완료**는 인라인 실행 또는 외부 코드 로드 후 bridge가 준비됐다는 뜻이며 실제 통계 접수·분석 완료를 보장하지 않습니다.
+6. 검토한 뒤 사용 여부를 켜고 저장합니다. 현재 브라우저는 변경을 알리고, 다른 사용 중인 활성 화면은 최대 30초 주기로 설정을 다시 확인합니다. 비활성 탭의 즉각 반영을 보장하지 않습니다.
+
+![저장 전 격리 미리보기와 준비 상태 — 로컬 수집기](../images/tracking-preview.png)
+
+기본 페이지 이벤트는 `hunter:pageview`입니다. 다음 예제는 `https://stats.internal`을 허용 주소에 추가한 경우의 사내 수집기 어댑터입니다. 서버는 `text/plain` 본문의 JSON을 처리하도록 준비합니다. `no-cors` 응답은 브라우저에서 접수 본문을 읽을 수 없으므로 수집 시스템 측 확인이 필요합니다.
+
+```javascript
+window.addEventListener('hunter:pageview', (event) => {
+  fetch('https://stats.internal/collect', {
+    method: 'POST',
+    mode: 'no-cors',
+    credentials: 'omit',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(event.detail)
+  });
+});
+```
+
+전달하는 자료는 `{path, title}`뿐입니다. 일반 메뉴와 `/agents/:id`·`/software/:id`·`/campaigns/:id` 같은 고정 상세 템플릿을 사용하고 실제 자료 ID·쿼리·해시·사용자 식별자·발견 증거·AI 대화는 넣지 않습니다. 로그인·관리자·개인화 페이지는 제외합니다. 수집기는 HTTP 연결의 IP·User-Agent 등 브라우저 기본 정보를 별도로 관측할 수 있으므로 이를 개인정보 전송이 전혀 없는 기능으로 설명하지 않습니다.
+
+**격리와 호환 범위:** 코드는 별도 CSP `sandbox allow-scripts` 프레임에서 실행하며 Hunter 쿠키·localStorage·부모 DOM에 접근할 수 없습니다. `eval`, iframe, worker, 폼 제출, 새 창·상위 화면 이동 권한을 부여하지 않습니다. 스크립트 로드·연결·이미지는 지정한 원점으로 제한합니다. 사용자·DOM 자동 수집, 쿠키 또는 저장소를 전제로 한 범용 분석 SDK는 그대로 동작하지 않을 수 있으므로 위 페이지 이벤트용 어댑터로 연결합니다. 서버는 JavaScript 문법 전체를 정적 검증하지 않으므로 실제 브라우저 미리보기로 확인합니다.
+
+**저장 충돌과 복구:** GET으로 받은 숫자 `revision`을 PUT에 전달하며 다른 관리자가 먼저 저장하면 409로 거부합니다. 화면에서 내 입력을 유지한 채 최신 자료를 확인하고 다시 검토합니다. 여기서는 `expected_updated_at`을 사용하지 않습니다. 미리보기는 현재 관리자 전용·5분·한 번 사용이며 새 시험은 그 관리자의 이전 미사용 미리보기를 대체합니다. 만료·소비 후 다시 시작할 수 있습니다. 코드가 차단되거나 로드에 실패하면 허용 원점·HTTPS 혼합 콘텐츠·수집기 CORS·코드 문법을 확인합니다. `Origin: null`의 격리 환경을 고려하되 비밀을 사용하는 인증 API의 CORS를 광범위하게 열어 우회하지 않습니다.
+
+| API | 동작 |
+| --- | --- |
+| `GET /api/admin/tracking` | 현재 설정·revision 조회, 관리자 세션 전용 |
+| `PUT /api/admin/tracking` | 전체 공개 코드·허용 원점·사용 여부 저장, revision 비교 |
+| `POST /api/admin/tracking/test` | 5분·1회용 초안 미리보기 발급, 운영 설정 변경 없음 |
+| `GET /api/tracking/config` | 로그인 브라우저의 활성 여부·현재 프레임 주소 |
+| `GET /api/tracking/frame?revision=N` | 현재 버전의 격리 HTML, 비활성 404·버전 충돌 409 |
+| `GET /api/tracking/preview/{token}` | 현재 관리자 토큰을 원자적으로 소비하고 초안 실행 |
+
+자세한 규격과 공개 자료의 근거는 [SSO·방문 추적 조사](../research-sso-tracking.md)를 참고하세요.
+
+## 6. Keycloak·OIDC SSO
 
 ### 6.1 Keycloak 클라이언트 준비
 
@@ -280,13 +327,39 @@ EPSS가 없거나 오래되었으면 가산하지 않습니다. 오래된 KEV의
 2. SSO·로그인에 Issuer `https://keycloak.internal/realms/company`를 입력합니다.
 3. Client ID와 Client Secret을 입력합니다.
 4. 신규 SSO 계정 기본 역할을 선택합니다. 일반적으로 열람자부터 시작합니다.
-5. OIDC 사용을 켜고 저장합니다.
-6. 별도 브라우저 세션에서 SSO 로그인을 검증합니다.
+5. OIDC 사용을 켜고 **기존 SSO 세션으로 자동 로그인**을 선택합니다. 자동 옵션은 기본 켜짐이며 OIDC 사용이 꺼져 있으면 동작하지 않습니다.
+6. 별도 브라우저 세션에서 기존 IdP 세션의 자동 진입과 세션이 없는 경우의 명시 로그인을 검증합니다.
 7. 생성된 사용자 역할을 필요 범위로 조정합니다.
 
 Hunter는 Issuer에서 discovery 메타데이터와 서명키를 찾고 state, nonce, PKCE와 ID 토큰 검증을 사용합니다. Hunter 서버와 브라우저 모두 필요한 사내 Keycloak 주소에 접근할 수 있어야 합니다. 시스템 시간이 크게 어긋나면 토큰 검증에 실패할 수 있습니다.
 
 SSO subject는 로컬 사용자명과 별도로 식별합니다. 임의로 같은 이메일이나 사용자명을 가진 계정에 관리자 권한을 자동 결합하는 방식으로 운영하지 않습니다. 로컬 관리자는 SSO 장애 시 별도 관리 접근 경로로 유지할 수 있습니다.
+
+![OIDC 기존 세션 자동 진입 설정](../images/admin-settings-oidc.png)
+
+### 6.3 자동 진입·억제·복구
+
+Hunter는 유효한 자체 세션이 있으면 인증 서버 discovery 없이 원래 내부 화면으로 이동합니다. 자체 세션이 없고 자동 진입이 허용되면 최상위 브라우저 이동으로 `prompt=none`, `response_mode=query`를 요청합니다. 사내 IdP 세션과 필요한 동의가 이미 있으면 로그인 폼 없이 업무 화면으로 돌아갑니다. 일반 경로·검색 조건·해시는 최대 4096바이트의 안전한 내부 복귀 주소로 보존하며 외부 주소, API·로그인 경로 또는 경로 우회 입력은 `/dashboard`로 대체합니다.
+
+`login_required`는 기존 인증 세션이 없는 경우, `interaction_required`·`consent_required`·`account_selection_required`는 추가 조작이 필요한 경우입니다. Hunter는 공급자 오류 원문을 노출하지 않고 자체 한국어 안내와 로컬·명시 SSO 로그인 선택을 제공합니다. 성공뿐 아니라 오류 callback에서도 브라우저 state와 암호화한 DB 흐름의 만료·한 번 사용·현재 설정 지문을 확인합니다. 자동 진입은 서명·issuer·audience·nonce·PKCE 및 현재 사용자 역할을 우회하지 않습니다.
+
+자동 시도는 브라우저별 암호화 HttpOnly 쿠키로 10분 재시도를 억제합니다. 명시 로그아웃은 24시간 자동 진입을 억제하고 IdP의 전역 세션은 종료하지 않습니다. 세션 폐기 DB 작업이 실패하면 503으로 안내하고 현재 브라우저 세션을 유지하므로 성공으로 취급하지 말고 다시 시도합니다. 명시 SSO 로그인은 재시도를 시작할 수 있고 로컬·SSO 성공은 억제를 해제합니다. 저장된 설정을 읽는 `/api/auth/config`는 사용자별 억제 상태를 반영하므로 `no-store`를 유지합니다.
+
+SSO 장애 복구 주소는 `/login?local=1`입니다. IdP 서버에 브라우저가 연결조차 하지 못하면 callback 자체가 없어 Hunter로 자동 복귀하지 못할 수 있습니다. 브라우저 주소창에 실제 Hunter의 로컬 복구 주소를 입력합니다. 관리자에게는 이 주소와 로컬 관리자 복구 방법을 운영 가이드에 함께 배포합니다. 자동 진입은 숨은 iframe의 타사 쿠키에 의존하지 않지만 IdP 세션·브라우저 정책·망 접근 조건까지 보장하는 기능은 아닙니다.
+
+### 6.4 ReSSO 연결
+
+[공식 ReSSO 저장소](https://github.com/hkjang/ReSSO)의 OIDC 소스와 호환 문서에서 Realm Discovery, Authorization Code·PKCE S256·RS256, query 응답과 기존 세션의 `prompt=none` 재사용을 확인했습니다. 조사 기준 커밋은 `f508c7901ad4d0a5437aa87be12710fa1fa37192`입니다. **실제 운영 ReSSO 계정 연동 검증은 미수행**이며 소스의 규격 확인과 구분합니다.
+
+1. ReSSO 관리자에서 사용할 Realm의 외부 HTTPS issuer를 확인합니다. 예: `https://sso.internal/realms/company`.
+2. 해당 Realm에 Hunter용 confidential client를 등록하고 `https://hunter.internal/api/auth/oidc/callback`을 정확한 redirect URI로 지정합니다.
+3. Hunter 기본 정보의 공개 주소를 저장한 뒤 OIDC issuer·client ID·client secret과 신규 계정 기본 역할을 입력합니다. issuer는 후행 슬래시 유무까지 discovery가 반환하는 문자열과 완전히 일치해야 합니다.
+4. OIDC와 자동 진입을 켭니다. 같은 브라우저의 ReSSO 세션이 유효하면 자동 확인이 code를 반환하고, 세션이 없으면 명시 로그인 화면으로 돌아오는지 확인합니다.
+5. 서버·브라우저의 사내 망 접근, 내부 CA·시계, 비활성 사용자·역할 정책과 로컬 복구 경로를 조직 환경에서 확인합니다.
+
+ReSSO의 공개 discovery는 `/realms/{realm}/.well-known/openid-configuration` 형태이며 인증·토큰·서명키 주소는 `/realms/{realm}/protocol/openid-connect/` 아래에 있습니다. 기존 SSO 세션을 조회하지 못하는 DB 오류는 `login_required`와 별개인 `server_error`이며 운영 장애를 인증 해제로 오판하지 않습니다. [ReSSO 소스·호환 근거](../research-sso-tracking.md)
+
+다른 OIDC 제공자도 같은 Discovery·Code·PKCE·서명·`prompt=none` 조건을 확인합니다. [OIDC Core](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest), [Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata), [Keycloak 공식 브라우저 안내](https://www.keycloak.org/securing-apps/javascript-adapter)를 참고하세요. 공급자 고유 SAML·전용 쿠키·독자 토큰 규격을 자동 변환하지 않습니다.
 
 ## 7. 사용자와 역할 권한
 
@@ -512,7 +585,7 @@ docker run -d --name hunter-worker-dmz \
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.8.0 --worker-only --worker-id worker-dmz
+  hunter:v1.9.0 --worker-only --worker-id worker-dmz
 ~~~
 
 워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 **정확히 일치**해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.
@@ -1284,7 +1357,7 @@ docker compose up -d
 
 ~~~sh
 pg_restore --dbname="$RESTORE_POSTGRES_DSN" --no-owner hunter-backup.dump
-docker load -i hunter-v1.8.0.tar.gz
+docker load -i hunter-v1.9.0.tar.gz
 docker compose up -d
 ~~~
 
@@ -1395,10 +1468,10 @@ node scripts/check-docs.mjs
 ### 20.3 릴리즈 규칙
 
 ~~~sh
-bash scripts/release.sh 1.8.0
+bash scripts/release.sh 1.9.0
 ~~~
 
-스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.8.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.8.0` 서비스 이미지 하나만 들어갑니다.
+스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.9.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.9.0` 서비스 이미지 하나만 들어갑니다.
 
 GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 `docs`를 배포합니다. GitHub 저장소의 Pages 배포 소스는 **GitHub Actions**로 설정합니다.
 

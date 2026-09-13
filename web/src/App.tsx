@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusTrap, useMediaQuery } from "@mantine/hooks";
 import {
   Link,
@@ -60,11 +60,13 @@ import {
 } from "@tabler/icons-react";
 import {
   api,
+  APIError,
   type Row,
   type User,
   SessionContext,
   useSession,
   label,
+  showError,
   useCan,
 } from "./api";
 import { LoadState } from "./components";
@@ -74,9 +76,19 @@ import "./accessibility.css";
 import {
   clearLoginReturn,
   readLoginReturn,
-  safeReturnPath,
   saveLoginReturn,
 } from "./navigation";
+import {
+  automaticLoginSuppressed,
+  clearAutomaticLoginSuppression,
+  localLoginURL,
+  loginReturn,
+  oidcLoginMessage,
+  oidcLoginURL,
+  shouldAutomaticallyLogin,
+  suppressAutomaticLogin,
+  type LoginConfiguration,
+} from "./auth-flow";
 import {
   Dashboard,
   GraphPage,
@@ -88,6 +100,7 @@ import { NotificationsPage } from "./notifications";
 import { AutomationPage } from "./automation";
 import { AgentPlatformPage } from "./agent-platform";
 import { PersonalInboxPage } from "./personal-inbox";
+import { TrackingRuntime } from "./tracking";
 import { ResourcePage } from "./resources";
 import { TriagePage } from "./triage";
 import { SoftwarePage, SoftwareDetailPage } from "./software";
@@ -200,14 +213,19 @@ const personalItems = [
   { path: "/personal/keys", label: "개인 API 키", icon: IconKey },
 ];
 export default function App() {
-  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.8.0" });
-  const refreshConfig = () =>
-    api<Row>("/api/settings/public")
-      .then(setConfig)
-      .catch(() => {});
+    [authStatus, setAuthStatus] = useState(0),
+    [authConfig, setAuthConfig] = useState<LoginConfiguration>({}),
+    [config, setConfig] = useState<Row>({ version: "1.9.0" });
+  const refreshConfig = useCallback(async () => {
+    const [publicResult, loginResult] = await Promise.allSettled([
+      api<Row>("/api/settings/public"),
+      api<LoginConfiguration>("/api/auth/config"),
+    ]);
+    if (publicResult.status === "fulfilled") setConfig(publicResult.value);
+    if (loginResult.status === "fulfilled") setAuthConfig(loginResult.value);
+  }, []);
   useEffect(() => {
     let active = true;
     async function initialize() {
@@ -219,22 +237,24 @@ export default function App() {
       if (!active) return;
       if (auth.status === "fulfilled") {
         setUser(auth.value.user);
-        const from = readLoginReturn(true);
-        if (from) {
-          clearLoginReturn();
-          navigate(from, { replace: true });
-        }
+        setAuthStatus(200);
+        clearAutomaticLoginSuppression();
+      } else {
+        setAuthStatus(auth.reason instanceof APIError ? auth.reason.status : 0);
       }
       setReady(true);
     }
     void initialize();
-    const unauth = () => setUser(null);
+    const unauth = () => {
+      setUser(null);
+      setAuthStatus(401);
+    };
     window.addEventListener("hunter:unauthorized", unauth);
     return () => {
       active = false;
       window.removeEventListener("hunter:unauthorized", unauth);
     };
-  }, []);
+  }, [refreshConfig]);
   if (!ready)
     return (
       <div className="app-loading">
@@ -244,14 +264,74 @@ export default function App() {
     );
   return (
     <SessionContext.Provider value={{ user, setUser, config, refreshConfig }}>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <AuthenticatedLoginRedirect /> : <Login />}
-        />
-        <Route path="/*" element={user ? <Shell /> : <LoginRedirect />} />
-      </Routes>
+      <AuthenticationRoutes authConfig={authConfig} authStatus={authStatus} />
     </SessionContext.Provider>
+  );
+}
+function AuthenticationRoutes({
+  authConfig,
+  authStatus,
+}: {
+  authConfig: LoginConfiguration;
+  authStatus: number;
+}) {
+  const { user } = useSession();
+  const location = useLocation();
+  const started = useRef(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [navigationFailed, setNavigationFailed] = useState(false);
+  const target = loginReturn(location, readLoginReturn());
+  const automatic =
+    !user &&
+    !navigationFailed &&
+    shouldAutomaticallyLogin(
+      authStatus,
+      authConfig,
+      location.search,
+      automaticLoginSuppressed(),
+    );
+  useEffect(() => {
+    if (!automatic || started.current) return;
+    started.current = true;
+    suppressAutomaticLogin();
+    saveLoginReturn(target || "/dashboard", true);
+    setRedirecting(true);
+    try {
+      window.location.replace(oidcLoginURL("auto", target));
+    } catch {
+      setRedirecting(false);
+      setNavigationFailed(true);
+    }
+  }, [automatic, target]);
+  if (!user && (automatic || redirecting))
+    return (
+      <div className="app-loading" role="status" aria-live="polite">
+        <img src="/favicon.svg" width={54} height={54} alt="Hunter" />
+        <Stack align="center" gap="md">
+          <Text fw={600}>사내 로그인 상태를 확인하고 있습니다</Text>
+          <Text c="dimmed" ta="center">
+            기존 SSO 세션이 있으면 요청한 화면으로 이동합니다.
+          </Text>
+          <Button component="a" href={localLoginURL(target)} variant="default">
+            로컬 계정으로 로그인
+          </Button>
+        </Stack>
+      </div>
+    );
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          user ? (
+            <AuthenticatedLoginRedirect />
+          ) : (
+            <Login authConfig={authConfig} />
+          )
+        }
+      />
+      <Route path="/*" element={user ? <Shell /> : <LoginRedirect />} />
+    </Routes>
   );
 }
 function AuthenticatedLoginRedirect() {
@@ -262,36 +342,27 @@ function AuthenticatedLoginRedirect() {
   )
     ? user!.preferences!.home_page
     : "/dashboard";
-  const target =
-    safeReturnPath(location.state?.from) || readLoginReturn() || home;
+  const target = loginReturn(location, readLoginReturn()) || home;
   return <Navigate to={target} replace />;
 }
 function LoginRedirect() {
   const location = useLocation();
-  const from = location.pathname + location.search;
+  const from = location.pathname + location.search + location.hash;
   useEffect(() => {
     saveLoginReturn(from);
   }, [from]);
   return <Navigate to="/login" replace state={{ from }} />;
 }
-function Login() {
+function Login({ authConfig }: { authConfig: LoginConfiguration }) {
   const { setUser, refreshConfig } = useSession();
   const [name, setName] = useState(""),
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [authConfig, setAuthConfig] = useState<Row>({});
+    [error, setError] = useState("");
   const location = useLocation(),
     navigate = useNavigate();
   useEffect(() => {
-    api("/api/auth/config")
-      .then(setAuthConfig)
-      .catch((e) => setError(e.message));
-    const oidcError = new URLSearchParams(location.search).get("error");
-    if (oidcError)
-      setError(
-        "SSO 로그인에 실패했습니다. 인증 설정을 확인하거나 로컬 계정으로 로그인해 주세요.",
-      );
+    setError(oidcLoginMessage(location.search));
   }, [location.search]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -308,9 +379,10 @@ function Login() {
       )
         ? profile.preferences.home_page
         : "/dashboard";
-      const from = safeReturnPath(location.state?.from) || readLoginReturn();
+      const from = loginReturn(location, readLoginReturn());
       saveLoginReturn(from || home);
       await refreshConfig();
+      clearAutomaticLoginSuppression();
       setUser({ ...result.user, preferences: profile.preferences });
       navigate(from || home, { replace: true });
     } catch (e) {
@@ -415,10 +487,13 @@ function Login() {
               <div className="login-divider">또는 사내 계정으로 계속</div>
               <Button
                 component="a"
-                href="/api/auth/oidc/login"
+                href={oidcLoginURL(
+                  "interactive",
+                  loginReturn(location, readLoginReturn()),
+                )}
                 onClick={() =>
                   saveLoginReturn(
-                    safeReturnPath(location.state?.from) || readLoginReturn(),
+                    loginReturn(location, readLoginReturn()) || "/dashboard",
                     true,
                   )
                 }
@@ -427,7 +502,7 @@ function Login() {
                 size="lg"
                 leftSection={<IconShieldLock size={20} />}
               >
-                Keycloak SSO 로그인
+                사내 SSO 로그인
               </Button>
             </>
           )}
@@ -443,7 +518,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.8.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.9.0"}</b>
           </span>
         </footer>
       </section>
@@ -455,7 +530,8 @@ function Shell() {
   const location = useLocation(),
     navigate = useNavigate();
   const [mobile, setMobile] = useState(false),
-    [searchOpen, setSearchOpen] = useState(false);
+    [searchOpen, setSearchOpen] = useState(false),
+    [logoutBusy, setLogoutBusy] = useState(false);
   const narrow = useMediaQuery("(max-width: 991px)", false, {
     getInitialValueInEffect: false,
   });
@@ -540,13 +616,26 @@ function Shell() {
     return () => window.removeEventListener("keydown", key);
   }, [mobileMenuOpen, searchOpen, location.pathname]);
   async function logout() {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      if (!(error instanceof APIError && error.status === 401)) {
+        showError(error);
+        return;
+      }
+    } finally {
+      setLogoutBusy(false);
+    }
     clearLoginReturn();
-    await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+    suppressAutomaticLogin(24 * 60 * 60 * 1000);
     setUser(null);
-    navigate("/login");
+    navigate("/login?sso=skip", { replace: true });
   }
   return (
     <div className="app-shell">
+      <TrackingRuntime />
       <a
         className="skip-to-content"
         href="#main-content"
@@ -666,7 +755,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.8.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.9.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -711,12 +800,13 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.8.0"}
+                hunter · 서비스 버전 v{config.version || "1.9.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
                 leftSection={<IconLogout size={17} />}
                 onClick={logout}
+                disabled={logoutBusy}
               >
                 로그아웃
               </Menu.Item>

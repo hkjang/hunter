@@ -2,13 +2,8 @@ package app
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
-	"fmt"
-	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/oauth2"
 	"net"
 	"net/http"
 	"net/url"
@@ -112,7 +107,9 @@ func (a *App) registerAuth(m *http.ServeMux) {
 	m.HandleFunc("GET /api/auth/config", func(w http.ResponseWriter, r *http.Request) {
 		o, _ := a.setting(r.Context(), "oidc")
 		g, _ := a.setting(r.Context(), "general")
-		jsonResponse(w, 200, map[string]any{"version": a.Version, "oidc_enabled": asBool(o["enabled"]), "service_name": g["service_name"]})
+		w.Header().Set("Cache-Control", "no-store")
+		auto := oidcAutoEnabled(o)
+		jsonResponse(w, 200, map[string]any{"version": a.Version, "oidc_enabled": asBool(o["enabled"]), "oidc_auto_login": auto, "oidc_auto_login_allowed": auto && !a.oidcSuppressed(r), "service_name": g["service_name"]})
 	})
 	m.HandleFunc("POST /api/auth/login", a.login)
 	m.HandleFunc("GET /api/auth/me", a.protect("", func(w http.ResponseWriter, r *http.Request) {
@@ -120,9 +117,14 @@ func (a *App) registerAuth(m *http.ServeMux) {
 	}))
 	m.HandleFunc("POST /api/auth/logout", a.protect("", func(w http.ResponseWriter, r *http.Request) {
 		if c, e := r.Cookie("hunter_session"); e == nil {
-			_, _ = a.DB.Exec(r.Context(), "DELETE FROM sessions WHERE token_hash=$1", digest(c.Value))
+			if _, e = a.DB.Exec(r.Context(), "DELETE FROM sessions WHERE token_hash=$1", digest(c.Value)); e != nil {
+				fail(w, 503, "로그아웃을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요")
+				return
+			}
 		}
 		http.SetCookie(w, &http.Cookie{Name: "hunter_session", Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: a.secureCookie(r), SameSite: http.SameSiteLaxMode})
+		a.setOIDCSuppression(w, r, "logout", 24*time.Hour)
+		a.clearOIDCStateCookie(w, r)
 		jsonResponse(w, 200, map[string]bool{"ok": true})
 	}))
 	m.HandleFunc("GET /api/auth/oidc/login", a.oidcLogin)
@@ -260,132 +262,10 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		fail(w, 500, "세션을 만들 수 없습니다")
 		return
 	}
+	a.clearOIDCSuppression(w, r)
+	a.clearOIDCStateCookie(w, r)
 	_, _ = a.DB.Exec(r.Context(), "DELETE FROM login_attempts WHERE identity=$1", identity)
 	u.Scopes = a.roleScopes(r.Context(), u.Role)
 	a.audit(r.WithContext(context.WithValue(r.Context(), userContextKey{}, u)), "auth.login", u.ID, nil)
 	jsonResponse(w, 200, map[string]any{"user": u})
-}
-func (a *App) oidcProvider(ctx context.Context) (*oidc.Provider, *oauth2.Config, map[string]any, error) {
-	s, e := a.setting(ctx, "oidc")
-	if e != nil || !asBool(s["enabled"]) {
-		return nil, nil, nil, fmt.Errorf("SSO를 사용할 수 없습니다")
-	}
-	client, e := a.outboundClient(ctx, 15*time.Second)
-	if e != nil {
-		return nil, nil, nil, e
-	}
-	ctx = oidc.ClientContext(ctx, client)
-	p, e := oidc.NewProvider(ctx, strings.TrimSuffix(asString(s["issuer"]), "/"))
-	if e != nil {
-		return nil, nil, nil, e
-	}
-	g, e := a.setting(ctx, "general")
-	if e != nil {
-		return nil, nil, nil, e
-	}
-	c := &oauth2.Config{ClientID: asString(s["client_id"]), ClientSecret: asString(s["client_secret"]), Endpoint: p.Endpoint(), RedirectURL: strings.TrimSuffix(asString(g["public_url"]), "/") + "/api/auth/oidc/callback", Scopes: []string{oidc.ScopeOpenID, "profile", "email"}}
-	return p, c, s, nil
-}
-func (a *App) oidcLogin(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-	defer cancel()
-	_, c, _, e := a.oidcProvider(ctx)
-	if e != nil {
-		http.Redirect(w, r, "/login?error=oidc_configuration", 303)
-		return
-	}
-	state, nonce, verifier := randomToken(), randomToken(), oauth2.GenerateVerifier()
-	enc, _ := a.encrypt(verifier)
-	_, e = a.DB.Exec(ctx, "INSERT INTO oidc_states(state_hash,nonce,verifier,expires_at) VALUES($1,$2,$3,now()+interval '10 minutes')", digest(state), nonce, enc)
-	if e != nil {
-		fail(w, 500, "SSO 인증 요청 생성 실패")
-		return
-	}
-	http.SetCookie(w, &http.Cookie{Name: "hunter_oidc_state", Value: state, Path: "/api/auth/oidc", HttpOnly: true, Secure: a.secureCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: 600})
-	http.Redirect(w, r, c.AuthCodeURL(state, oidc.Nonce(nonce), oauth2.S256ChallengeOption(verifier)), 302)
-}
-func (a *App) oidcCallback(w http.ResponseWriter, r *http.Request) {
-	reject := func() { http.Redirect(w, r, "/login?error=oidc_authentication", 303) }
-	state := r.URL.Query().Get("state")
-	cookie, e := r.Cookie("hunter_oidc_state")
-	if e != nil || state == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(state)) != 1 {
-		reject()
-		return
-	}
-	http.SetCookie(w, &http.Cookie{Name: "hunter_oidc_state", Value: "", Path: "/api/auth/oidc", HttpOnly: true, Secure: a.secureCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	var nonce, enc string
-	e = a.DB.QueryRow(ctx, "DELETE FROM oidc_states WHERE state_hash=$1 AND expires_at>now() RETURNING nonce,verifier", digest(state)).Scan(&nonce, &enc)
-	if e != nil {
-		reject()
-		return
-	}
-	verifier, e := a.decrypt(enc)
-	if e != nil {
-		reject()
-		return
-	}
-	p, c, s, e := a.oidcProvider(ctx)
-	if e != nil {
-		reject()
-		return
-	}
-	client, e := a.outboundClient(ctx, 15*time.Second)
-	if e != nil {
-		reject()
-		return
-	}
-	defer client.CloseIdleConnections()
-	ctx = oidc.ClientContext(ctx, client)
-	token, e := c.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(verifier))
-	if e != nil {
-		reject()
-		return
-	}
-	raw, _ := token.Extra("id_token").(string)
-	id, e := p.Verifier(&oidc.Config{ClientID: c.ClientID}).Verify(ctx, raw)
-	if e != nil || id.Nonce != nonce {
-		reject()
-		return
-	}
-	var claims struct {
-		Name     string `json:"name"`
-		Username string `json:"preferred_username"`
-	}
-	if id.Claims(&claims) != nil {
-		reject()
-		return
-	}
-	subject := digest(asString(s["issuer"]) + "|" + id.Subject)
-	var u User
-	e = a.DB.QueryRow(ctx, "SELECT id,username,name,role,team FROM users WHERE oidc_subject=$1 AND NOT disabled", subject).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.Team)
-	if e == pgx.ErrNoRows {
-		var exists bool
-		_ = a.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE oidc_subject=$1)", subject).Scan(&exists)
-		if exists {
-			reject()
-			return
-		}
-		username := claims.Username
-		if username == "" {
-			username = "sso"
-		}
-		username = username + "-" + subject[:10]
-		name := claims.Name
-		if name == "" {
-			name = claims.Username
-		}
-		if name == "" {
-			name = "SSO 사용자"
-		}
-		u = User{ID: newID(), Username: username, Name: name, Role: asString(s["default_role"])}
-		_, e = a.DB.Exec(ctx, "INSERT INTO users(id,username,name,role,oidc_subject) VALUES($1,$2,$3,$4,$5)", u.ID, u.Username, u.Name, u.Role, subject)
-	}
-	if e != nil || a.session(w, r, u) != nil {
-		reject()
-		return
-	}
-	a.audit(r.WithContext(context.WithValue(r.Context(), userContextKey{}, u)), "auth.oidc_login", u.ID, nil)
-	http.Redirect(w, r, "/dashboard", 303)
 }

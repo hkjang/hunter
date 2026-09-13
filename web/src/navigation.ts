@@ -148,7 +148,10 @@ export function searchNavigation<T extends NavigationEntry>(
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .map((value) => value.entry);
 }
-export function safeReturnPath(value: unknown): string | null {
+export function safeReturnPath(
+  value: unknown,
+  includeHash = false,
+): string | null {
   if (
     typeof value !== "string" ||
     value.length > 4096 ||
@@ -169,7 +172,7 @@ export function safeReturnPath(value: unknown): string | null {
       url.pathname === "/"
     )
       return null;
-    return url.pathname + url.search;
+    return url.pathname + url.search + (includeHash ? url.hash : "");
   } catch {
     return null;
   }
@@ -241,7 +244,7 @@ export function visibleSavedMenus<T extends NavigationEntry>(
 }
 const returnKey = "hunter.login-return.v1";
 export function saveLoginReturn(path: unknown, sso = false) {
-  const safe = safeReturnPath(path);
+  const safe = safeReturnPath(path, true);
   if (!safe) return;
   try {
     sessionStorage.setItem(
@@ -261,7 +264,7 @@ export function readLoginReturn(ssoOnly = false): string | null {
     )
       return null;
     if (ssoOnly && !value.sso) return null;
-    return safeReturnPath(value.path);
+    return safeReturnPath(value.path, true);
   } catch {
     return null;
   }

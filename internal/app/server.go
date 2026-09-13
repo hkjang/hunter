@@ -102,7 +102,7 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
-	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution} {
+	for _, init := range []func(context.Context) error{a.initAuth, a.initTracking, a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution} {
 		if err = init(ctx); err != nil {
 			return nil, err
 		}
@@ -176,6 +176,7 @@ func (a *App) Routes() http.Handler {
 	})
 	a.registerAuth(m)
 	a.registerSettings(m)
+	a.registerTracking(m)
 	a.registerKeys(m)
 	a.registerAI(m)
 	a.registerAgents(m)
