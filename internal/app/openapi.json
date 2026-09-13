@@ -15836,7 +15836,7 @@
           },
           "oidc_auto_login": {
             "type": "boolean",
-            "description": "OIDC 사용과 관리자 자동 진입 옵션이 모두 켜진 경우 true. auto_login을 생략한 기존 설정은 true로 취급."
+            "description": "OIDC 사용과 관리자 자동 진입 옵션이 모두 켜진 경우 true. auto_login은 기본 꺼짐이며 생략한 설정은 false로 취급."
           },
           "oidc_auto_login_allowed": {
             "type": "boolean",

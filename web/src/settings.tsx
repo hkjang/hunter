@@ -219,9 +219,9 @@ const settingFields: Record<string, Field[]> = {
       key: "auto_login",
       label: "기존 SSO 세션으로 자동 로그인",
       type: "switch",
-      default: true,
+      default: false,
       description:
-        "SSO 사용 시 로그인 화면을 표시하기 전에 사내 세션을 확인합니다. 세션이 없거나 추가 인증이 필요하면 로컬 로그인과 수동 SSO를 제공합니다.",
+        "기본 꺼짐입니다. 켜면 SSO 사용 시 로그인 화면을 표시하기 전에 사내 세션을 확인합니다. 세션이 없거나 추가 인증이 필요하면 로컬 로그인과 수동 SSO를 제공합니다.",
     },
     {
       key: "issuer",

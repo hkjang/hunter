@@ -79,7 +79,7 @@ curl --fail http://localhost:8080/api/health
 
 ## 인증과 연동
 
-Keycloak에는 `https://hunter.internal/api/auth/oidc/callback`을 redirect URI로 등록합니다. Hunter 관리자 화면에 realm issuer, client ID, client secret을 저장하면 discovery로 연결합니다. 자동 진입은 기본 켜짐(OIDC 활성화 시)이며 `prompt=none`을 지원하는 IdP의 기존 세션을 사용합니다. 세션·동의가 없으면 로그인 화면에 복귀하고 `/login?local=1`로 자동 진입을 건너뛸 수 있습니다. 자동 시도는 10분, 명시 로그아웃은 24시간 자동 재시도를 억제합니다. IdP 주소 자체에 연결하지 못해 callback이 없을 때는 로컬 주소로 직접 돌아와야 합니다. [공식 ReSSO](https://github.com/hkjang/ReSSO)의 OIDC·prompt=none 지원 소스를 확인했으며 실제 운영 계정 연동 검증은 미수행입니다. 플랫폼 SSO와 진단 대상 테스트 계정은 별도 인증 프로파일로 관리합니다.
+Keycloak에는 `https://hunter.internal/api/auth/oidc/callback`을 redirect URI로 등록합니다. Hunter 관리자 화면에 realm issuer, client ID, client secret을 저장하면 discovery로 연결합니다. 자동 진입(`auto_login`)은 기본 꺼짐이며 관리자가 켠 경우에만 `prompt=none`을 지원하는 IdP의 기존 세션을 사용합니다. 세션·동의가 없으면 로그인 화면에 복귀하고 `/login?local=1`로 자동 진입을 건너뛸 수 있습니다. 자동 시도는 10분, 명시 로그아웃은 24시간 자동 재시도를 억제합니다. IdP 주소 자체에 연결하지 못해 callback이 없을 때는 로컬 주소로 직접 돌아와야 합니다. [공식 ReSSO](https://github.com/hkjang/ReSSO)의 OIDC·prompt=none 지원 소스를 확인했으며 실제 운영 계정 연동 검증은 미수행입니다. 플랫폼 SSO와 진단 대상 테스트 계정은 별도 인증 프로파일로 관리합니다.
 
 개인 키는 **개인화 → 개인 API 키**에서 발급합니다. 키의 실제 권한은 소유자의 현재 역할 권한과 키에 설정한 범위의 교집합입니다.
 

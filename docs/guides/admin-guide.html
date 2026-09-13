@@ -479,7 +479,7 @@ curl --fail http://localhost:8080/api/health
 <li>SSO·로그인에 Issuer <code>https://keycloak.internal/realms/company</code>를 입력합니다.</li>
 <li>Client ID와 Client Secret을 입력합니다.</li>
 <li>신규 SSO 계정 기본 역할을 선택합니다. 일반적으로 열람자부터 시작합니다.</li>
-<li>OIDC 사용을 켜고 <strong>기존 SSO 세션으로 자동 로그인</strong>을 선택합니다. 자동 옵션은 기본 켜짐이며 OIDC 사용이 꺼져 있으면 동작하지 않습니다.</li>
+<li>OIDC 사용을 켜고 필요하면 <strong>기존 SSO 세션으로 자동 로그인</strong>(<code>auto_login</code>)을 켭니다. 자동 옵션은 기본 꺼짐이며 관리자가 명시적으로 켠 경우에만 <code>prompt=none</code> 자동 확인을 시작합니다. 설정에 <code>auto_login</code>이 없거나 OIDC 사용이 꺼져 있으면 꺼진 것으로 취급하고, 주소에 <code>mode=auto</code>를 붙여도 서버가 평범한 로그인 화면으로 돌려보냅니다.</li>
 <li>별도 브라우저 세션에서 기존 IdP 세션의 자동 진입과 세션이 없는 경우의 명시 로그인을 검증합니다.</li>
 <li>생성된 사용자 역할을 필요 범위로 조정합니다.</li>
 </ol>
@@ -489,7 +489,7 @@ curl --fail http://localhost:8080/api/health
 <h3 id="6-3-자동-진입-억제-복구">6.3 자동 진입·억제·복구</h3>
 <p>Hunter는 유효한 자체 세션이 있으면 인증 서버 discovery 없이 원래 내부 화면으로 이동합니다. 자체 세션이 없고 자동 진입이 허용되면 최상위 브라우저 이동으로 <code>prompt=none</code>, <code>response_mode=query</code>를 요청합니다. 사내 IdP 세션과 필요한 동의가 이미 있으면 로그인 폼 없이 업무 화면으로 돌아갑니다. 일반 경로·검색 조건·해시는 최대 4096바이트의 안전한 내부 복귀 주소로 보존하며 외부 주소, API·로그인 경로 또는 경로 우회 입력은 <code>/dashboard</code>로 대체합니다.</p>
 <p><code>login_required</code>는 기존 인증 세션이 없는 경우, <code>interaction_required</code>·<code>consent_required</code>·<code>account_selection_required</code>는 추가 조작이 필요한 경우입니다. Hunter는 공급자 오류 원문을 노출하지 않고 자체 한국어 안내와 로컬·명시 SSO 로그인 선택을 제공합니다. 성공뿐 아니라 오류 callback에서도 브라우저 state와 암호화한 DB 흐름의 만료·한 번 사용·현재 설정 지문을 확인합니다. 자동 진입은 서명·issuer·audience·nonce·PKCE 및 현재 사용자 역할을 우회하지 않습니다.</p>
-<p>자동 시도는 브라우저별 암호화 HttpOnly 쿠키로 10분 재시도를 억제합니다. 명시 로그아웃은 24시간 자동 진입을 억제하고 IdP의 전역 세션은 종료하지 않습니다. 세션 폐기 DB 작업이 실패하면 503으로 안내하고 현재 브라우저 세션을 유지하므로 성공으로 취급하지 말고 다시 시도합니다. 명시 SSO 로그인은 재시도를 시작할 수 있고 로컬·SSO 성공은 억제를 해제합니다. 저장된 설정을 읽는 <code>/api/auth/config</code>는 사용자별 억제 상태를 반영하므로 <code>no-store</code>를 유지합니다.</p>
+<p>자동 시도는 브라우저별 암호화 HttpOnly 쿠키로 10분 재시도를 억제하고, 브라우저 탭의 <code>sessionStorage</code>에도 시도 표시를 남깁니다. 사생활 보호 모드처럼 저장소를 읽지 못하는 경우는 &quot;이미 시도했다&quot;로 취급해 자동 진입을 시작하지 않습니다 — 그때 로컬·명시 SSO 로그인은 그대로 사용할 수 있습니다. 명시 로그아웃은 24시간 자동 진입을 억제하고 IdP의 전역 세션은 종료하지 않습니다. 세션 폐기 DB 작업이 실패하면 503으로 안내하고 현재 브라우저 세션을 유지하므로 성공으로 취급하지 말고 다시 시도합니다. 명시 SSO 로그인은 재시도를 시작할 수 있고 로컬·SSO 성공은 억제를 해제합니다. 저장된 설정을 읽는 <code>/api/auth/config</code>는 사용자별 억제 상태를 반영하므로 <code>no-store</code>를 유지합니다.</p>
 <p>SSO 장애 복구 주소는 <code>/login?local=1</code>입니다. IdP 서버에 브라우저가 연결조차 하지 못하면 callback 자체가 없어 Hunter로 자동 복귀하지 못할 수 있습니다. 브라우저 주소창에 실제 Hunter의 로컬 복구 주소를 입력합니다. 관리자에게는 이 주소와 로컬 관리자 복구 방법을 운영 가이드에 함께 배포합니다. 자동 진입은 숨은 iframe의 타사 쿠키에 의존하지 않지만 IdP 세션·브라우저 정책·망 접근 조건까지 보장하는 기능은 아닙니다.</p>
 <h3 id="6-4-resso-연결">6.4 ReSSO 연결</h3>
 <p><a href="https://github.com/hkjang/ReSSO">공식 ReSSO 저장소</a>의 OIDC 소스와 호환 문서에서 Realm Discovery, Authorization Code·PKCE S256·RS256, query 응답과 기존 세션의 <code>prompt=none</code> 재사용을 확인했습니다. 조사 기준 커밋은 <code>f508c7901ad4d0a5437aa87be12710fa1fa37192</code>입니다. <strong>실제 운영 ReSSO 계정 연동 검증은 미수행</strong>이며 소스의 규격 확인과 구분합니다.</p>
