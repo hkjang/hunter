@@ -14,6 +14,7 @@ export function changeResourceField(
   if (key === "service_id") {
     for (const child of [
       "scope_id",
+      "execution_profile_id",
       "scenario_id",
       "finding_id",
       "authorized_profile_id",
@@ -30,6 +31,12 @@ export function changeResourceField(
     declared.has("scenario_id")
   )
     next.scenario_id = "";
+  if (
+    key === "profile" &&
+    value !== "isolated" &&
+    declared.has("execution_profile_id")
+  )
+    next.execution_profile_id = "";
   return next;
 }
 

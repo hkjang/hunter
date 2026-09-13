@@ -283,7 +283,7 @@ const settingFields: Record<string, Field[]> = {
       type: "switch",
       default: false,
       description:
-        "기존 AI 설정의 모델, 토큰 한도와 TLS 설정을 사용합니다. 실행에는 에이전트 실행 권한과 AI 사용 권한이 모두 필요합니다.",
+        "선택한 모델의 토큰 한도와 TLS 설정을 적용합니다. 여러 제공자와 역할별 선택은 에이전트 통합 연동에서 관리하며, 실행에는 에이전트 실행 권한과 AI 사용 권한이 모두 필요합니다.",
     },
     {
       key: "max_iterations",
@@ -702,6 +702,26 @@ export function SettingsPage() {
                     )}
                   </Alert>
                 )}
+                {(tab === "ai" || tab === "agents") && (
+                  <Alert color="teal" mt="lg" title="에이전트 통합 연동">
+                    <Text size="sm">
+                      여러 모델 제공자와 역할별 우선순위, 검색·메모리·격리
+                      실행·관측성은 통합 연동에서 설정합니다. 기존 AI 설정은
+                      유지됩니다.
+                    </Text>
+                    <Button
+                      component="a"
+                      href="/admin/agent-platform?tab=models"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="light"
+                      mt="sm"
+                      rightSection={<IconExternalLink size={16} />}
+                    >
+                      통합 연동 열기 · 새 탭
+                    </Button>
+                  </Alert>
+                )}
                 {tab === "agents" && (
                   <Alert
                     color="teal"
@@ -711,7 +731,8 @@ export function SettingsPage() {
                     <Text size="sm">
                       작업 분해와 역할 위임에 PentAGI MIT 코어를 사용합니다.
                       서비스 정보, 발견 건 조회, 허용된 진단 요청과 결과 조회,
-                      후보 기록, 기억 저장·조회의 7개 도구를 제공합니다.
+                      후보 기록, 기억 저장·조회와 관리자가 설정한 출처 검색을
+                      연결합니다.
                     </Text>
                     <Text size="sm" mt="sm">
                       기존에 저장한 역할 설정에는 새 권한이 자동 추가되지 않을

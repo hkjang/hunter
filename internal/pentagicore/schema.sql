@@ -36,3 +36,7 @@ CREATE INDEX IF NOT EXISTS core_tasks_flow_idx ON tasks(flow_id);
 CREATE INDEX IF NOT EXISTS core_subtasks_task_idx ON subtasks(task_id);
 CREATE INDEX IF NOT EXISTS core_msgchains_flow_idx ON msgchains(flow_id,task_id,type,id);
 CREATE INDEX IF NOT EXISTS core_msglogs_task_idx ON msglogs(task_id,id);
+CREATE TABLE IF NOT EXISTS hunter_checkpoints (
+ flow_id BIGINT PRIMARY KEY REFERENCES flows(id) ON DELETE CASCADE,
+ payload JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

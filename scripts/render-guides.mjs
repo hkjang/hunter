@@ -9,7 +9,7 @@ const MarkdownIt=require('markdown-it');
 const markdown=new MarkdownIt({html:false,linkify:true,typographer:true});
 const htmlOnly=process.argv.includes('--html-only');
 const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-const entries=[['user-guide','사용자 가이드','조치함·SBOM·캠페인·내 업무 알림, 발견 건·진단·개인화·API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, 동적 알림·ITSM·변경 진단 자동화, SLA·Keycloak·AI·권한·백업 절차']];
+const entries=[['user-guide','사용자 가이드','조치함·진단·에이전트 추가 입력·재개·한글 보고서·내 업무 알림·API 키 사용 절차'],['admin-guide','관리자 가이드','폐쇄망 설치, 선택 검색·모델·격리 실행·관측성·GraphQL·자동화·권한·백업 절차']];
 const routes=[
 ['login','로그인','로컬 계정과 SSO 로그인, 서비스 버전'],
 ['dashboard','보안 현황','서비스와 발견 건의 위험도, 최근 진단'],
@@ -28,7 +28,7 @@ const routes=[
 ['intelligence','위협 정보','관리자 KEV·EPSS 반입과 자료 기준일'],
 ['operations','운영 점검','DB·큐·워커·자료 갱신의 읽기 전용 점검'],
 ['finding-bulk','발견 건 일괄 변경','선택한 항목의 담당자·기한·허용 진행 상태'],
-['edit-conflict','편집 충돌 안내','합성 서비스 실제 동시 수정: 입력 유지와 최신 자료 확인'],
+['edit-conflict','편집 충돌 안내','모의 409 응답: 입력 유지와 최신 자료 확인'],
 ['unsaved-changes','작성 중 입력 보호','입력을 유지하거나 명시적으로 폐기하고 닫기'],
 ['campaign-copy','같은 대상으로 새 캠페인','합성 자료: 현재 대상 재조회 후 검토하는 새 초안'],
 ['software-service-view','소프트웨어 서비스 보기','합성 자료: 서비스명 검색과 저장한 서비스 조건'],
@@ -65,6 +65,16 @@ const routes=[
 ['copilot','AI 분석 도우미','사내 모델과 기본 스트리밍 대화'],
 ['agents','에이전트 진단','서비스별 목표와 실행 상태, 새 에이전트 실행'],
 ['agent-detail','에이전트 실행 상세','목표·응답·도구·실행 기록·연결 진단과 중지'],
+["agent-platform-search", "검색 연결", "합성 사내 검색 연결·순차 대체·상태와 명시 시험"],
+["agent-platform-memory", "메모리 연결", "로컬 원본 기억과 선택 임베딩·Graphiti·pgvector"],
+["agent-platform-models", "모델 연결", "역할별 네이티브 모델 우선순위·한도·상태"],
+["agent-platform-execution", "격리 실행 설정", "mTLS 서버·서비스 망·Docker 망·고정 프로브"],
+["agent-platform-observability", "관측성 설정", "메타데이터 OTLP·Langfuse와 비동기 상태"],
+["agent-platform-model-edit", "모델 설정 편집", "합성 모델 연결·컨텍스트·출력·회복 한도"],
+["agent-input", "에이전트 추가 입력", "실행에 반영할 지시와 입력 이력"],
+["agent-paused", "에이전트 일시 중지·재개", "안전 경계와 같은 실행의 명시 재개"],
+["agent-search-results", "에이전트 참고 검색", "비신뢰 출처 자료와 실제 도구 기록"],
+["agent-report", "실행 보고서", "현재 상태의 MD·HTML·한국어 PDF 다운로드"],
 ['approvals','검토·승인','관리자가 활성화한 경우의 팀장 검토'],
 ['admin-integrations','연동 관리','REST·PostgreSQL·웹훅·외부 결과'],
 ['admin-discovery','자동발견 후보','사내 카탈로그에서 수집한 등록 후보'],
@@ -110,7 +120,7 @@ for(const [name,title,description] of entries) {
   console.log('HTML 생성: '+name);
 }
 const cards=items=>items.map(([slug,title,description])=>'<figure class="gallery-card"><a href="images/'+slug+'.png"><img src="images/'+slug+'.png" alt="Hunter '+escape(title)+' 실제 화면" width="1512" height="1050" loading="lazy"></a><figcaption><strong>'+escape(title)+'</strong><span>'+escape(description)+'</span>'+(existsSync(resolve(root,'docs/images/mobile-'+slug+'.png'))?'<a href="images/mobile-'+slug+'.png">모바일 화면 보기 →</a>':'')+'</figcaption></figure>').join('');
-await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 조치함, SBOM, 캠페인 비교·자동화·개인 업무 알림부터 로그인·관리자 설정·개인화까지 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 주요 메뉴·상세·알림센터와 자동화 장면은 v1.7.0 내장 화면에서 갱신했습니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 위협 정보·SBOM·조치함 자료도 설명용 합성 데이터입니다. 알림·자동화 설정과 수신 정보는 합성 값이며 발송·전달 결과·ITSM은 로컬 모의 SMTP·HTTP 서버로 검증했습니다. 실제 공급 계정·단말 수신을 검증한 화면이 아닙니다. 캠페인 비교는 승인된 자체 HTTP 대상에 제한 진단을 실제 실행한 예시이며 전체 취약점 탐지 성능을 뜻하지 않습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
+await writeFile(resolve(root,'docs/screenshots.html'),'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 전체 제품 화면 | 사용자·관리자·개인화</title><meta name="description" content="Hunter의 선택 모델·격리 실행·재개·한국어 보고서와 조치함·캠페인·자동화부터 로그인·관리자 설정·개인화까지 실제 화면을 확인하세요."><link rel="canonical" href="https://hkjang.github.io/hunter/screenshots.html"><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css"></head><body><header class="site-header"><a class="brand" href="./"><img src="assets/favicon.svg" width="36" height="36" alt=""><span>hunter.</span></a><nav><a href="./">제품 소개</a><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a></nav><a class="header-link" href="./">홈으로 →</a></header><main class="wrap"><div class="gallery-intro"><div class="eyebrow">PRODUCT GALLERY</div><h1>일하는 흐름을 담은,<br>Hunter의 모든 화면.</h1><p>애플리케이션에서 직접 캡처한 '+routes.length+'개 주요 화면과 에이전트 상세 화면의 다섯 탭입니다. 이미지를 선택하면 원본 크기로 볼 수 있습니다. 문서용 예시 데이터는 신규 설치에 자동으로 생성되지 않습니다. 주요 메뉴·상세·알림센터와 자동화 장면은 v1.8.0 내장 화면에서 갱신했습니다. 알림·자동화 예시와 편집 충돌 장면의 설명용 응답은 브라우저에서 모의 제공했으며 캡처 중 실제 발송이나 업무 자료 변경은 없습니다. 새 에이전트 플랫폼 연동과 실행 제어는 별도 내부 모의 서버를 사용하는 실제 API로 검증했습니다. 저장한 보기·표 표시 설정 장면은 합성 API 응답을, 입력 오류 안내는 모의 저장 실패를 사용해 캡처했습니다. 위협 정보·SBOM·조치함 자료도 설명용 합성 데이터입니다. 알림·자동화 설정과 수신 정보는 합성 값이며 발송·전달 결과·ITSM은 로컬 모의 SMTP·HTTP 서버로 검증했습니다. 실제 공급 계정·단말 수신을 검증한 화면이 아닙니다. 캠페인 비교는 승인된 자체 HTTP 대상에 제한 진단을 실제 실행한 예시이며 전체 취약점 탐지 성능을 뜻하지 않습니다. 에이전트 응답은 로컬 SSE 모의 모델을 사용한 검증 예시이며 실제 모델 품질이나 취약점 탐지 성능을 나타내지 않습니다.</p></div><div class="gallery-grid">'+cards(routes)+'</div><section aria-labelledby="agent-tabs-title"><div class="gallery-intro"><h2 id="agent-tabs-title">에이전트 상세 화면의 다섯 탭</h2><p>목표부터 도구 호출과 최종 진단까지 단계별 기록을 확인합니다. 각 항목의 모바일 화면도 함께 볼 수 있습니다.</p></div><div class="gallery-grid">'+cards(agentTabs)+'</div></section></main><footer class="site-footer wrap"><a href="guides/user-guide.html">사용자 가이드</a><a href="guides/admin-guide.html">관리자 가이드</a><a href="./">프로젝트 소개</a></footer></body></html>');
 await writeFile(resolve(root,'docs/screenshot-manifest.json'),JSON.stringify([...routes,...agentTabs].map(([name,title,description])=>({name,path:'images/'+name+'.png',title,description,...(existsSync(resolve(root,'docs/images/mobile-'+name+'.png'))?{mobile_path:'images/mobile-'+name+'.png'}:{})})),null,2)+'\n');
 if(htmlOnly) process.exit(0);
 const {chromium}=require('playwright');

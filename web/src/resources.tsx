@@ -107,7 +107,8 @@ export type Field = {
     | "user"
     | "auth"
     | "finding"
-    | "integration";
+    | "integration"
+    | "execution";
   options?: string[];
   required?: boolean;
   description?: string;
@@ -298,8 +299,15 @@ const configs: Record<string, Config> = {
         key: "profile",
         label: "진단 프로파일",
         type: "select",
-        options: ["http-baseline", "authorization", "import-only"],
+        options: ["http-baseline", "authorization", "import-only", "isolated"],
         default: "http-baseline",
+      },
+      {
+        key: "execution_profile_id",
+        label: "격리 실행 프로파일",
+        type: "execution",
+        description:
+          "현재 서비스 망에 연결할 수 있는 활성 프로파일만 표시합니다.",
       },
       {
         key: "scope_id",
@@ -815,6 +823,61 @@ export function initialValues(fields: Field[], row?: Row | null) {
   });
   return out;
 }
+function ExecutionProfileSelect({
+  common,
+  serviceId,
+  value,
+  onChange,
+}: {
+  common: { label: string; description?: string; error?: string; id?: string };
+  serviceId?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const result = useData<{ enabled: boolean; items: Row[] }>(
+    serviceId
+      ? "/api/execution-profiles?service_id=" + encodeURIComponent(serviceId)
+      : null,
+  );
+  return (
+    <Stack gap="xs">
+      <Select
+        {...common}
+        required
+        searchable
+        value={value || null}
+        onChange={(v) => onChange(v || "")}
+        disabled={!serviceId || result.loading}
+        data={(result.data?.items || []).map((p) => ({
+          value: p.id,
+          label: p.name,
+        }))}
+        placeholder={
+          !serviceId
+            ? "먼저 대상 서비스를 선택하세요"
+            : result.loading
+              ? "프로파일 조회 중"
+              : "등록한 프로파일 선택"
+        }
+        error={common.error || result.error}
+      />
+      {serviceId &&
+        !result.loading &&
+        !result.error &&
+        !result.data?.items?.length && (
+          <Text size="sm" c="dimmed">
+            현재 망에 사용할 수 있는 프로파일이 없습니다. 관리자에게
+            서버·프로파일 활성화와 서비스 망 일치를 확인하세요.
+          </Text>
+        )}
+      {result.error && (
+        <Button size="compact-sm" variant="subtle" onClick={result.reload}>
+          프로파일 다시 조회
+        </Button>
+      )}
+    </Stack>
+  );
+}
 export function FieldForm({
   fields,
   values,
@@ -842,7 +905,11 @@ export function FieldForm({
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
       {fields
-        .filter((f) => !f.admin || user?.role === "admin")
+        .filter(
+          (f) =>
+            (!f.admin || user?.role === "admin") &&
+            (f.type !== "execution" || values.profile === "isolated"),
+        )
         .map((f) => {
           const common = {
             label: f.label,
@@ -853,6 +920,16 @@ export function FieldForm({
           };
           let input;
           switch (f.type) {
+            case "execution":
+              input = (
+                <ExecutionProfileSelect
+                  common={common}
+                  serviceId={values.service_id}
+                  value={values[f.key] || ""}
+                  onChange={(value) => change(f.key, value)}
+                />
+              );
+              break;
             case "switch":
               input = (
                 <Switch
@@ -1375,6 +1452,15 @@ export function ResourcePage({ kind }: { kind: string }) {
       required.push({
         fieldId: `resource-${kind}-scenario_id`,
         message: "업무 권한 검증 시나리오를 선택하세요.",
+      });
+    if (
+      kind === "scans" &&
+      values.profile === "isolated" &&
+      !values.execution_profile_id
+    )
+      required.push({
+        fieldId: `resource-${kind}-execution_profile_id`,
+        message: "격리 실행 프로파일을 선택하세요.",
       });
     const issues = [
       ...new Map(

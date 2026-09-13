@@ -10,7 +10,14 @@ import (
 
 const UpstreamCommit = "ea665308baaff015b226f308438a68d929d0f29b"
 
+type RunInput struct {
+	ID   int64
+	Text string
+}
+
 type Request struct {
+	Resume        bool
+	Inputs        []RunInput
 	RunID         string
 	ServiceID     string
 	Prompt        string
@@ -69,19 +76,23 @@ type Event struct {
 }
 
 type Hooks struct {
-	Complete    func(context.Context, CompletionRequest) (CompletionResult, error)
-	ExecuteTool func(context.Context, string, json.RawMessage) (string, error)
-	Emit        func(Event)
-	Check       func(context.Context) error
+	Complete        func(context.Context, CompletionRequest) (CompletionResult, error)
+	ExecuteTool     func(context.Context, string, json.RawMessage) (string, error)
+	ExecuteToolCall func(context.Context, string, string, json.RawMessage) (string, error)
+	Inputs          func(context.Context) ([]RunInput, error)
+	Emit            func(Event)
+	Check           func(context.Context) error
 }
 
 type Result struct {
-	Status       string `json:"status"`
-	Summary      string `json:"summary"`
-	FlowID       int64  `json:"flow_id"`
-	TaskID       int64  `json:"task_id"`
-	Subtasks     int    `json:"subtasks"`
-	ModelCalls   int    `json:"model_calls"`
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
+	CheckpointSaved bool   `json:"checkpoint_saved"`
+	WaitInputAfter  int64  `json:"wait_input_after"`
+	Status          string `json:"status"`
+	Summary         string `json:"summary"`
+	FlowID          int64  `json:"flow_id"`
+	TaskID          int64  `json:"task_id"`
+	Subtasks        int    `json:"subtasks"`
+	ModelCalls      int    `json:"model_calls"`
+	InputTokens     int64  `json:"input_tokens"`
+	OutputTokens    int64  `json:"output_tokens"`
 }

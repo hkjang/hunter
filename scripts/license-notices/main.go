@@ -210,6 +210,37 @@ func collect(out string) error {
 		return fmt.Errorf("bundled font notices missing")
 	}
 	manifest = append(manifest, fontDep)
+	reportDir := filepath.Join(root, "internal", "app", "report_assets")
+	var reportOrigin struct {
+		Files map[string]struct {
+			SHA256 string `json:"sha256"`
+		} `json:"files"`
+	}
+	origin, err := os.ReadFile(filepath.Join(reportDir, "UPSTREAM.json"))
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(origin, &reportOrigin); err != nil {
+		return err
+	}
+	for _, name := range []string{"NanumGothic-Regular.ttf", "OFL.txt"} {
+		raw, err := os.ReadFile(filepath.Join(reportDir, name))
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(raw)
+		if hex.EncodeToString(sum[:]) != reportOrigin.Files[name].SHA256 {
+			return fmt.Errorf("report font origin hash differs: %s", name)
+		}
+	}
+	reportDep := dependency{Module: "hunter/report-font/NanumGothic", Version: "Google Fonts commit 133ccbee9a8b408eb71f31a36ccb9116f5c695ad"}
+	for _, name := range []string{"OFL.txt", "UPSTREAM.json"} {
+		if err := copyNotice(reportDir, name, filepath.Join("fonts", "nanumgothic", name), out, &reportDep); err != nil {
+			return err
+		}
+	}
+	manifest = append(manifest, reportDep)
+
 	goRoot, err := exec.Command("go", "env", "GOROOT").Output()
 	if err != nil {
 		return err

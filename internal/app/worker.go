@@ -55,7 +55,7 @@ func (a *App) prepareScan(ctx context.Context, u User, input map[string]any, sch
 	if profile == "" {
 		profile = "http-baseline"
 	}
-	if !hasString([]string{"http-baseline", "import-only", "authorization"}, profile) {
+	if !hasString([]string{"http-baseline", "import-only", "authorization", "isolated"}, profile) {
 		return nil, errors.New("지원하지 않는 진단 프로파일입니다")
 	}
 	var emergency bool
@@ -66,12 +66,19 @@ func (a *App) prepareScan(ctx context.Context, u User, input map[string]any, sch
 		return nil, errors.New("긴급 중지가 활성화되어 있습니다")
 	}
 	scopeID := ""
+	executionMetadata := map[string]any{}
 	if profile != "import-only" {
-		_, scope, _, err := a.scanPolicy(ctx, input)
+		_, scope, p, err := a.scanPolicy(ctx, input)
 		if err != nil {
 			return nil, err
 		}
 		scopeID = scope.ID
+		if profile == "isolated" {
+			executionMetadata, err = a.prepareIsolatedScan(ctx, u, input, s, p)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	if profile == "authorization" {
 		scenario, err := a.resource(ctx, "scenarios", str(input, "scenario_id"))
@@ -104,6 +111,9 @@ func (a *App) prepareScan(ctx context.Context, u User, input map[string]any, sch
 	}
 	id := newID()
 	m := map[string]any{"name": str(s.Data, "name") + " 진단", "service_id": s.ID, "service_name": str(s.Data, "name"), "profile": profile, "scope_id": scopeID, "scenario_id": str(input, "scenario_id"), "finding_id": str(input, "finding_id"), "status": status, "logs": []string{}, "result": map[string]any{}, "requested_by": u.ID}
+	for key, value := range executionMetadata {
+		m[key] = value
+	}
 	if scheduleID != "" {
 		m["schedule_id"] = scheduleID
 		m["schedule_occurrence"] = occurrence
@@ -475,6 +485,18 @@ func (a *App) executeScan(parent context.Context, workerID, id string) {
 			}
 		}
 	}()
+	if str(scan.Data, "profile") == "isolated" {
+		result, err := a.executeIsolatedScan(ctx, scan, p, check)
+		status := "inconclusive"
+		logs := []string{"관리자가 승인한 격리 실행 프로파일의 관찰 결과입니다. 취약점 확인·해결 상태를 자동 변경하지 않습니다."}
+		if err == nil && check() == nil && str(result, "status") == "completed" {
+			status = "completed"
+		} else if err != nil {
+			logs = append(logs, safeProbeError(err))
+		}
+		a.finishScan(parent, workerID, id, status, result, logs)
+		return
+	}
 	client, closeClient := p.client(ctx, check)
 	defer closeClient()
 	var findings []map[string]any

@@ -116,7 +116,8 @@ func (a *App) registerSettings(m *http.ServeMux) {
 		flow, _ := a.setting(r.Context(), "workflow")
 		ai, _ := a.setting(r.Context(), "ai")
 		agents, _ := a.setting(r.Context(), "agents")
-		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": ai["enabled"], "agents_enabled": agents["enabled"], "agent_upstream_commit": "ea665308baaff015b226f308438a68d929d0f29b"})
+		platformEnabled, _ := a.platformModelsEnabled(r.Context())
+		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": asBool(ai["enabled"]) || platformEnabled, "agents_enabled": agents["enabled"], "agent_upstream_commit": "ea665308baaff015b226f308438a68d929d0f29b"})
 	}))
 	m.HandleFunc("GET /api/settings", a.protect("admin:manage", func(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{}

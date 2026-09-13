@@ -10,6 +10,8 @@ import {
 export type AgentRun = Row & {
   id: string;
   status: string;
+  updated_at?: string;
+  control_updated_at?: string;
   service_id: string;
   title?: string;
   tasks?: Row[];
@@ -245,5 +247,15 @@ export function useAgentRun(id: string) {
       reloadRef.current = async () => {};
     };
   }, [id, restart]);
-  return { run, loading, error, reload, connection, streamError, activity };
+  const reconnect = useCallback(() => setRestart((value) => value + 1), []);
+  return {
+    run,
+    loading,
+    error,
+    reload,
+    reconnect,
+    connection,
+    streamError,
+    activity,
+  };
 }

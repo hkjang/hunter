@@ -115,11 +115,47 @@ func (a *App) agentOutput(ctx context.Context, v agentRun, detail bool, u User) 
 			actions = append(actions, "stop")
 		}
 	}
+	var pauseRequested bool
+	var resumeCount int
+	var activeMS int64
+	controlUpdated := v.UpdatedAt
+	_ = a.DB.QueryRow(ctx, `SELECT pause_requested,resume_count,active_ms,control_updated_at FROM agent_run_control WHERE run_id=$1`, v.ID).Scan(&pauseRequested, &resumeCount, &activeMS, &controlUpdated)
+	if hasString(u.Scopes, "agents:write") && hasString(u.Scopes, "ai:use") && hasAgentReadScopes(u) && !agentTerminal(v.Status) && !v.CancelRequested {
+		actions = append(actions, "input")
+		if hasString([]string{"queued", "running", "waiting_approval"}, v.Status) && !pauseRequested {
+			actions = append(actions, "pause")
+		}
+		if hasString([]string{"paused", "waiting_provider", "waiting_input"}, v.Status) {
+			actions = append(actions, "resume")
+		}
+	}
+	out["control_updated_at"] = controlUpdated
+	out["pause_requested"] = pauseRequested
+	out["resume_count"] = resumeCount
+	out["active_ms"] = activeMS
 	out["allowed_actions"] = actions
 	if detail {
 		var last int64
 		_ = a.DB.QueryRow(ctx, `SELECT coalesce(max(id),0) FROM agent_events WHERE run_id=$1`, v.ID).Scan(&last)
 		out["last_event_id"] = last
+		inputs := []map[string]any{}
+		rows, e := a.DB.Query(ctx, `SELECT id,author_id,content_encrypted,created_at FROM agent_inputs WHERE run_id=$1 ORDER BY id LIMIT 20`, v.ID)
+		if e == nil {
+			for rows.Next() {
+				var id int64
+				var author, cipher string
+				var created time.Time
+				if rows.Scan(&id, &author, &cipher, &created) == nil {
+					if text, e := a.decrypt(cipher); e == nil {
+						inputs = append(inputs, map[string]any{"id": id, "author_id": author, "message": text, "created_at": created})
+					}
+				}
+			}
+			rows.Close()
+		}
+		out["inputs"] = inputs
+		out["additional_input_count"] = len(inputs)
+
 		scans := []map[string]any{}
 		if hasString(u.Scopes, "scans:read") {
 			rows, err := a.DB.Query(ctx, `SELECT r.id,r.kind,r.owner_id,r.data,r.created_at,r.updated_at FROM resources r JOIN agent_run_scans s ON s.scan_id=r.id WHERE s.run_id=$1 ORDER BY r.created_at`, v.ID)
@@ -204,8 +240,13 @@ func (a *App) createAgentRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ai, err := a.setting(r.Context(), "ai")
-	if err != nil || !asBool(ai["enabled"]) {
-		fail(w, 409, "관리자 설정에서 AI를 연결하세요")
+	if err != nil {
+		fail(w, 503, "AI 설정을 읽을 수 없습니다")
+		return
+	}
+	platformEnabled, err := a.platformModelsEnabled(r.Context())
+	if err != nil {
+		fail(w, 503, "모델 연결 설정을 읽을 수 없습니다")
 		return
 	}
 	service, err := a.resource(r.Context(), "services", in.ServiceID)
@@ -234,7 +275,7 @@ func (a *App) createAgentRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var active int
-	err = tx.QueryRow(r.Context(), `SELECT count(*) FROM agent_runs WHERE owner_id=$1 AND status IN ('queued','running','waiting_approval','stopping')`, u.ID).Scan(&active)
+	err = tx.QueryRow(r.Context(), `SELECT count(*) FROM agent_runs WHERE owner_id=$1 AND status IN ('queued','running','waiting_approval','stopping','paused','waiting_provider','waiting_input')`, u.ID).Scan(&active)
 	if err != nil {
 		fail(w, 500, "진행 중인 실행을 확인할 수 없습니다")
 		return
@@ -253,9 +294,17 @@ func (a *App) createAgentRun(w http.ResponseWriter, r *http.Request) {
 	limits["max_tokens"] = ai["max_tokens"]
 	limits["context_window"] = ai["context_window"]
 	limits["model"] = ai["model"]
+	if platformEnabled {
+		limits["max_tokens"] = 262144
+		limits["context_window"] = 262144
+		limits["model"] = "role-routed"
+	}
 	raw, _ := json.Marshal(limits)
 	title := str(service.Data, "name") + " 에이전트 진단"
 	_, err = tx.Exec(r.Context(), `INSERT INTO agent_runs(id,owner_id,credential_key_id,service_id,service_name,scope_id,title,prompt,policy_hash,limits) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id, u.ID, u.KeyID, service.ID, str(service.Data, "name"), scope.ID, title, prompt, policy.Fingerprint, raw)
+	if err == nil {
+		_, err = tx.Exec(r.Context(), `INSERT INTO agent_run_control(run_id,control_updated_at) SELECT id,updated_at FROM agent_runs WHERE id=$1`, id)
+	}
 	if err == nil {
 		err = a.agentEventTx(r.Context(), tx, id, pentagicore.Event{Type: "run.updated", Status: "queued", Message: "에이전트 진단을 대기열에 등록했습니다"})
 	}
@@ -311,7 +360,7 @@ func (a *App) cancelAgent(ctx context.Context, id, reason string) error {
 		return nil
 	}
 	next := "stopping"
-	if status == "queued" {
+	if hasString([]string{"queued", "paused", "waiting_provider", "waiting_input"}, status) {
 		next = "cancelled"
 	}
 	_, err = tx.Exec(ctx, `UPDATE agent_runs SET cancel_requested=true,status=$2,error=$3,updated_at=now(),finished_at=CASE WHEN $2='cancelled' THEN now() ELSE finished_at END WHERE id=$1`, id, next, reason)

@@ -66,6 +66,17 @@ func (p *hookProvider) CallWithTools(ctx context.Context, role pconfig.ProviderO
 	if err != nil {
 		return nil, err
 	}
+	inputs := p.run.req.Inputs
+	if p.run.hooks.Inputs != nil {
+		inputs, err = p.run.hooks.Inputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, in := range inputs {
+		p.run.lastInput.Store(max(p.run.lastInput.Load(), in.ID))
+		messages = append(messages, Message{Role: "user", Content: fmt.Sprintf("추가 사용자 입력 #%d: %s", in.ID, in.Text)})
+	}
 	request := CompletionRequest{Role: string(role), Messages: messages, MaxTokens: p.run.req.MaxTokens, ContextWindow: p.run.req.ContextWindow}
 	for _, t := range defs {
 		b, err := json.Marshal(t.Function.Parameters)

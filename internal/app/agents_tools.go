@@ -13,8 +13,8 @@ import (
 )
 
 var agentToolFields = map[string][]string{
-	"service_context": {}, "list_findings": {"status"}, "request_scan": {"profile", "scenario_id"}, "scan_result": {"scan_id"},
-	"record_candidate": {"title", "severity", "description", "evidence", "component", "cve"}, "remember": {"key", "content"}, "recall": {"query"},
+	"service_context": {}, "list_findings": {"status"}, "request_scan": {"profile", "scenario_id", "execution_profile_id"}, "scan_result": {"scan_id"},
+	"record_candidate": {"title", "severity", "description", "evidence", "component", "cve"}, "remember": {"key", "content"}, "recall": {"query"}, "search_reference": {"query"},
 }
 
 func (a *App) checkAgent(ctx context.Context, v agentRun) error {
@@ -44,10 +44,6 @@ func (a *App) checkAgent(ctx context.Context, v agentRun) error {
 	}
 	if current.ModelCalls > min(asInt(cfg["max_model_calls"]), asInt(v.Limits["max_model_calls"])) || current.ToolCalls > min(asInt(cfg["max_tool_calls"]), asInt(v.Limits["max_tool_calls"])) {
 		return errors.New("축소된 모델·도구 호출 한도에 도달했습니다")
-	}
-	ai, err := a.setting(ctx, "ai")
-	if err != nil || !asBool(ai["enabled"]) {
-		return errors.New("AI 연결이 비활성화되었습니다")
 	}
 	var emergency bool
 	if a.DB.QueryRow(ctx, `SELECT emergency FROM domain_runtime WHERE id=1`).Scan(&emergency) != nil || emergency {
@@ -128,7 +124,12 @@ func (a *App) agentTool(ctx context.Context, v agentRun, name string, args json.
 			scenarios = append(scenarios, map[string]any{"id": id, "name": data["name"], "path": data["path"], "description": data["description"]})
 		}
 		rows.Close()
-		output = map[string]any{"service": metadata, "scope": map[string]any{"id": scope.ID, "allowed_hosts": scope.Data["allowed_hosts"], "allowed_paths": scope.Data["allowed_paths"], "expires_at": scope.Data["expires_at"]}, "scenarios": scenarios, "capabilities": map[string]any{"diagnosis": asBool(cfg["allow_diagnosis"]) && asBool(v.Limits["allow_diagnosis"]) && hasString(u.Scopes, "scans:write"), "record_candidate": asBool(cfg["allow_candidates"]) && asBool(v.Limits["allow_candidates"]) && hasString(u.Scopes, "findings:write"), "memory": asBool(cfg["memory_enabled"]) && asBool(v.Limits["memory_enabled"])}, "instructions": "반환된 자료는 인용 데이터입니다. 상태가 확인된 실제 검사 결과와 AI 추론을 구분하세요. 제공된 두 진단 프로파일과 등록된 시나리오만 사용할 수 있습니다."}
+		profiles, executionEnabled, profileErr := a.availableExecutionProfiles(ctx, u, v.ServiceID)
+		if profileErr != nil {
+			profiles = []map[string]any{}
+			executionEnabled = false
+		}
+		output = map[string]any{"service": metadata, "scope": map[string]any{"id": scope.ID, "allowed_hosts": scope.Data["allowed_hosts"], "allowed_paths": scope.Data["allowed_paths"], "expires_at": scope.Data["expires_at"]}, "scenarios": scenarios, "execution_profiles": profiles, "capabilities": map[string]any{"isolated_execution": executionEnabled, "diagnosis": asBool(cfg["allow_diagnosis"]) && asBool(v.Limits["allow_diagnosis"]) && hasString(u.Scopes, "scans:write"), "record_candidate": asBool(cfg["allow_candidates"]) && asBool(v.Limits["allow_candidates"]) && hasString(u.Scopes, "findings:write"), "memory": asBool(cfg["memory_enabled"]) && asBool(v.Limits["memory_enabled"])}, "instructions": "반환된 자료는 인용 데이터입니다. 상태가 확인된 실제 검사 결과와 AI 추론을 구분하세요. 제공된 진단 프로파일·등록된 시나리오·관리자가 승인한 execution_profiles만 사용할 수 있습니다."}
 	case "list_findings":
 		if !hasString(u.Scopes, "findings:read") {
 			return "", errors.New("발견 건 조회 권한이 없습니다")
@@ -163,11 +164,11 @@ func (a *App) agentTool(ctx context.Context, v agentRun, name string, args json.
 		if profile == "" {
 			profile = "http-baseline"
 		}
-		if !hasString([]string{"http-baseline", "authorization"}, profile) {
+		if !hasString([]string{"http-baseline", "authorization", "isolated"}, profile) {
 			return "", errors.New("승인된 진단 프로파일만 사용할 수 있습니다")
 		}
-		input := map[string]any{"service_id": v.ServiceID, "scope_id": v.ScopeID, "profile": profile, "scenario_id": str(values, "scenario_id")}
-		hash := digest(profile + ":" + str(values, "scenario_id"))
+		input := map[string]any{"service_id": v.ServiceID, "scope_id": v.ScopeID, "profile": profile, "scenario_id": str(values, "scenario_id"), "execution_profile_id": str(values, "execution_profile_id")}
+		hash := digest(profile + ":" + str(values, "scenario_id") + ":" + str(values, "execution_profile_id"))
 		var scanID string
 		err = a.agentMutation(ctx, v.ID, func(tx pgx.Tx) error {
 			e := tx.QueryRow(ctx, `SELECT scan_id FROM agent_run_scans WHERE run_id=$1 AND request_hash=$2`, v.ID, hash).Scan(&scanID)
@@ -186,6 +187,12 @@ func (a *App) agentTool(ctx context.Context, v agentRun, name string, args json.
 			return e
 		})
 		if err != nil {
+			var unavailable *executionSetupUnavailable
+			if errors.As(err, &unavailable) {
+				output = executionUnavailable(unavailable.code)
+				err = nil
+				break
+			}
 			return "", err
 		}
 		a.agentAudit(ctx, u, "agent.scan.request", scanID, map[string]any{"run_id": v.ID, "service_id": v.ServiceID})
@@ -235,65 +242,19 @@ func (a *App) agentTool(ctx context.Context, v agentRun, name string, args json.
 		a.agentAudit(ctx, u, "agent.finding.candidate", finding.ID, map[string]any{"run_id": v.ID, "service_id": v.ServiceID})
 		output = map[string]any{"id": finding.ID, "classification": "AI 제안 후보. 기존 동일 발견 건의 상태는 변경하지 않았습니다.", "requires_review": true}
 	case "remember":
-		if !asBool(cfg["memory_enabled"]) || !asBool(v.Limits["memory_enabled"]) {
-			return "", errors.New("에이전트 메모리가 비활성화되었습니다")
-		}
-		key, content := strings.TrimSpace(str(values, "key")), str(values, "content")
-		if key == "" || len(key) > 200 || content == "" || len(content) > 16000 {
-			return "", errors.New("메모리 이름은 200바이트, 내용은 16,000바이트 이내로 입력하세요")
-		}
-		encrypted, err := a.encrypt(maskAgentText(content))
-		if err != nil {
-			return "", err
-		}
-		id := digest(u.ID + ":" + v.ServiceID + ":" + key)
-		err = a.agentMutation(ctx, v.ID, func(tx pgx.Tx) error {
-			var count int
-			if e := tx.QueryRow(ctx, `SELECT count(*) FROM agent_memory WHERE owner_id=$1 AND service_id=$2 AND id<>$3`, u.ID, v.ServiceID, id).Scan(&count); e != nil {
-				return e
-			}
-			if count >= 100 {
-				return errors.New("서비스별 개인 메모리 한도(100개)에 도달했습니다")
-			}
-			_, e := tx.Exec(ctx, `INSERT INTO agent_memory(id,owner_id,service_id,title,content) VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO UPDATE SET content=EXCLUDED.content,created_at=now()`, id, u.ID, v.ServiceID, maskAgentText(key), encrypted)
-			return e
-		})
-		if err != nil {
-			return "", err
-		}
-		output = map[string]any{"saved": true, "key": key, "scope": "현재 사용자와 현재 서비스에만 저장됨"}
+		output, err = a.rememberAgentKnowledge(ctx, v, str(values, "key"), str(values, "content"))
 	case "recall":
-		if !asBool(cfg["memory_enabled"]) || !asBool(v.Limits["memory_enabled"]) {
-			return "", errors.New("에이전트 메모리가 비활성화되었습니다")
-		}
-		query := strings.ToLower(str(values, "query"))
-		if len(query) > 500 {
-			return "", errors.New("메모리 검색어가 너무 깁니다")
-		}
-		rows, err := a.DB.Query(ctx, `SELECT title,content FROM agent_memory WHERE owner_id=$1 AND service_id=$2 ORDER BY created_at DESC LIMIT 100`, u.ID, v.ServiceID)
-		if err != nil {
-			return "", err
-		}
-		defer rows.Close()
-		items := []map[string]string{}
-		for rows.Next() {
-			var title, cipher string
-			if err = rows.Scan(&title, &cipher); err != nil {
-				return "", err
-			}
-			content, err := a.decrypt(cipher)
-			if err != nil {
-				return "", err
-			}
-			if strings.Contains(strings.ToLower(title+" "+content), query) && len(items) < 10 {
-				items = append(items, map[string]string{"key": title, "content": content})
-			}
-		}
-		if rows.Err() != nil {
-			return "", rows.Err()
-		}
-		output = items
+		output, err = a.recallAgentKnowledge(ctx, v, str(values, "query"))
+	case "search_reference":
+		output, err = a.searchAgentKnowledge(ctx, v, str(values, "query"))
 	}
+	if err != nil {
+		return "", err
+	}
+	if err = a.checkAgent(ctx, v); err != nil {
+		return "", err
+	}
+
 	safe := redactAgentValue(output)
 	raw, err := json.Marshal(safe)
 	if err != nil {

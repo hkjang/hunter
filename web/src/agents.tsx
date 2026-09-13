@@ -76,6 +76,8 @@ import {
 } from "./agent-events";
 import { useAgentRun, type AgentRun } from "./use-agent-run";
 import { canStartAgents } from "./agent-permissions";
+import { AgentRunControls, AgentReportMenu } from "./agent-controls";
+import { AgentToolEvidence } from "./agent-tool-evidence";
 import {
   ListPagination,
   ListReset,
@@ -88,6 +90,9 @@ const runLabels: Record<string, string> = {
   queued: "대기 중",
   running: "진행 중",
   waiting_approval: "검토 대기",
+  waiting_input: "입력 대기",
+  paused: "일시중지",
+  waiting_provider: "모델 연결 대기",
   completed: "완료",
   failed: "실패",
   cancelled: "중지됨",
@@ -101,6 +106,9 @@ const runColors: Record<string, string> = {
   queued: "gray",
   running: "blue",
   waiting_approval: "orange",
+  waiting_input: "orange",
+  paused: "gray",
+  waiting_provider: "yellow",
   completed: "teal",
   failed: "red",
   cancelled: "gray",
@@ -111,6 +119,7 @@ const runColors: Record<string, string> = {
   finished: "teal",
 };
 const toolNames: Record<string, string> = {
+  search_reference: "출처 검색",
   service_context: "서비스 맥락 조회",
   list_findings: "발견 건 조회",
   request_scan: "진단 요청",
@@ -172,17 +181,21 @@ function EngineNotice() {
     <Alert color="teal" title="에이전트 실행 설정을 확인하세요" mb="xl">
       {!config.agents_enabled
         ? "서비스 관리자가 에이전트 진단을 활성화하면 실행할 수 있습니다."
-        : "기존 AI 설정에서 모델 연결을 활성화해야 실행할 수 있습니다."}
+        : "사용할 AI 모델 연결을 활성화해야 실행할 수 있습니다."}
       {can("admin:manage") && (
         <Button
           variant="light"
           component={Link}
-          to="/admin/settings?tab=agents"
+          to={
+            config.agents_enabled
+              ? "/admin/agent-platform?tab=models"
+              : "/admin/settings?tab=agents"
+          }
           size="sm"
           mt="sm"
           leftSection={<IconSettings size={16} />}
         >
-          에이전트 설정 열기
+          {config.agents_enabled ? "모델 연결 설정 열기" : "에이전트 설정 열기"}
         </Button>
       )}
     </Alert>
@@ -478,6 +491,9 @@ export function AgentsPage() {
                 "queued",
                 "running",
                 "waiting_approval",
+                "waiting_input",
+                "paused",
+                "waiting_provider",
                 "completed",
                 "failed",
                 "cancelled",
@@ -746,6 +762,7 @@ function ToolCard({ tool }: { tool: AgentTool }) {
           </Text>
         )}
       </Group>
+      <AgentToolEvidence tool={tool} />
       <Accordion variant="default" mt="sm">
         <Accordion.Item value="metadata">
           <Accordion.Control>실제 호출 정보와 결과</Accordion.Control>
@@ -798,8 +815,16 @@ export function AgentRunPage() {
     /^\/agents(?:\?|$)/.test(location.state.from)
       ? location.state.from
       : "/agents";
-  const { run, loading, error, reload, connection, streamError, activity } =
-    useAgentRun(id);
+  const {
+    run,
+    loading,
+    error,
+    reload,
+    reconnect,
+    connection,
+    streamError,
+    activity,
+  } = useAgentRun(id);
   const can = useCan(),
     { config } = useSession();
   const [params, setParams] = useSearchParams();
@@ -917,6 +942,7 @@ export function AgentRunPage() {
             >
               새로고침
             </Button>
+            <AgentReportMenu run={run} />
             {can("agents:write") && run.allowed_actions?.includes("stop") && (
               <Button
                 color="orange"
@@ -1003,6 +1029,36 @@ export function AgentRunPage() {
           )}
         </Alert>
       )}
+      <div className="agent-interaction-panel">
+        <AgentRunControls
+          run={run}
+          onUpdated={async (action) => {
+            await reload();
+            if (action === "resume") reconnect();
+          }}
+        />
+      </div>
+      {["waiting_input", "paused", "waiting_provider"].includes(run.status) && (
+        <Alert mb="lg" color="teal" title={runLabels[run.status]}>
+          <Text>
+            {run.status === "waiting_provider"
+              ? "사용할 모델 연결을 확인한 뒤 같은 실행을 재개할 수 있습니다."
+              : run.status === "waiting_input"
+                ? "작업을 이어가는 데 사용자 입력이 필요합니다. 추가 지시를 저장한 뒤 같은 실행 재개를 선택하세요."
+                : "저장된 근거와 실행 ID를 유지한 일시중지 상태입니다."}
+          </Text>
+          <Text size="sm" mt="xs">
+            이 대기는 관리자의 선택적 검토·승인 절차와 별개입니다.
+          </Text>
+        </Alert>
+      )}
+      {run.pause_requested &&
+        ["queued", "running", "waiting_approval"].includes(run.status) && (
+          <Alert mb="lg" color="orange" title="일시중지 요청 처리 중">
+            진행 중인 요청의 안전 경계에서 멈춥니다. 실제 일시중지 상태를
+            확인하세요.
+          </Alert>
+        )}
       {run.cancel_requested && !isTerminalRun(run.status) && (
         <Alert color="orange" mb="lg" title="중지 요청 처리 중">
           실행 중인 작업이 중단되면 서버의 최종 상태가 표시됩니다.
@@ -1097,6 +1153,37 @@ export function AgentRunPage() {
               <div className="agent-text agent-goal">
                 {safeText(run.prompt) || "등록된 목표를 불러오지 못했습니다."}
               </div>
+              {Array.isArray(run.inputs) && run.inputs.length > 0 && (
+                <Accordion mt="xl">
+                  <Accordion.Item value="inputs">
+                    <Accordion.Control>
+                      저장된 추가 지시 · 최근 {run.inputs.length}개
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap="md">
+                        {run.inputs.map((input: Row) => (
+                          <div key={input.id}>
+                            <Text size="sm" c="dimmed">
+                              {dateText(input.created_at)}
+                            </Text>
+                            <div className="agent-text">
+                              {safeText(input.message)}
+                            </div>
+                          </div>
+                        ))}
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                </Accordion>
+              )}
+              <Text size="sm" c="dimmed" mt="md">
+                재개 {Number(run.resume_count || 0).toLocaleString()}회 · 추가
+                지시 {Number(run.additional_input_count || 0).toLocaleString()}
+                개
+                {typeof run.active_ms === "number"
+                  ? ` · 실행 시간 (대기 제외) ${Math.floor(run.active_ms / 1000).toLocaleString()}초`
+                  : ""}
+              </Text>
               <Divider my="xl" />
               <h2>실행 결과</h2>
               {run.result ? (

@@ -1,6 +1,21 @@
 export type NavigationEntry = { path: string; label: string; group?: string };
 export type NavigationHistory = { favorites: string[]; recent: string[] };
 export const navigationAliases: Record<string, string[]> = {
+  "/admin/agent-platform": [
+    "agent platform",
+    "provider",
+    "model",
+    "search",
+    "memory",
+    "docker",
+    "observability",
+    "연동",
+    "모델",
+    "검색",
+    "메모리",
+    "관측성",
+    "격리 실행",
+  ],
   "/admin/automation": [
     "automation",
     "자동화",

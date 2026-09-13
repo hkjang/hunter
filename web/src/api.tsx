@@ -181,7 +181,12 @@ export const SessionContext = createContext<{
   setUser: (v: User | null) => void;
   config: Row;
   refreshConfig: () => Promise<void>;
-}>({ user: null, setUser: () => {}, config: {}, refreshConfig: async () => {} });
+}>({
+  user: null,
+  setUser: () => {},
+  config: {},
+  refreshConfig: async () => {},
+});
 export const useSession = () => useContext(SessionContext);
 export function useCan() {
   const { user } = useSession();
@@ -223,6 +228,7 @@ export function fullDate(s: any) {
   return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString("ko-KR");
 }
 export const labels: Record<string, string> = {
+  isolated: "격리 프로파일 진단",
   critical: "심각",
   high: "높음",
   medium: "보통",

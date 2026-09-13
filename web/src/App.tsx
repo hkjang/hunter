@@ -86,6 +86,7 @@ import {
 } from "./pages";
 import { NotificationsPage } from "./notifications";
 import { AutomationPage } from "./automation";
+import { AgentPlatformPage } from "./agent-platform";
 import { PersonalInboxPage } from "./personal-inbox";
 import { ResourcePage } from "./resources";
 import { TriagePage } from "./triage";
@@ -156,6 +157,11 @@ export const navGroups = [
         label: "자동화 관리",
         icon: IconAdjustments,
       },
+      {
+        path: "/admin/agent-platform",
+        label: "에이전트 통합 연동",
+        icon: IconSparkles,
+      },
       { path: "/admin/operations", label: "운영 점검", icon: IconActivity },
       { path: "/admin/users", label: "사용자 · 권한", icon: IconUsers },
       { path: "/admin/audit", label: "감사 기록", icon: IconBook2 },
@@ -185,6 +191,7 @@ const routeScopes: Record<string, string | readonly string[]> = {
   "/admin/audit": "audit:read",
   "/admin/notifications": "admin:manage",
   "/admin/automation": "admin:manage",
+  "/admin/agent-platform": "admin:manage",
   "/personal/inbox": "services:read",
 };
 const personalItems = [
@@ -196,7 +203,7 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [config, setConfig] = useState<Row>({ version: "1.7.0" });
+    [config, setConfig] = useState<Row>({ version: "1.8.0" });
   const refreshConfig = () =>
     api<Row>("/api/settings/public")
       .then(setConfig)
@@ -436,7 +443,7 @@ function Login() {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.7.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.8.0"}</b>
           </span>
         </footer>
       </section>
@@ -659,7 +666,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.7.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.8.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -704,7 +711,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.7.0"}
+                hunter · 서비스 버전 v{config.version || "1.8.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"
@@ -974,6 +981,14 @@ function Shell() {
               element={
                 <Access required="audit:read">
                   <AuditPage />
+                </Access>
+              }
+            />
+            <Route
+              path="/admin/agent-platform"
+              element={
+                <Access required="admin:manage">
+                  <AgentPlatformPage />
                 </Access>
               }
             />

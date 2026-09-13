@@ -66,6 +66,9 @@ func (a *App) claimAgent(ctx context.Context) (agentRun, error) {
 	if err != nil {
 		return v, err
 	}
+	if _, err = tx.Exec(ctx, `INSERT INTO agent_run_control(run_id,resumed_at) VALUES($1,now()) ON CONFLICT(run_id) DO UPDATE SET resumed_at=now()`, v.ID); err != nil {
+		return v, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return v, err
 	}
@@ -110,6 +113,14 @@ func (a *App) executeAgent(parent context.Context, engine *pentagicore.Engine, v
 	if timeout <= 0 || timeout > time.Hour {
 		timeout = 15 * time.Minute
 	}
+	var elapsedMS int64
+	var resumeCount int
+	_ = a.DB.QueryRow(parent, `SELECT active_ms,resume_count FROM agent_run_control WHERE run_id=$1`, v.ID).Scan(&elapsedMS, &resumeCount)
+	timeout -= time.Duration(elapsedMS) * time.Millisecond
+	if timeout <= 0 {
+		a.finishAgent(v, "inconclusive", "", "누적 실행 시간 한도에 도달했습니다")
+		return
+	}
 	deadline, stop := context.WithTimeout(parent, timeout)
 	defer stop()
 	ctx, cancel := context.WithCancelCause(deadline)
@@ -152,14 +163,36 @@ func (a *App) executeAgent(parent context.Context, engine *pentagicore.Engine, v
 	}
 	a.agentEvent(ctx, v.ID, pentagicore.Event{Type: "run.updated", Status: "running", Message: "고정된 PentAGI 코어로 에이전트 진단을 시작합니다"})
 	var taskMu sync.Mutex
-	tasks := []map[string]any{}
+	tasks := v.Tasks
+	if tasks == nil {
+		tasks = []map[string]any{}
+	}
 	hooks := pentagicore.Hooks{
-		Check: func(c context.Context) error { return a.checkAgent(c, v) },
+		Check: func(c context.Context) error {
+			err := a.agentBoundary(c, v)
+			if errors.Is(err, errAgentPaused) {
+				cancel(err)
+			}
+			return err
+		},
+		Inputs: func(c context.Context) ([]pentagicore.RunInput, error) {
+			if e := a.checkAgent(c, v); e != nil {
+				return nil, e
+			}
+			return a.agentInputs(c, v.ID)
+		},
+		ExecuteToolCall: func(c context.Context, id, name string, args json.RawMessage) (string, error) {
+			return a.agentToolCall(c, v, id, name, args)
+		},
 		Complete: func(c context.Context, in pentagicore.CompletionRequest) (pentagicore.CompletionResult, error) {
 			if e := a.checkAgent(c, v); e != nil {
 				return pentagicore.CompletionResult{}, e
 			}
-			return a.agentCompletion(c, v, in)
+			out, e := a.agentCompletion(c, v, in)
+			if errors.Is(e, ErrAgentModelsUnavailable) {
+				cancel(ErrAgentModelsUnavailable)
+			}
+			return out, e
 		},
 		ExecuteTool: func(c context.Context, name string, args json.RawMessage) (string, error) {
 			return a.agentTool(c, v, name, args)
@@ -187,10 +220,39 @@ func (a *App) executeAgent(parent context.Context, engine *pentagicore.Engine, v
 				taskMu.Unlock()
 			}
 			a.agentEvent(ctx, v.ID, event)
+			if event.Type == "tool.completed" {
+				a.QueueAgentTelemetry(ctx, v.ID, "tool", event.Status, map[string]any{"tool_name": event.ToolName})
+			}
 		},
 	}
-	request := pentagicore.Request{RunID: v.ID, ServiceID: v.ServiceID, Prompt: prompt, MaxIterations: asInt(v.Limits["max_iterations"]), MaxModelCalls: asInt(v.Limits["max_model_calls"]), MaxTokens: asInt(v.Limits["max_tokens"]), ContextWindow: asInt(v.Limits["context_window"])}
+	inputs, inputErr := a.agentInputs(ctx, v.ID)
+	if inputErr != nil {
+		a.finishAgent(v, "failed", "", "추가 입력을 읽을 수 없습니다")
+		return
+	}
+	request := pentagicore.Request{Resume: resumeCount > 0, Inputs: inputs, RunID: v.ID, ServiceID: v.ServiceID, Prompt: prompt, MaxIterations: asInt(v.Limits["max_iterations"]), MaxModelCalls: asInt(v.Limits["max_model_calls"]), MaxTokens: asInt(v.Limits["max_tokens"]), ContextWindow: asInt(v.Limits["context_window"])}
 	result, err := engine.Run(ctx, request, hooks)
+	cause := context.Cause(ctx)
+	suspendedStatus, suspendedReason := "", ""
+	if errors.Is(cause, errAgentPaused) {
+		suspendedStatus = "paused"
+		suspendedReason = errAgentPaused.Error()
+	}
+	if errors.Is(cause, ErrAgentModelsUnavailable) {
+		suspendedStatus = "waiting_provider"
+		suspendedReason = ErrAgentModelsUnavailable.Error()
+	}
+	if err == nil && result.Status == "waiting" {
+		suspendedStatus = "waiting_input"
+		suspendedReason = result.Summary
+	}
+	if suspendedStatus != "" && (result.FlowID == 0 || result.CheckpointSaved) {
+		if e := a.suspendAgent(v, suspendedStatus, suspendedReason, result.WaitInputAfter); e == nil {
+			a.QueueAgentTelemetry(parent, v.ID, "run", suspendedStatus, nil)
+			return
+		}
+	}
+
 	status := "completed"
 	reason := ""
 	if result.Status == "waiting" {
@@ -308,6 +370,10 @@ func (a *App) finishAgent(v agentRun, status, result, reason string) {
 		if err != nil {
 			return
 		}
+	}
+	_, err = tx.Exec(ctx, `UPDATE agent_run_control SET active_ms=active_ms+coalesce(greatest(0,extract(epoch FROM (now()-resumed_at))*1000)::bigint,0),resumed_at=NULL WHERE run_id=$1`, v.ID)
+	if err != nil {
+		return
 	}
 	_, err = tx.Exec(ctx, `UPDATE agent_runs SET status=$2,result=$3,error=$4,lease_until=NULL,finished_at=now(),updated_at=now() WHERE id=$1`, v.ID, status, encrypted, reason)
 	if err == nil {

@@ -13,11 +13,12 @@ import (
 	"time"
 )
 
-var version = "1.7.0"
+var version = "1.8.0"
 
 func main() {
 	workerOnly := flag.Bool("worker-only", false, "run the network worker without the web control server")
 	workerID := flag.String("worker-id", "", "stable worker identity; manage its enabled state and network in the administrator page")
+	executionProbe := flag.String("execution-probe", "", "run a fixed administrator-approved diagnostic probe payload")
 	flag.Parse()
 	if *workerOnly && *workerID == "" {
 		slog.Error("--worker-only requires a stable --worker-id")
@@ -25,6 +26,13 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if *executionProbe != "" {
+		if err := app.RunExecutionProbe(ctx, *executionProbe, os.Stdout); err != nil {
+			slog.Error("fixed diagnostic probe failed")
+			os.Exit(1)
+		}
+		return
+	}
 	a, e := app.New(ctx, version, webassets.FS())
 	if e != nil {
 		slog.Error("hunter startup failed", "error", e)
@@ -43,6 +51,8 @@ func main() {
 	a.StartNotifications(ctx)
 	a.StartAutomation(ctx)
 	a.StartAgents(ctx)
+	a.StartAgentTelemetry(ctx)
+	a.StartAgentExecutionMaintenance(ctx)
 	srv := &http.Server{Addr: ":8080", Handler: a.Routes(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	go func() {
 		<-ctx.Done()

@@ -1,5 +1,5 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.7.0</title><meta name="description" content="폐쇄망 설치, 동적 알림·ITSM·변경 진단 자동화, SLA·Keycloak·AI·권한·백업 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp">15. REST API와 MCP</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
-<p><strong>버전 1.7.0 · 한국어 · 최종 갱신 2026-09-12</strong></p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hunter 관리자 가이드 | v1.8.0</title><meta name="description" content="폐쇄망 설치, 선택 검색·모델·격리 실행·관측성·GraphQL·자동화·권한·백업 절차"><meta name="theme-color" content="#123039"><link rel="canonical" href="https://hkjang.github.io/hunter/guides/admin-guide.html"><link rel="icon" href="../assets/favicon.svg"><link rel="stylesheet" href="../assets/guide.css"></head><body><a class="skip" href="#guide-main">본문 바로가기</a><header class="guide-header"><a class="brand" href="../index.html"><img src="../assets/favicon.svg" alt="" width="34" height="34"><strong>hunter.</strong><span>가이드</span></a><nav><a href="admin-guide.md">Markdown</a><a href="admin-guide.pdf">PDF 다운로드</a><a href="../screenshots.html">전체 화면</a></nav></header><div class="guide-layout"><aside class="guide-sidebar"><div>이 문서의 내용</div><ol><li><a href="#1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</a></li><li><a href="#2-설치-전-준비">2. 설치 전 준비</a></li><li><a href="#3-오프라인-배포">3. 오프라인 배포</a></li><li><a href="#4-https와-사내-인증서">4. HTTPS와 사내 인증서</a></li><li><a href="#5-서비스-전체-설정">5. 서비스 전체 설정</a></li><li><a href="#6-keycloak-oidc-sso">6. Keycloak OIDC SSO</a></li><li><a href="#7-사용자와-역할-권한">7. 사용자와 역할 권한</a></li><li><a href="#8-서비스-승인과-진단-허용-범위">8. 서비스 승인과 진단 허용 범위</a></li><li><a href="#9-실행-정책과-긴급-중지">9. 실행 정책과 긴급 중지</a></li><li><a href="#10-선택적-검토-승인-프로세스">10. 선택적 검토·승인 프로세스</a></li><li><a href="#11-진단-대상-인증-프로파일">11. 진단 대상 인증 프로파일</a></li><li><a href="#12-자산-연동과-자동발견">12. 자산 연동과 자동발견</a></li><li><a href="#13-워커-진단-예약과-변경-이벤트">13. 워커, 진단 예약과 변경 이벤트</a></li><li><a href="#14-ai-설정과-스트리밍">14. AI 설정과 스트리밍</a></li><li><a href="#15-rest-api와-mcp-graphql">15. REST API와 MCP·GraphQL</a></li><li><a href="#16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</a></li><li><a href="#17-백업과-복구">17. 백업과 복구</a></li><li><a href="#18-업그레이드와-롤백">18. 업그레이드와 롤백</a></li><li><a href="#19-운영-장애-점검">19. 운영 장애 점검</a></li><li><a href="#20-개발-문서-재생성-릴리즈">20. 개발·문서 재생성·릴리즈</a></li><li><a href="#21-참고-문서">21. 참고 문서</a></li></ol><a class="guide-other" href="user-guide.html">사용자 가이드 →</a></aside><main id="guide-main" class="guide-content"><h1 id="hunter-관리자-가이드">Hunter 관리자 가이드</h1>
+<p><strong>버전 1.8.0 · 한국어 · 최종 갱신 2026-09-13</strong></p>
 <p>이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.</p>
 <p><a href="../index.html">프로젝트 소개</a> · <a href="user-guide.html">사용자 가이드</a> · <a href="admin-guide.html">HTML</a> · <a href="admin-guide.pdf">PDF</a> · <a href="../screenshots.html">전체 화면</a></p>
 <blockquote>
@@ -8,7 +8,7 @@
 <h2 id="1-아키텍처와-제공-범위">1. 아키텍처와 제공 범위</h2>
 <h3 id="1-1-구성">1.1 구성</h3>
 <p>Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.</p>
-<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.7.0 → 사내 PostgreSQL
+<pre><code>사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.8.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -97,15 +97,19 @@
 </tr>
 <tr>
 <td>AI</td>
-<td>OpenAI 호환 API, 기본 SSE 스트리밍, 모델·토큰 설정</td>
+<td>OpenAI 호환·Anthropic·Gemini·Ollama 네이티브, 역할별 대체·한도·완료 답 SSE</td>
+</tr>
+<tr>
+<td>선택 연동</td>
+<td>검색6종, 임베딩·Graphiti·선택pgvector, mTLS 고정 격리 진단, OTLP/Langfuse</td>
 </tr>
 <tr>
 <td>에이전트</td>
-<td>PentAGI MIT 코어, Hunter 도구 기반 계획·위임·실행, 실시간 이력과 중지</td>
+<td>PentAGI MIT 코어, Hunter 도구 기반 실행, 추가 입력·일시 중지·명시적 체크포인트 재개·MD/HTML/PDF</td>
 </tr>
 <tr>
 <td>개발자 도구</td>
-<td>OpenAPI 명세, 개인 Bearer 키를 사용하는 HTTP MCP</td>
+<td>OpenAPI, 개인 Bearer 키의 HTTP MCP, 인증된 조회 GraphQL</td>
 </tr>
 <tr>
 <td>참여</td>
@@ -153,7 +157,7 @@
 </tr>
 <tr>
 <td>반입 파일</td>
-<td>릴리즈의 <code>hunter-v1.7.0.tar.gz</code>, compose.yaml, .env.example</td>
+<td>릴리즈의 <code>hunter-v1.8.0.tar.gz</code>, compose.yaml, .env.example</td>
 </tr>
 <tr>
 <td>백업</td>
@@ -166,8 +170,8 @@
 <h2 id="3-오프라인-배포">3. 오프라인 배포</h2>
 <h3 id="3-1-릴리즈-파일-검증과-반입">3.1 릴리즈 파일 검증과 반입</h3>
 <p>인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.</p>
-<pre><code class="language-sh">sha256sum hunter-v1.7.0.tar.gz
-gzip --test hunter-v1.7.0.tar.gz
+<pre><code class="language-sh">sha256sum hunter-v1.8.0.tar.gz
+gzip --test hunter-v1.8.0.tar.gz
 </code></pre>
 <p>첨부 자산은 <code>hunter-v버전.tar.gz</code> 한 개이며 내부 이미지 이름은 <code>hunter:v버전</code>입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.</p>
 <h3 id="3-2-네-가지-환경변수-설정">3.2 네 가지 환경변수 설정</h3>
@@ -216,8 +220,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 <p>런타임 설정용 환경변수는 위 네 가지입니다. 서비스명, 공개 주소, OIDC, AI, 세션, 권한, 연동과 진단 정책은 관리자 화면에서 저장합니다.</p>
 <p><strong>암호화 키를 재기동마다 생성하면 안 됩니다.</strong> 기존 DB에 다른 키를 제공하면 시작 검증이 실패합니다. 초기 관리자 환경변수를 바꾸는 것으로 기존 관리자 계정을 복구하거나 비밀번호를 바꿀 수 없습니다.</p>
 <h3 id="3-3-이미지-불러오기와-실행">3.3 이미지 불러오기와 실행</h3>
-<pre><code class="language-sh">docker load -i hunter-v1.7.0.tar.gz
-docker image inspect hunter:v1.7.0
+<pre><code class="language-sh">docker load -i hunter-v1.8.0.tar.gz
+docker image inspect hunter:v1.8.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -688,7 +692,7 @@ curl --fail http://localhost:8080/api/health
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.7.0 --worker-only --worker-id worker-dmz
+  hunter:v1.8.0 --worker-only --worker-id worker-dmz
 </code></pre>
 <p>워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 <strong>정확히 일치</strong>해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.</p>
 <p>각 망의 실제 방화벽·라우팅 정책으로 워커가 승인된 대상과 PostgreSQL에만 접근하도록 구성합니다. 같은 DB에 접근할 수 없는 완전 분리망 사이를 자동 연결하지 않습니다. DB 자격 증명이 있는 워커는 신뢰된 실행 구성요소이므로 일반 사용자에게 워커 실행 호스트의 관리 권한을 제공하지 않습니다.</p>
@@ -1289,14 +1293,14 @@ curl --fail http://localhost:8080/api/health
 </tr>
 </tbody>
 </table>
-<p>요청은 OpenAI 호환 <code>/chat/completions</code>로 전송하며 <code>stream: true</code>를 기본으로 사용합니다. UI도 SSE의 delta를 즉시 표시합니다. 프록시와 사내 AI gateway에서 스트리밍을 유지하고 응답 버퍼링을 끕니다.</p>
+<p>요청은 OpenAI 호환 <code>/chat/completions</code>로 전송하며 <code>stream: true</code>를 기본으로 사용합니다. 화면에는 한 공급자의 정상 완료·권한 검증을 마친 답을 SSE 조각으로 전달합니다. 실패한 일부 답이 다른 공급자의 답에 섞이지 않도록 최초 표시가 늦어질 수 있습니다. 프록시와 사내 AI gateway에서 스트리밍을 유지하고 응답 버퍼링을 끕니다.</p>
 <p><img src="../images/copilot.png" alt="AI 분석 도우미"></p>
 <h3 id="14-2-256k-처리의-의미">14.2 256K 처리의 의미</h3>
 <p>최대 출력 토큰과 컨텍스트 창 설정은 각각 최대 262,144까지 허용합니다. 실제 입력·출력 총합과 모델별 출력 상한은 AI 공급 서버의 정책을 따라야 합니다. 예를 들어 컨텍스트가 262,144여도 모델 최대 출력이 32,768이면 출력 값을 그 이하로 설정해야 합니다.</p>
 <p>Hunter는 보수적인 UTF-8 바이트 기반 입력 예산으로 과도한 요청을 제한하며, 정확한 모델 토큰 계산과 최종 한도 검사는 공급 서버가 담당합니다. 긴 증거와 소스는 필요한 부분으로 나누고 비밀값을 제거한 뒤 전달합니다.</p>
 <p>AI 분석 도우미는 분석 제안을 제공합니다. 에이전트 기능에서 도구를 사용하더라도 모델 출력이 실행 정책, 사용자 역할, API 키 권한이나 범위 승인을 변경하지 않습니다. 대상 문서와 응답에 포함된 지시문을 도구 실행 명령으로 신뢰하지 않습니다.</p>
 <h3 id="14-3-에이전트-코어-활성화">14.3 에이전트 코어 활성화</h3>
-<p><strong>서비스 설정 → 에이전트 진단</strong>에서 기능과 실행 한도를 관리합니다. 먼저 AI 분석 설정에 사내 모델의 주소와 인증, 모델명·컨텍스트·출력 한도를 저장합니다. 에이전트는 해당 연결을 사용하므로 모델과 게이트웨이도 구조화된 도구 호출을 지원해야 합니다.</p>
+<p><strong>서비스 설정 → 에이전트 진단</strong>에서 기능과 실행 한도를 관리합니다. 먼저 AI 분석 설정 또는 에이전트 플랫폼의 모델 탭에 사내 모델과 한도를 저장합니다. 에이전트는 선택한 연결을 사용하므로 모델과 게이트웨이도 구조화된 도구 호출을 지원해야 합니다.</p>
 <table>
 <thead>
 <tr>
@@ -1314,7 +1318,7 @@ curl --fail http://localhost:8080/api/health
 <tr>
 <td>에이전트별 최대 반복 횟수 (<code>max_iterations</code>)</td>
 <td>24</td>
-<td>각 역할의 원본 에이전트 대화 처리 반복 상한, 설정 범위 6~100</td>
+<td>각 역할의 원본 체인 호출당 반복 상한 6~100. 재개 시 새 호출에 적용하고 전체 모델·도구·활성 시간은 누적</td>
 </tr>
 <tr>
 <td>모델 호출 (<code>max_model_calls</code>)</td>
@@ -1324,7 +1328,7 @@ curl --fail http://localhost:8080/api/health
 <tr>
 <td>Hunter 도구 호출 한도 (<code>max_tool_calls</code>)</td>
 <td>40</td>
-<td>한 실행의 일곱 Hunter 도구 호출 상한, 내부 역할 위임 제외, 설정 범위 1~200</td>
+<td>한 실행의 여덟 Hunter 도구 호출 상한, 내부 역할 위임 제외, 설정 범위 1~200</td>
 </tr>
 <tr>
 <td>제한 시간 (<code>timeout_minutes</code>)</td>
@@ -1352,12 +1356,133 @@ curl --fail http://localhost:8080/api/health
 <p>실행 기록에 발견 건과 진단 결과가 포함될 수 있으므로 목록·상세·이벤트 조회에는 <code>agents:read</code>, <code>services:read</code>, <code>findings:read</code>, <code>scans:read</code> 네 권한이 모두 필요합니다. 실행 생성에는 <code>agents:write</code>와 <code>ai:use</code>를 추가로 요구합니다. 역할과 개인 키의 현재 권한, 서비스 접근 범위를 함께 검사합니다. 기존 설치에서 역할 권한을 별도 저장했다면 새 권한과 관련 자료 조회 권한이 사용자에게 부여되었는지 확인합니다.</p>
 <p>에이전트 생성 단계부터 서비스 승인과 유효 범위가 필요합니다. 사용자가 범위를 지정하지 않으면 서버가 해당 서비스의 유효한 승인 범위를 선택하며, 범위가 없으면 실행하지 않습니다. 진단 허용을 켜도 현재 역할·키 권한, 실행 정책과 긴급 중지 통제는 그대로 적용됩니다. 후보 등록은 취약점 확인이나 해결 상태의 자동 확정이 아닙니다. 기억 저장은 같은 PostgreSQL을 사용하며 별도 벡터 확장이나 Graphiti 서버 설치를 요구하지 않습니다. 메모리는 사용자·서비스별 100개까지 저장합니다. 에이전트 실행 목록은 접근 가능한 최신 1,000건을 표시하고 사용자당 진행 중인 실행은 최대 3개입니다.</p>
 <h3 id="14-4-원본-코어와-hunter-연결-범위">14.4 원본 코어와 Hunter 연결 범위</h3>
-<p>고정한 PentAGI 원본의 계획·위임·실행·재시도·성찰·대화 요약 코어를 사용하고, 실제 행위는 서비스 조회·발견 건 조회·진단 요청·진단 결과 조회·후보 등록·기억 저장·기억 검색의 일곱 Hunter 도구로 연결합니다. 원본 Docker 런타임, 클라우드 검색과 원격 텔레메트리는 시작하지 않습니다. 기존 일반 PostgreSQL DSN과 네 환경변수, 서비스 이미지 하나로 배포합니다.</p>
+<p>고정한 PentAGI 원본의 계획·위임·실행·재시도·성찰·대화 요약 코어를 사용하고, 실제 행위는 서비스 조회·발견 건 조회·진단 요청·진단 결과 조회·후보 등록·기억 저장·기억 검색·참고 검색의 여덟 Hunter 도구로 연결합니다. 원본 스택을 자동 시작하지 않습니다. 검색·지식·모델·고정 격리 진단·관측성은 관리자 설정을 통해 Hunter의 별도 어댑터로 연결합니다. 기존 일반 PostgreSQL DSN과 네 환경변수, 서비스 이미지 하나로 배포합니다.</p>
 <p><img src="../images/agent-detail.png" alt="에이전트 실행 상세와 실시간 결과"></p>
-<p>에이전트 목록과 상세 화면에서 작업, 도구 호출, 실시간 이벤트와 종료 이유를 확인합니다. 사용자의 중지 요청과 설정 한도는 실행을 제한하며, 중지는 이미 끝난 외부 요청이나 저장된 자료를 자동 복원하지 않습니다. 다시 시도는 이전 실행을 덮어쓰는 대신 새 실행 이력으로 관리합니다. 기존 비공개 대화 이력을 이어서 재개하는 기능은 제공하지 않으며, 같은 실행 ID를 다시 실행하지 않습니다.</p>
+<p>에이전트 목록과 상세 화면에서 작업, 도구 호출, 실시간 이벤트와 종료 이유를 확인합니다. 사용자의 중지 요청과 설정 한도는 실행을 제한하며, 중지는 이미 끝난 외부 요청이나 저장된 자료를 자동 복원하지 않습니다. 다시 시도는 이전 실행을 덮어쓰는 대신 새 실행 이력으로 관리합니다. 일시 중지·모델 연결 대기·입력 대기는 같은 실행 ID의 체크포인트에서 명시적으로 재개합니다. 종료된 실행과 프로세스 강제 종료를 자동 재실행하지 않습니다. 원래 키·현재 서비스·범위·정책과 누적 한도를 다시 검사합니다.</p>
 <p>모델에 제공하는 서비스·발견 정보와 도구 결과는 비신뢰 입력으로 취급합니다. 모델 응답으로 사용자 권한을 확대하거나 진단 정책을 바꾸지 않습니다. 사내 게이트웨이가 응답을 버퍼링하지 않는지, 실패·취소·재시도에서도 현재 권한과 실행 한도가 적용되는지 운영 반영 전에 확인합니다.</p>
 <p><a href="../architecture/pentagi-integration.md">코어 통합 출처와 라이선스</a>에서 원본 커밋과 라이선스 근거를 확인할 수 있습니다. 이미지 안에는 <code>/usr/share/licenses/hunter/</code>에 라이선스 원문과 출처 목록을 포함합니다. Go·코어·폰트 고지는 <code>dependencies.json</code>, 프런트엔드 npm 고지는 <code>npm/manifest.json</code>과 <code>npm/components/</code>에 따로 기록합니다. Docker 빌드와 CI가 설치된 의존성의 고지를 수집하며, 필수 고지나 고정 출처 근거가 누락되면 빌드를 실패시킵니다.</p>
-<h2 id="15-rest-api와-mcp">15. REST API와 MCP</h2>
+<h3 id="14-5-에이전트-연동-관리-공통-절차">14.5 에이전트 연동 관리 공통 절차</h3>
+<p><strong>서비스 관리 → 에이전트 통합 연동</strong>(<code>/admin/agent-platform</code>)의 <strong>검색·메모리·모델·격리 실행·관측성</strong> 탭에서 선택 기능을 구성합니다. 모든 관리 API에는 현재 <code>admin:manage</code>가 필요합니다. 새 외부 연동은 기본 비활성이고, 일반 PostgreSQL과 기존 네 환경변수만으로 기본 서비스가 시작됩니다.</p>
+<ol>
+<li>조직이 허용한 사내 주소·중계 서버를 정하고 필요한 인증정보를 준비합니다. 외부 공급자를 선택했다면 해당 경로로 자료가 전달될 수 있습니다.</li>
+<li>이름과 안정적인 공급자 ID, 주소, 인증, 시간·시도 한도를 등록합니다. 비밀값은 조회 시 숨기고 DB의 전체 설정 JSON에 암호화합니다.</li>
+<li>기존 공급자의 비밀 입력을 비워 두면 유지합니다. 교체할 값을 새로 입력하거나 명시적인 삭제를 선택합니다. 다른 ID로 만들면 기존 비밀을 자동 복사하지 않습니다.</li>
+<li>설정을 저장한 후 <strong>연결 시험</strong>을 실행합니다. 검색 공급자와 임베딩·Graphiti 시험은 해당 연결의 개별 활성화가 필요합니다. 전체 기능 스위치가 있으면 운영 활성화와 개별 시험을 구분하세요. 시험은 실제 네트워크 요청이며 명시한 합성 입력을 사용합니다.</li>
+<li>최근 상태와 안전한 오류 분류·소요 시간을 확인합니다. 다른 관리자의 수정으로 409가 나오면 입력을 유지하고 현재 설정을 다시 확인합니다.</li>
+<li>필요한 연동의 활성화만 켭니다. 도구별 진단 권한이나 에이전트 전체 사용 허용은 별도 서비스 설정에서 관리합니다.</li>
+</ol>
+<p>공통 장애 보호의 기본값은 연속 실패 3회·회복 대기 30초입니다. 설정 가능한 범위는 실패 1~20회·대기 5~3,600초입니다. 열린 연결은 회복 시각 이후 하나의 시험 요청만 보내고 정상 응답이면 회복합니다. 설정 버전이 바뀌면 이전 장애 결과를 새 설정에 덮어쓰지 않습니다. 상태에는 인증정보·요청·응답 원문을 남기지 않습니다.</p>
+<h3 id="14-6-검색-공급자와-내부-근거-복귀">14.6 검색 공급자와 내부 근거 복귀</h3>
+<p><img src="../images/agent-platform-search.png" alt="검색 공급자와 우선순위 설정"></p>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>필요한 설정과 의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DuckDuckGo</td>
+<td>Instant Answer 요약 API. 일반 웹 검색 결과 전체와 같지 않음</td>
+</tr>
+<tr>
+<td>Google Custom Search</td>
+<td>API 키·검색 엔진 ID <code>cx</code>, 조직이 허용한 검색 범위</td>
+</tr>
+<tr>
+<td>Tavily</td>
+<td>Search API 주소·키</td>
+</tr>
+<tr>
+<td>Perplexity</td>
+<td>Search API 주소·키. 대화 완성 API와 구분</td>
+</tr>
+<tr>
+<td>SearXNG</td>
+<td>자체 서버 검색 API, JSON 출력 지원 설정</td>
+</tr>
+<tr>
+<td>HTTP JSON</td>
+<td>사내 검색 GET/POST, 결과 배열·제목·URL·요약의 점 구분 필드 경로</td>
+</tr>
+</tbody>
+</table>
+<p>공급자는 최대 8개이며 우선순위가 낮은 숫자부터 시도합니다. 결과는 기본 5개·최대 10개, 전체 검색 시간 기본 20초·최대 120초, 제공자별 1~30초입니다. JSON 매핑은 필드 경로이며 임의 코드나 셸 평가가 아닙니다.</p>
+<p>시험 검색어도 실제 선택 서버로 전달됩니다. 검색 장애에는 다른 공급자를 시도하고 모두 불가하면 내부 서비스·발견 건·기억 조회로 복귀합니다. 반환한 자료는 출처가 있는 비신뢰 참고 데이터입니다. 검색된 페이지를 대상으로 자동 진단하거나 검색의 지시로 실행 권한을 늘리지 않습니다.</p>
+<h3 id="14-7-로컬-기억-임베딩-graphiti-pgvector">14.7 로컬 기억·임베딩·Graphiti·pgvector</h3>
+<p><img src="../images/agent-platform-memory.png" alt="암호화 로컬 기억과 선택 지식 연동"></p>
+<p>기본 원본은 같은 PostgreSQL의 사용자·서비스별 암호화 메모리 최대 100개입니다. 원문은 기록별 최대 16KiB, 검색 결과는 최대 10개·각 본문 최대 8KiB이며 잘린 결과는 안내합니다. 별도 벡터 확장을 설치하지 않아도 동작합니다.</p>
+<ul>
+<li><strong>임베딩</strong>: OpenAI 호환 <code>/embeddings</code> API의 주소·모델·키를 저장합니다. 기억 저장 시 본문, 검색 시 질의가 이 서버로 전달됩니다. 반환 벡터는 로컬에 암호화하여 보관합니다.</li>
+<li><strong>벡터 방식</strong>: <code>auto</code>, <code>database</code>, <code>pgvector</code>를 선택합니다. 이미 설치한 pgvector를 사용하면 실제 매개변수화 거리 연산을 수행합니다. Hunter가 <code>CREATE EXTENSION</code>을 자동 실행하지 않으며 미설치·오류 시 Go 코사인 유사도와 키워드 검색으로 복귀합니다. 평문 벡터 테이블을 새 원본으로 만들지 않습니다.</li>
+<li><strong>Graphiti</strong>: 표준 REST의 <code>/messages</code>와 <code>/search</code>에 연결합니다. 202는 비동기 접수이며 인덱싱 완료가 아닙니다. 연결 시험은 합성 그룹의 검색 계약 확인으로, 쓰기·전체 인덱싱 완료 검사가 아닙니다.</li>
+</ul>
+<p>원격 그래프의 결과 문장은 반환하지 않습니다. 연결된 에피소드·식별자·본문 해시를 현재 로컬 기록 및 권한과 대조한 뒤 허용된 로컬 원문만 사용합니다. 임베딩 모델·주소·키를 바꾸면 이전 인덱스를 사용하지 않으며 새 기억 저장 시점부터 다시 연결합니다. 기존 메모리 전체를 자동 업로드하지 않습니다.</p>
+<p>Graphiti에 이전에 전달한 에피소드의 자동 삭제는 제공하지 않습니다. 외부 서버의 접근·보존·삭제 정책을 별도로 설정하세요. 로컬 암호화나 Hunter의 권한 변경이 이미 외부에 전달된 사본까지 소급 삭제하는 것은 아닙니다.</p>
+<h3 id="14-8-네이티브-모델과-역할별-대체-순서">14.8 네이티브 모델과 역할별 대체 순서</h3>
+<p><img src="../images/agent-platform-models.png" alt="모델 목록·역할별 순서와 장애 상태"></p>
+<table>
+<thead>
+<tr>
+<th>유형</th>
+<th>기본 주소 예시</th>
+<th>사용하는 프로토콜</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI 호환</td>
+<td><code>http://llm.internal:8000/v1</code></td>
+<td><code>/chat/completions</code>, SSE·function tools</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td><code>https://api.anthropic.com/v1</code></td>
+<td><code>/messages</code>, x-api-key·Messages SSE</td>
+</tr>
+<tr>
+<td>Gemini</td>
+<td><code>https://generativelanguage.googleapis.com/v1beta</code></td>
+<td><code>streamGenerateContent</code>, x-goog-api-key·SSE</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td><code>http://ollama.internal:11434</code></td>
+<td><code>/api/chat</code>, NDJSON·native tool calls</td>
+</tr>
+</tbody>
+</table>
+<p>공급자 최대 20개에 ID·이름·모델·활성 상태·주소·API 키·우선순위를 설정합니다. Anthropic·Gemini 활성 연결에는 API 키가 필요합니다. OpenAI 호환·Ollama는 무인증 사내 연결도 허용합니다. 주소 자체에 사용자 정보·인증 쿼리·fragment를 넣지 않습니다.</p>
+<p><img src="../images/agent-platform-model-edit.png" alt="모델별 토큰·시간·회복 한도 편집"></p>
+<p>컨텍스트는 1,024~262,144, 출력은 1~컨텍스트, 제공자 요청 시간은 5~600초, 우선순위는 0~1,000입니다. 기본값은 컨텍스트 32,768·출력 4,096·시간 120초입니다. 에이전트 실행의 토큰·시간·모델 호출 상한도 함께 적용하며 대체 공급자 요청도 모델 호출 예산에 포함됩니다.</p>
+<p>역할별 ID 목록을 지정하면 그 순서의 활성 제공자만 시도합니다. 해당 역할 목록이 없으면 <code>default</code>, 그것도 없으면 활성 제공자의 숫자 우선순위를 사용합니다. 역할은 <code>primary_agent</code>, <code>assistant</code>, <code>simple</code>, <code>simple_json</code>, <code>adviser</code>, <code>generator</code>, <code>refiner</code>, <code>searcher</code>, <code>enricher</code>, <code>coder</code>, <code>installer</code>, <code>pentester</code>, <code>reflector</code>, <code>copilot</code>입니다. 이름이 공격 역할이어도 실제 행위는 Hunter의 허용된 도구와 정책에 한정됩니다.</p>
+<p>모델 연동 전체가 꺼져 있으면 기존 <strong>서비스 설정 → AI 분석</strong>의 활성 OpenAI 호환 연결을 사용합니다. 새 모델 연동을 켰는데 선택 가능한 제공자가 없으면 기존 연결로 자동 전환하지 않고 연결 불가로 표시합니다.</p>
+<p>모든 업스트림 요청은 스트리밍입니다. 실패한 일부 응답을 다음 모델 답에 붙이지 않기 위해 <strong>한 제공자의 정상 완료·도구 인자·현재 권한을 검증한 후에만</strong> 답을 SSE 조각으로 확정합니다. 따라서 최초 텍스트 표시까지 기다릴 수 있습니다. 긴 한국어는 UTF-8 경계를 지켜 분할합니다. Gemini의 필요한 도구 호출 서명은 실행·제공자별로 암호화 보존하여 다른 제공자에 전송하지 않습니다.</p>
+<p>모든 제공자가 불가하면 에이전트는 복구 가능한 연결 대기 상태로 남고, 일반 AI 도우미는 재시도 안내를 표시합니다. 실제 모델의 기능·컨텍스트·출력 제한은 해당 서버가 최종 검사합니다. 로컬 모의 프로토콜 검증은 실제 공급 계정·모델 품질 검증과 구분합니다.</p>
+<h3 id="14-9-원격-mtls-docker의-고정-진단">14.9 원격 mTLS Docker의 고정 진단</h3>
+<p><img src="../images/agent-platform-execution.png" alt="실행 서버와 승인된 이미지 프로파일"></p>
+<p>선택한 전용 Linux Docker 서버의 HTTPS 주소, CA PEM, 클라이언트 인증서·비밀키, 별도 생성한 네트워크 이름을 등록합니다. mTLS가 필수이고 Unix Docker 소켓·평문 API·호스트 네트워크·기본 bridge를 사용하지 않습니다. 최대 서버 10개·프로파일 20개·동시 1~4개·진단 5~120초입니다.</p>
+<ol>
+<li>실행 서버에 동일한 Hunter 서비스 이미지를 승인된 반입 절차로 미리 불러옵니다. 자동 image pull을 수행하지 않습니다.</li>
+<li>해당 이미지의 고정 <code>@sha256:</code> digest 또는 로컬 이미지 ID에 해당하는 digest 참조를 등록합니다. Hunter 라벨과 불필요한 이미지 환경변수·볼륨 여부를 검사합니다.</li>
+<li>서비스 망 분류를 현재 서비스·Hunter 워커의 망과 정확히 맞춥니다. 별도로 만든 Docker bridge/overlay 네트워크의 ASCII 이름을 지정하고 실제 허용 대상에만 통신하도록 조직 정책을 적용합니다.</li>
+<li><strong>HTTP 헤더 (<code>http_headers</code>)</strong>, <strong>TLS 인증서 (<code>tls_certificate</code>)</strong>, <strong>TCP 연결 (<code>tcp_connect</code>)</strong> 중 종류를 선택합니다. 임의 명령·인자를 입력하는 프로파일은 없습니다.</li>
+<li>저장한 서버의 연결 시험으로 mTLS·Linux Docker·네트워크와 지정 이미지의 존재를 확인합니다. 시험은 대상 진단이나 컨테이너 생성을 수행하지 않습니다.</li>
+<li>승인된 서비스·범위와 연결된 프로파일로 실제 진단을 요청하고 작업 이력에서 결과를 확인합니다.</li>
+</ol>
+<p>원격 컨테이너는 같은 Hunter 이미지의 고정 probe 모드를 사용합니다. 대상 DNS를 승인 단계에서 검사하고 IP를 고정한 단일 HEAD·TLS 연결·TCP 연결만 수행합니다. HTTP 본문·리다이렉트 탐색, 임의 셸·코드·스캐너 설치는 없습니다. 비특권 UID10001·읽기 전용·마운트 없음·capability 제거·재시작 없음·메모리/CPU/PID 제한을 적용하고 서비스의 DB·bootstrap 자격증명을 넘기지 않습니다.</p>
+<p>생성 전 확인 실패에만 다른 서버를 선택합니다. 생성·시작 이후 응답이 불명확하면 저장한 컨테이너 이름·이미지·진단 ID를 대조해 같은 작업을 관찰합니다. 실제 시작 여부가 불명인데 새 컨테이너를 만들어 중복 실행하지 않습니다. 원격 실행 서버는 선택 사항이며 기본 서비스 이미지에 Docker 데몬·Kali·다수 공격 도구를 묶어 제공하지 않습니다.</p>
+<p>실행 서버의 <strong>서비스 망 분류</strong>(<code>service_network</code>, 예: 업무망)와 <strong>Docker 네트워크 이름</strong>(<code>network</code>, 예: hunter-sandbox)은 별도입니다. 전자는 현재 서비스·Hunter 워커의 망과 정확히 맞추며 한글 1~200바이트를 허용합니다. 후자는 별도로 만든 Docker bridge/overlay 네트워크의 ASCII 이름입니다. 기존 API에서 service_network를 생략하면 network 값을 사용하지만 새 설정은 둘 다 지정하세요. 서버의 연속 실패·회복 대기 값도 PUT에 명시해야 합니다.</p>
+<h3 id="14-10-관측-수집기-langfuse와-장애-분리">14.10 관측 수집기·Langfuse와 장애 분리</h3>
+<p><img src="../images/agent-platform-observability.png" alt="관측 수집기·전달 큐·대시보드 링크"></p>
+<p>OTLP HTTP 수집기 또는 Langfuse의 주소·인증·신호를 설정합니다. OTLP는 JSON <code>/v1/traces</code>, <code>/v1/metrics</code>, <code>/v1/logs</code>로 전송합니다. Jaeger·VictoriaMetrics·Loki 등은 조직의 OpenTelemetry Collector에서 라우팅하며 Hunter가 해당 서버들을 번들하거나 모든 제품에 직접 연결하는 것은 아닙니다.</p>
+<p>Langfuse는 공식 OTLP <code>/api/public/otel/v1/traces</code>와 공개 키·비밀키의 Basic 인증을 사용합니다. 오래된 ingestion endpoint를 혼용하지 않으며 Langfuse에는 traces만 보냅니다. 관리자에게 표시할 대시보드 주소를 최대 10개 저장할 수 있습니다.</p>
+<p>수집기는 최대 10개입니다. 같은 <strong>대체 그룹</strong>의 동일 신호 수집기는 우선순위 순으로 시도하고, 그룹이 다르면 별도 전달합니다. 신호가 서로 다른 수집기를 같은 그룹에 넣지 않습니다. 요청 시간은 1~30초, 큐 시도는 1~10회(기본5), 보존은 1~90일(기본7)입니다.</p>
+<p>수집 자료는 실행·도구·제공자 종류, 상태, 소요 시간, 요청·토큰·결과 수 같은 제한된 메타데이터입니다. 프롬프트·모델 답·도구 인자·원본 증거·비밀값은 관측 payload에 넣지 않습니다. 로그 본문은 고정된 사건·상태 문자열이며 metrics는 사건 개수 신호입니다. 완전한 운영 로그 수집기나 원문 대화 분석으로 설명하지 않습니다.</p>
+<p>메타데이터를 짧은 DB 제한 시간 안에 암호화 큐로 저장하고 제어 서버가 비동기 전송합니다. 큐는 최대 10,000건이며 가득 차거나 DB enqueue가 불가하면 관측을 생략하고 업무 요청은 계속합니다. 설정이 바뀐 과거 대기 자료는 폐기하고 오래된 자료는 제한된 배치로 삭제합니다.</p>
+<p>429·일시적 연결/502·503·504 오류는 유한 재시도·대체를 적용합니다. OTLP 부분 접수는 다시 전송하지 않습니다. 네트워크에서 접수 응답을 잃으면 동일 관측 ID 재전송이 발생할 수 있으므로 정확히 한 번 전달을 보장하지 않습니다. 이는 진단·도구의 재실행을 뜻하지 않습니다. 관측 상태와 큐를 확인해 연결을 복구하세요.</p>
+<h2 id="15-rest-api와-mcp-graphql">15. REST API와 MCP·GraphQL</h2>
 <h3 id="15-1-api-인증">15.1 API 인증</h3>
 <p>개인 키를 Bearer 헤더에 넣습니다. 브라우저 세션으로 상태 변경 API를 직접 호출할 때는 <code>X-Hunter-CSRF: 1</code>과 동일 출처 조건이 필요합니다. 개인 Bearer 키 인증은 CSRF 헤더 대상이 아닙니다.</p>
 <pre><code class="language-sh">curl 'https://hunter.internal/api/findings' \
@@ -1590,13 +1715,57 @@ curl --fail http://localhost:8080/api/health
 </tbody>
 </table>
 <p><code>hunter_compare_campaigns</code> 입력은 <code>current_id</code>와 <code>baseline_id</code>입니다. 도구에서 결과를 읽어도 상태를 변경하지 않고, <code>not_seen</code>을 해결로 자동 처리하지 않습니다. 새 도구로 위협 정보 반입·SBOM 삭제·캠페인 시작을 수행하지 않습니다.</p>
+<h3 id="15-4-조회-전용-graphql">15.4 조회 전용 GraphQL</h3>
+<p><code>GET/POST /api/graphql</code>은 기존 세션 또는 개인 Bearer 키로 인증합니다. POST 쿠키 요청에는 기존 CSRF 규칙을 적용합니다. 익명 introspection은 허용하지 않으며 <code>GET /api/graphql/schema</code>에서 인증된 SDL을 읽을 수 있습니다. mutation·subscription·JSON batch 요청은 지원하지 않습니다.</p>
+<pre><code class="language-graphql">query ServiceFindings($service: ID!, $n: Int!) {
+  service(id: $service) { id name team environment }
+  findings(serviceId: $service, first: $n, offset: 0) {
+    total offset hasMore
+    items { id title severity status component cve assignee dueDate }
+  }
+}
+</code></pre>
+<pre><code class="language-json">{&quot;query&quot;:&quot;query($n:Int!){services(first:$n){total hasMore items{id name}}}&quot;,&quot;variables&quot;:{&quot;n&quot;:25}}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>목록·상세 필드</th>
+<th>필요한 현재 권한</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>services</code> / <code>service</code></td>
+<td><code>services:read</code></td>
+</tr>
+<tr>
+<td><code>findings</code> / <code>finding</code></td>
+<td><code>findings:read</code>와 현재 부모 서비스 접근</td>
+</tr>
+<tr>
+<td><code>scans</code> / <code>scan</code></td>
+<td><code>scans:read</code>와 현재 부모 서비스 접근</td>
+</tr>
+<tr>
+<td><code>agentRuns</code> / <code>agentRun</code></td>
+<td><code>agents:read</code>, <code>services:read</code>, <code>findings:read</code>, <code>scans:read</code> 모두</td>
+</tr>
+</tbody>
+</table>
+<p>모든 resolver와 최종 응답 전에 현재 역할·키·팀·자료 접근을 검사합니다. 서비스 소유 관계를 잃은 발견 건 작성자가 자식 소유자라는 이유로 계속 조회하지 못합니다. 허용되지 않은 상세 ID는 null, 필요한 범위가 없는 요청은 403과 <code>data:null</code>·안전한 오류 코드로 반환합니다. 관리자 키도 키에 없는 조회 범위를 얻지 않습니다.</p>
+<p>한 요청은 JSON 64KiB·쿼리 32KiB·파서 토큰5,000·펼친 필드/조각500·깊이8·예상/실제 응답 복잡도10,000·처리10초로 제한합니다. 페이지 <code>first</code>는 기본25·최대100, <code>offset</code>은 최대10,000입니다. 목록 건수는 해당 SQL 조회 시점의 전체 현재 접근 범위이며 기존 일반 UI의 최신5,000건 제한과 다릅니다. 실행 안의 작업·연결 진단은 각각 앞100개, 결과는30,000자까지입니다. 전체 대화·비밀·증거를 반환하는 범용 JSON 필드는 없습니다.</p>
+<p>제어 API <code>POST /api/agent-runs/{id}/pause|resume|input</code>의 <code>expected_updated_at</code>에는 상세의 <code>control_updated_at</code>을 전달합니다. 진행 이벤트는 제어 revision을 바꾸지 않고 다른 사용자 제어 변경과의 충돌을 검사합니다. 기존 현재 실행 <code>updated_at</code>도 호환 허용하지만 새 클라이언트는 제어 값을 사용하세요. 현재 상태·원래 키·정책은 별도로 다시 검사합니다.</p>
+<h3 id="15-5-실행-보고서-api">15.5 실행 보고서 API</h3>
+<p><code>GET /api/agent-runs/{id}/report?format=md|html|pdf</code>는 기존 에이전트 조회 네 권한과 현재 서비스 접근을 요구합니다. 기본 형식은 md이며 파일명은 <code>hunter-agent-{실행ID}.{형식}</code>입니다. 결과는 JSON envelope가 아닌 다운로드 파일이고 <code>Cache-Control: no-store</code>와 <code>Content-Disposition: attachment</code>를 적용합니다.</p>
+<p>PDF는 내장 NanumGothic 폰트로 Go 프로세스 안에서 생성합니다. HTML은 결과 텍스트 이스케이프와 외부 자원 차단 CSP를 적용합니다. 동시 생성4개·요청20초 제한이며 혼잡하면503, 형식오류400, 권한없음403, 비접근실행404를 반환합니다. 보고서의 생략 한도와 중간 상태 해석은 <a href="user-guide.md#108-%EC%8B%A4%ED%96%89-%EB%B3%B4%EA%B3%A0%EC%84%9C-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C">사용자 가이드</a>를 확인하세요.</p>
 <h2 id="16-감사-기록과-증거-관리">16. 감사 기록과 증거 관리</h2>
 <p><strong>관리자 → 감사 기록</strong>에서 수행자, 작업, 대상과 시각을 확인합니다. 주요 설정·계정·키·진단 변경을 조사할 때 사용합니다.</p>
 <p>감사 목록에서 사용자·작업·대상을 검색하고 작업·사용자·기간 필터로 범위를 좁힙니다. 일시 열로 시간순을 바꾸고 페이지당 표시 수와 페이지 이동을 사용합니다. 검색 조건은 조회 권한이나 서버의 자료 보존·조회 한도를 늘리지 않습니다.</p>
 <p><img src="../images/admin-audit.png" alt="감사 기록"></p>
 <p>감사 기록은 애플리케이션 DB에 저장되므로 독립적인 WORM 저장소나 외부 SIEM의 변조 방지 증거를 대체하지 않습니다. 규정상 보존 요건이 있으면 DB 접근 통제, 백업·복제와 별도 로그 수집을 조직 정책으로 구성합니다.</p>
-<p>증거는 필요한 정보를 마스킹하여 저장하고, 암호화된 데이터도 접근 권한이 있는 API 응답에서는 사용자가 읽을 수 있다는 점을 고려합니다. 자동 마스킹이 모든 개인정보를 탐지한다는 전제로 운영하지 않습니다. 현재 버전에서 자동 보존 기간 삭제 작업과 독립 오브젝트 저장소는 제공하지 않으므로 보존·파기 절차를 별도로 관리합니다.</p>
-<p>에이전트의 사용자 화면 이벤트, 서비스 메모리와 발견 증거는 Hunter 암호화 저장소를 사용합니다. PentAGI 코어 호환 스키마의 대화 이력·작업·사용량 테이블에는 별도의 필드 암호화를 적용하지 않습니다. 전달 전에 질문과 도구 결과를 마스킹하지만 모델의 후속 처리에 필요한 비공개 추론이 포함될 수 있으며, 이 기록은 일반 UI 이벤트에 노출하지 않습니다. 코어 스키마까지 포함한 DB 접근 통제와 백업 보호가 필요합니다. 모델 API 키는 대화나 코어 기록에 넣지 않습니다.</p>
+<p>증거는 필요한 정보를 마스킹하여 저장하고, 암호화된 데이터도 접근 권한이 있는 API 응답에서는 사용자가 읽을 수 있다는 점을 고려합니다. 자동 마스킹이 모든 개인정보를 탐지한다는 전제로 운영하지 않습니다. 발견 증거와 코어 대화의 자동 보존 기간 파기·독립 오브젝트 저장소는 제공하지 않으므로 해당 보존 절차를 별도로 관리합니다. 알림 본문과 관측 큐의 제한된 보존 기능은 각 설정에서 별도로 관리합니다.</p>
+<p>에이전트의 사용자 화면 이벤트, 서비스 메모리와 발견 증거는 Hunter 암호화 저장소를 사용합니다. PentAGI 코어 호환 스키마의 대화 이력·작업·사용량·체크포인트 테이블에는 별도의 필드 암호화를 적용하지 않습니다. 전달 전에 질문과 도구 결과를 마스킹하지만 모델의 후속 처리에 필요한 비공개 추론이 포함될 수 있으며, 이 기록은 일반 UI 이벤트에 노출하지 않습니다. 코어 스키마까지 포함한 DB 접근 통제와 백업 보호가 필요합니다. 모델 API 키는 대화나 코어 기록에 넣지 않습니다.</p>
 <h3 id="16-1-위험-수용-만료와-재검토">16.1 위험 수용 만료와 재검토</h3>
 <p>위험 수용은 사유와 미래의 만료 일시를 요구합니다. 만료 시각을 지나면 대시보드는 해당 발견 건을 즉시 열린 위험·심각한 위험·보안 부채 집계에 다시 포함합니다. 제어 서버의 분 단위 유지보수 작업은 상태를 탐지 후보로 바꾸고 finding.acceptance_expired 감사 기록을 같은 DB 작업으로 남깁니다.</p>
 <p>이미 만료 처리한 항목은 다음 작업에서 다시 전환하지 않습니다. 유지보수 시점 전의 짧은 구간에도 대시보드에서 만료 항목을 제외하지 않으므로 수용 기간이 끝난 위험이 계속 숨겨지지 않습니다.</p>
@@ -1634,7 +1803,7 @@ docker compose up -d
 <li>검증계의 승인된 작은 진단으로 기능을 확인한 뒤 운영 전환합니다.</li>
 </ol>
 <pre><code class="language-sh">pg_restore --dbname=&quot;$RESTORE_POSTGRES_DSN&quot; --no-owner hunter-backup.dump
-docker load -i hunter-v1.7.0.tar.gz
+docker load -i hunter-v1.8.0.tar.gz
 docker compose up -d
 </code></pre>
 <p>새 DB를 위한 자동 초기 관리자 생성과 기존 DB 복원 절차를 혼동하지 않습니다. 복원한 DB에 사용자가 있으면 bootstrap 환경변수로 계정을 다시 생성하지 않습니다.</p>
@@ -1798,9 +1967,9 @@ node scripts/check-docs.mjs
 </code></pre>
 <p>실제 화면 캡처는 <code>docs/images</code>에 저장합니다. 운영 데이터·비밀값이 담긴 화면은 공개 문서로 사용하지 않습니다. 가이드의 이미지가 모두 존재해야 PDF를 정상 생성할 수 있습니다.</p>
 <h3 id="20-3-릴리즈-규칙">20.3 릴리즈 규칙</h3>
-<pre><code class="language-sh">bash scripts/release.sh 1.7.0
+<pre><code class="language-sh">bash scripts/release.sh 1.8.0
 </code></pre>
-<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.7.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.7.0</code> 서비스 이미지 하나만 들어갑니다.</p>
+<p>스크립트는 <code>VERSION</code> 일치 여부를 확인하고 Docker 이미지를 만든 뒤 <code>docker image save | gzip</code>으로 <code>dist/hunter-v1.8.0.tar.gz</code>를 생성합니다. 파일에는 <code>hunter:v1.8.0</code> 서비스 이미지 하나만 들어갑니다.</p>
 <p>GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 <code>docs</code>를 배포합니다. GitHub 저장소의 Pages 배포 소스는 <strong>GitHub Actions</strong>로 설정합니다.</p>
 <h2 id="21-참고-문서">21. 참고 문서</h2>
 <ul>
@@ -1811,4 +1980,4 @@ node scripts/check-docs.mjs
 <li><a href="https://playwright.dev/docs/api/class-page#page-pdf">Playwright PDF 생성</a></li>
 </ul>
 <p><a href="user-guide.html">사용자 일상 업무 가이드로 이동</a></p>
-<footer>Hunter v1.7.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>
+<footer>Hunter v1.8.0 · 실제 화면과 함께 보는 사내 보안 검증 가이드</footer></main></div></body></html>

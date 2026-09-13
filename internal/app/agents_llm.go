@@ -2,13 +2,10 @@ package app
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -20,112 +17,36 @@ import (
 func (a *App) agentCompletion(ctx context.Context, run agentRun, in pentagicore.CompletionRequest) (pentagicore.CompletionResult, error) {
 	var result pentagicore.CompletionResult
 	ai, err := a.setting(ctx, "ai")
-	if err != nil || !asBool(ai["enabled"]) {
-		return result, errors.New("AI 연결이 비활성화되었습니다")
+	if err != nil {
+		return result, err
 	}
-	if asString(ai["model"]) != asString(run.Limits["model"]) {
-		return result, errors.New("실행 도중 AI 모델이 변경되었습니다. 새 실행을 시작하세요")
+	enabled, err := a.platformModelsEnabled(ctx)
+	if err != nil {
+		return result, err
+	}
+	if !enabled && !asBool(ai["enabled"]) {
+		return result, ErrAgentModelsUnavailable
 	}
 	cfg, err := a.setting(ctx, "agents")
 	if err != nil {
 		return result, err
 	}
 	maxCalls := min(asInt(cfg["max_model_calls"]), asInt(run.Limits["max_model_calls"]))
-	maxTokens := min(asInt(ai["max_tokens"]), in.MaxTokens, asInt(run.Limits["max_tokens"]))
-	window := min(asInt(ai["context_window"]), in.ContextWindow, asInt(run.Limits["context_window"]))
-	if maxTokens < 1 || window < 1024 || window > 262144 {
-		return result, errors.New("AI 토큰 설정을 확인하세요")
-	}
-	messages := []map[string]any{}
-	for _, m := range in.Messages {
-		role := m.Role
-		switch role {
-		case "human":
-			role = "user"
-		case "ai":
-			role = "assistant"
-		case "function":
-			role = "tool"
+	in.MaxTokens = minPositive(in.MaxTokens, asInt(run.Limits["max_tokens"]))
+	in.ContextWindow = minPositive(in.ContextWindow, asInt(run.Limits["context_window"]))
+	ctx = withModelCallContext(ctx, modelCallContext{RunID: run.ID, Check: func(c context.Context) error { return a.checkAgent(c, run) }, Before: func(c context.Context) error {
+		tag, err := a.DB.Exec(c, `UPDATE agent_runs SET model_calls=model_calls+1,updated_at=now() WHERE id=$1 AND NOT cancel_requested AND status IN ('running','waiting_approval') AND lease_until>now() AND model_calls<$2`, run.ID, maxCalls)
+		if err != nil {
+			return err
 		}
-		if !hasString([]string{"system", "user", "assistant", "tool"}, role) {
-			return result, fmt.Errorf("지원하지 않는 모델 메시지 역할: %s", role)
+		if tag.RowsAffected() != 1 {
+			return errors.New("모델 호출 한도에 도달했거나 실행이 중지되었습니다")
 		}
-		msg := map[string]any{"role": role, "content": m.Content}
-		if m.ToolCallID != "" {
-			msg["tool_call_id"] = m.ToolCallID
-		}
-		if m.Reasoning != "" {
-			msg["reasoning_content"] = m.Reasoning
-		}
-		if len(m.ToolCalls) > 0 {
-			calls := []map[string]any{}
-			for _, c := range m.ToolCalls {
-				calls = append(calls, map[string]any{"id": c.ID, "type": "function", "function": map[string]string{"name": c.Name, "arguments": c.Arguments}})
-			}
-			msg["tool_calls"] = calls
-		}
-		messages = append(messages, msg)
-	}
-	tools := []map[string]any{}
-	for _, tool := range in.Tools {
-		if !json.Valid(tool.Parameters) {
-			return result, errors.New("도구 스키마가 올바르지 않습니다")
-		}
-		tools = append(tools, map[string]any{"type": "function", "function": map[string]any{"name": tool.Name, "description": tool.Description, "parameters": tool.Parameters}})
-	}
-	payload := map[string]any{"model": ai["model"], "messages": messages, "max_tokens": maxTokens, "stream": true, "stream_options": map[string]any{"include_usage": true}}
-	if len(tools) > 0 {
-		payload["tools"] = tools
-		payload["tool_choice"] = "auto"
-		payload["parallel_tool_calls"] = false
-	}
-	input, _ := json.Marshal(map[string]any{"messages": messages, "tools": tools})
-	if len(input)+maxTokens+512 > window {
-		return result, errors.New("에이전트 입력과 출력 토큰 예산이 컨텍스트 한도를 초과했습니다")
-	}
-	body, _ := json.Marshal(payload)
-	endpoint := strings.TrimSuffix(asString(ai["base_url"]), "/")
-	if !strings.HasSuffix(endpoint, "/chat/completions") {
-		endpoint += "/chat/completions"
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(body))
-	if err != nil {
-		return result, errors.New("AI 서버 주소가 올바르지 않습니다")
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
-	if key := asString(ai["api_key"]); key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	client, err := a.outboundClient(ctx, 10*time.Minute)
+		return nil
+	}})
+	result, err = a.platformModelCompletion(ctx, ai, in)
 	if err != nil {
 		return result, err
-	}
-	defer client.CloseIdleConnections()
-	tag, err := a.DB.Exec(ctx, `UPDATE agent_runs SET model_calls=model_calls+1,updated_at=now() WHERE id=$1 AND NOT cancel_requested AND status IN ('running','waiting_approval') AND lease_until>now() AND model_calls<$2`, run.ID, maxCalls)
-	if err != nil {
-		return result, err
-	}
-	if tag.RowsAffected() != 1 {
-		return result, errors.New("모델 호출 한도에 도달했거나 실행이 중지되었습니다")
-	}
-	response, err := client.Do(req)
-	if err != nil {
-		return result, fmt.Errorf("AI 스트리밍 연결 실패: %w", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return result, fmt.Errorf("AI 서버가 요청을 거부했습니다 (HTTP %d)", response.StatusCode)
-	}
-	if !strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
-		return result, errors.New("AI 서버가 SSE 스트리밍을 반환하지 않았습니다")
-	}
-	result, err = readAgentCompletion(response.Body, in.OnDelta)
-	if err != nil {
-		return result, err
-	}
-	if result.FinishReason == "length" {
-		return result, errors.New("모델 출력이 토큰 한도에서 잘렸습니다. 출력 토큰 설정을 조정하세요")
 	}
 	_, err = a.DB.Exec(ctx, `UPDATE agent_runs SET input_tokens=input_tokens+$2,output_tokens=output_tokens+$3,updated_at=now() WHERE id=$1`, run.ID, max(result.InputTokens, 0), max(result.OutputTokens, 0))
 	return result, err

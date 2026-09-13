@@ -102,7 +102,7 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
-	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation} {
+	for _, init := range []func(context.Context) error{a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution} {
 		if err = init(ctx); err != nil {
 			return nil, err
 		}
@@ -179,6 +179,12 @@ func (a *App) Routes() http.Handler {
 	a.registerKeys(m)
 	a.registerAI(m)
 	a.registerAgents(m)
+	a.registerAgentKnowledge(m)
+	a.registerAgentProviders(m)
+	a.registerAgentControl(m)
+	a.registerAgentExecution(m)
+	a.registerGraphQL(m)
+	a.registerAgentReports(m)
 	a.registerMCP(m)
 	a.registerDomain(m)
 	a.registerFindingOps(m)

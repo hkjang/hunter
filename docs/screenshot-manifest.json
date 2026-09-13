@@ -122,7 +122,7 @@
     "name": "edit-conflict",
     "path": "images/edit-conflict.png",
     "title": "편집 충돌 안내",
-    "description": "합성 서비스 실제 동시 수정: 입력 유지와 최신 자료 확인",
+    "description": "모의 409 응답: 입력 유지와 최신 자료 확인",
     "mobile_path": "images/mobile-edit-conflict.png"
   },
   {
@@ -376,6 +376,76 @@
     "title": "에이전트 실행 상세",
     "description": "목표·응답·도구·실행 기록·연결 진단과 중지",
     "mobile_path": "images/mobile-agent-detail.png"
+  },
+  {
+    "name": "agent-platform-search",
+    "path": "images/agent-platform-search.png",
+    "title": "검색 연결",
+    "description": "합성 사내 검색 연결·순차 대체·상태와 명시 시험",
+    "mobile_path": "images/mobile-agent-platform-search.png"
+  },
+  {
+    "name": "agent-platform-memory",
+    "path": "images/agent-platform-memory.png",
+    "title": "메모리 연결",
+    "description": "로컬 원본 기억과 선택 임베딩·Graphiti·pgvector",
+    "mobile_path": "images/mobile-agent-platform-memory.png"
+  },
+  {
+    "name": "agent-platform-models",
+    "path": "images/agent-platform-models.png",
+    "title": "모델 연결",
+    "description": "역할별 네이티브 모델 우선순위·한도·상태",
+    "mobile_path": "images/mobile-agent-platform-models.png"
+  },
+  {
+    "name": "agent-platform-execution",
+    "path": "images/agent-platform-execution.png",
+    "title": "격리 실행 설정",
+    "description": "mTLS 서버·서비스 망·Docker 망·고정 프로브",
+    "mobile_path": "images/mobile-agent-platform-execution.png"
+  },
+  {
+    "name": "agent-platform-observability",
+    "path": "images/agent-platform-observability.png",
+    "title": "관측성 설정",
+    "description": "메타데이터 OTLP·Langfuse와 비동기 상태",
+    "mobile_path": "images/mobile-agent-platform-observability.png"
+  },
+  {
+    "name": "agent-platform-model-edit",
+    "path": "images/agent-platform-model-edit.png",
+    "title": "모델 설정 편집",
+    "description": "합성 모델 연결·컨텍스트·출력·회복 한도",
+    "mobile_path": "images/mobile-agent-platform-model-edit.png"
+  },
+  {
+    "name": "agent-input",
+    "path": "images/agent-input.png",
+    "title": "에이전트 추가 입력",
+    "description": "실행에 반영할 지시와 입력 이력",
+    "mobile_path": "images/mobile-agent-input.png"
+  },
+  {
+    "name": "agent-paused",
+    "path": "images/agent-paused.png",
+    "title": "에이전트 일시 중지·재개",
+    "description": "안전 경계와 같은 실행의 명시 재개",
+    "mobile_path": "images/mobile-agent-paused.png"
+  },
+  {
+    "name": "agent-search-results",
+    "path": "images/agent-search-results.png",
+    "title": "에이전트 참고 검색",
+    "description": "비신뢰 출처 자료와 실제 도구 기록",
+    "mobile_path": "images/mobile-agent-search-results.png"
+  },
+  {
+    "name": "agent-report",
+    "path": "images/agent-report.png",
+    "title": "실행 보고서",
+    "description": "현재 상태의 MD·HTML·한국어 PDF 다운로드",
+    "mobile_path": "images/mobile-agent-report.png"
   },
   {
     "name": "approvals",

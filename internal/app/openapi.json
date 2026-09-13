@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "hunter API",
-    "version": "1.7.0",
-    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다. 알림센터는 admin:manage 전용이며 접수 상태는 최종 수신을 뜻하지 않습니다. 채널·규칙 수정은 expected_updated_at을 요구합니다. v1.7 자동화 관리·개인 업무 알림. 공급자 전달·업무ACK·승인·발견 해결은 별도. 결과 불명 자동 재발송 금지, 현재 권한·암호화 설정·revision 적용. Hunter HMAC 콜백은 벤더 직접 호환이 아닌 게이트웨이 계약."
+    "version": "1.8.0",
+    "description": "한국어 상시 보안 검증 플랫폼. 브라우저 세션 변경 요청에는 X-Hunter-CSRF: 1 및 동일 출처가 필요합니다. API 키는 현재 역할과 키 범위의 교집합으로 검증합니다. 개인 프로필·키 관리는 브라우저 세션만 허용합니다. 자원 목록은 접근 가능한 항목 최대 5000개입니다. 조치함은 전체 권한 범위를 서버 페이지 처리합니다. SBOM·캠페인은 전용 이력 API입니다. 알림센터는 admin:manage 전용이며 접수 상태는 최종 수신을 뜻하지 않습니다. 채널·규칙 수정은 expected_updated_at을 요구합니다. v1.7 자동화 관리·개인 업무 알림. 공급자 전달·업무ACK·승인·발견 해결은 별도. 결과 불명 자동 재발송 금지, 현재 권한·암호화 설정·revision 적용. Hunter HMAC 콜백은 벤더 직접 호환이 아닌 게이트웨이 계약. v1.8 선택 검색·메모리·4종 네이티브 모델·고정 격리 실행·메타데이터 관측성, 체크포인트 명시 재개·추가 입력, 인증된 조회 GraphQL 및 한국어 실행 보고서를 제공합니다."
   },
   "servers": [
     {
@@ -4295,7 +4295,7 @@
         "tags": [
           "에이전트 진단"
         ],
-        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 관리자 에이전트·AI 활성화, 유효한 서비스·진단 범위 승인, 긴급 중지 해제가 필요합니다. 사용자당 queued/running/waiting_approval/stopping 실행은 최대 3개입니다. 모델 및 도구 실행은 서버 큐에서 진행하며 SSE 연결 종료가 작업을 재시작하지 않습니다. 진단 도구 호출에는 scans:write, 발견 후보 등록에는 findings:write와 해당 관리자 허용 설정이 별도로 필요합니다.",
+        "description": "API 키의 유효 권한은 현재 사용자 역할과 키 범위의 교집합입니다. 관리자 또는 해당 서비스 소유자·담당 팀장만 해당 실행에 접근할 수 있습니다. 분석 결과에는 서비스·발견 건·진단 자료가 포함될 수 있으므로 모든 조회 권한이 필요합니다. 관리자 에이전트 활성화 및 기존 AI 또는 모델 플랫폼 활성화, 유효한 서비스·진단 범위 승인, 긴급 중지 해제가 필요합니다. 사용자당 queued/running/waiting_approval/paused/waiting_provider/waiting_input/stopping 실행은 최대 3개입니다. 모델 및 도구 실행은 서버 큐에서 진행하며 SSE 연결 종료가 작업을 재시작하지 않습니다. 진단 도구 호출에는 scans:write, 발견 후보 등록에는 findings:write와 해당 관리자 허용 설정이 별도로 필요합니다.",
         "x-required-scope": "agents:write",
         "x-required-scopes": [
           "agents:write",
@@ -7511,6 +7511,1248 @@
           "findings:write"
         ]
       }
+    },
+    "/api/agent-platform/search": {
+      "get": {
+        "summary": "검색 설정 조회",
+        "operationId": "get_api_agent-platform_search",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSearchDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "검색 설정 저장",
+        "operationId": "put_api_agent-platform_search",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlatformRevision"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSearchUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/search/test": {
+      "post": {
+        "summary": "검색 저장 설정 연결 시험",
+        "operationId": "post_api_agent-platform_search_test",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다. expected_updated_at은 시험에도 필수이며 오래된 설정은 409입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSearchTestResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSearchTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/search/status": {
+      "get": {
+        "summary": "검색 현재 연결 상태",
+        "operationId": "get_api_agent-platform_search_status",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "조회만 수행하며 외부 연결 시험을 새로 실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSearchStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/agent-platform/memory": {
+      "get": {
+        "summary": "메모리 설정 조회",
+        "operationId": "get_api_agent-platform_memory",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMemoryDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "메모리 설정 저장",
+        "operationId": "put_api_agent-platform_memory",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlatformRevision"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentMemoryUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/memory/test": {
+      "post": {
+        "summary": "메모리 저장 설정 연결 시험",
+        "operationId": "post_api_agent-platform_memory_test",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다. expected_updated_at은 시험에도 필수이며 오래된 설정은 409입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMemoryTestResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentMemoryTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/memory/status": {
+      "get": {
+        "summary": "메모리 현재 연결 상태",
+        "operationId": "get_api_agent-platform_memory_status",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "조회만 수행하며 외부 연결 시험을 새로 실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMemoryStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/agent-platform/models": {
+      "get": {
+        "summary": "모델 설정 조회",
+        "operationId": "get_api_agent-platform_models",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelsDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "모델 설정 저장",
+        "operationId": "put_api_agent-platform_models",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelsDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentModelsUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/models/test": {
+      "post": {
+        "summary": "모델 저장 설정 연결 시험",
+        "operationId": "post_api_agent-platform_models_test",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다. expected_updated_at은 시험에도 필수이며 오래된 설정은 409입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelsTestResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentModelsTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/models/status": {
+      "get": {
+        "summary": "모델 현재 연결 상태",
+        "operationId": "get_api_agent-platform_models_status",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "조회만 수행하며 외부 연결 시험을 새로 실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentModelsStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/agent-platform/execution": {
+      "get": {
+        "summary": "격리 실행 설정 조회",
+        "operationId": "get_api_agent-platform_execution",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExecutionDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "격리 실행 설정 저장",
+        "operationId": "put_api_agent-platform_execution",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExecutionDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentExecutionUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/execution/test": {
+      "post": {
+        "summary": "격리 실행 저장 설정 연결 시험",
+        "operationId": "post_api_agent-platform_execution_test",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다. expected_updated_at은 시험에도 필수이며 오래된 설정은 409입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExecutionTestResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentExecutionTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/execution/status": {
+      "get": {
+        "summary": "격리 실행 현재 연결 상태",
+        "operationId": "get_api_agent-platform_execution_status",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "조회만 수행하며 외부 연결 시험을 새로 실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExecutionStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/agent-platform/observability": {
+      "get": {
+        "summary": "관측성 설정 조회",
+        "operationId": "get_api_agent-platform_observability",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentObservabilityDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      },
+      "put": {
+        "summary": "관측성 설정 저장",
+        "operationId": "put_api_agent-platform_observability",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentObservabilityDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentObservabilityUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/observability/test": {
+      "post": {
+        "summary": "관측성 저장 설정 연결 시험",
+        "operationId": "post_api_agent-platform_observability_test",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "admin:manage 필요. 암호화된 DB 설정, 비밀 원문 조회 불가. 저장 시 조회한 updated_at을 expected_updated_at으로 전달하며 충돌은 409. 저장된 설정의 연결 시험은 명시적으로 별도 호출합니다. 기본 비활성 선택 연동입니다. expected_updated_at은 시험에도 필수이며 오래된 설정은 409입니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentObservabilityTestResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentObservabilityTestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-platform/observability/status": {
+      "get": {
+        "summary": "관측성 현재 연결 상태",
+        "operationId": "get_api_agent-platform_observability_status",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "조회만 수행하며 외부 연결 시험을 새로 실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentObservabilityStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "admin:manage"
+      }
+    },
+    "/api/agent-runs/{id}/pause": {
+      "post": {
+        "summary": "에이전트 일시 중지",
+        "operationId": "agentRun_pause",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "expected_updated_at에는 control_updated_at을 전달합니다. 진행 이벤트는 제어 revision을 변경하지 않고 사용자 제어 변경끼리 충돌을 검사합니다. 현재 사용자와 원래 실행 주체의 키·역할·서비스 권한을 재검사. 재개는 paused/waiting_provider/waiting_input에서만, 동일 범위·정책과 누적 호출·활성 시간 한도를 유지합니다. 일시 중지는 진행 도구가 반환한 안전 경계에서 처리. 일반 프로세스 강제 종료는 자동 재실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "agents:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "조회한 control_updated_at을 전달합니다. 기존 현재 run.updated_at도 호환 허용. 현재 상태·권한은 별도 재검사."
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "input에서만 필수. 1~16,000 UTF-8 바이트, 전체 최대 20건·암호문 총 96,000바이트"
+                  }
+                },
+                "required": [
+                  "expected_updated_at"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read",
+          "agents:write",
+          "ai:use"
+        ]
+      }
+    },
+    "/api/agent-runs/{id}/resume": {
+      "post": {
+        "summary": "에이전트 같은 실행 재개",
+        "operationId": "agentRun_resume",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "expected_updated_at에는 control_updated_at을 전달합니다. 진행 이벤트는 제어 revision을 변경하지 않고 사용자 제어 변경끼리 충돌을 검사합니다. 현재 사용자와 원래 실행 주체의 키·역할·서비스 권한을 재검사. 재개는 paused/waiting_provider/waiting_input에서만, 동일 범위·정책과 누적 호출·활성 시간 한도를 유지합니다. 일시 중지는 진행 도구가 반환한 안전 경계에서 처리. 일반 프로세스 강제 종료는 자동 재실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "agents:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "조회한 control_updated_at을 전달합니다. 기존 현재 run.updated_at도 호환 허용. 현재 상태·권한은 별도 재검사."
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "input에서만 필수. 1~16,000 UTF-8 바이트, 전체 최대 20건·암호문 총 96,000바이트"
+                  }
+                },
+                "required": [
+                  "expected_updated_at"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read",
+          "agents:write",
+          "ai:use"
+        ]
+      }
+    },
+    "/api/agent-runs/{id}/input": {
+      "post": {
+        "summary": "에이전트 추가 지시 저장",
+        "operationId": "agentRun_input",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "expected_updated_at에는 control_updated_at을 전달합니다. 진행 이벤트는 제어 revision을 변경하지 않고 사용자 제어 변경끼리 충돌을 검사합니다. 현재 사용자와 원래 실행 주체의 키·역할·서비스 권한을 재검사. 재개는 paused/waiting_provider/waiting_input에서만, 동일 범위·정책과 누적 호출·활성 시간 한도를 유지합니다. 일시 중지는 진행 도구가 반환한 안전 경계에서 처리. 일반 프로세스 강제 종료는 자동 재실행하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "agents:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expected_updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "조회한 control_updated_at을 전달합니다. 기존 현재 run.updated_at도 호환 허용. 현재 상태·권한은 별도 재검사."
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "input에서만 필수. 1~16,000 UTF-8 바이트, 전체 최대 20건·암호문 총 96,000바이트"
+                  }
+                },
+                "required": [
+                  "expected_updated_at",
+                  "message"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read",
+          "agents:write",
+          "ai:use"
+        ]
+      }
+    },
+    "/api/execution-profiles": {
+      "get": {
+        "summary": "현재 서비스의 격리 실행 프로파일",
+        "operationId": "listExecutionProfiles",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "현재 services:read와 부모 서비스 접근 권한 및 망 일치를 검사합니다. 반환은 실행 승인 자체를 뜻하지 않습니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionProfileChoices"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "scans:write",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "scans:write",
+          "services:read"
+        ]
+      }
+    },
+    "/api/agent-runs/{id}/report": {
+      "get": {
+        "summary": "에이전트 실행 보고서 다운로드",
+        "operationId": "downloadAgentRunReport",
+        "tags": [
+          "에이전트 플랫폼"
+        ],
+        "description": "진행·일시 중지·실패 상태도 현재 시점 중간 보고서로 다운로드할 수 있습니다. 마스킹한 실제 상태·목표·한도·작업·연결 진단·결과만 포함. 자료 조회와 응답 직전 현재 서비스·키 권한을 다시 검사합니다. 파일 hunter-agent-{id}.{format}, attachment/no-store. HTML escape/CSP, 내장 OFL 한국어 폰트 PDF. 목표 16,000자·결과 30,000자·작업100·하위작업20·진단200 제한과 잘림 안내. 외부 렌더 프로세스 없음.",
+        "responses": {
+          "200": {
+            "description": "현재 실행 보고서 파일",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scope": "agents:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "md",
+                "html",
+                "pdf"
+              ],
+              "default": "md"
+            }
+          }
+        ],
+        "x-required-scopes": [
+          "agents:read",
+          "services:read",
+          "findings:read",
+          "scans:read"
+        ]
+      }
+    },
+    "/api/graphql": {
+      "get": {
+        "summary": "인증된 GraphQL 조회",
+        "operationId": "getGraphQL",
+        "tags": [
+          "GraphQL"
+        ],
+        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphQLResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variables",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "JSON 객체 문자열"
+            }
+          },
+          {
+            "name": "operationName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "인증된 GraphQL 조회",
+        "operationId": "postGraphQL",
+        "tags": [
+          "GraphQL"
+        ],
+        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphQLResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraphQLRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/graphql/schema": {
+      "get": {
+        "summary": "인증된 GraphQL SDL 조회",
+        "operationId": "getGraphQLSchema",
+        "tags": [
+          "GraphQL"
+        ],
+        "description": "인증된 읽기 전용 GraphQL. services/findings/scans/agentRuns 목록·단건만 제공하고 각 resolver는 현재 역할/키/부모 서비스 범위를 검사합니다. introspection과 SDL도 인증 필요. mutation/subscription/batch 불가. first 1~100(기본25), offset 0~10,000, 요청64KiB/쿼리32KiB/토큰5,000/깊이8/펼친필드500/복잡도10,000/10초. query별 필수 scope: services:read, findings:read, scans:read, agentRuns는 에이전트 조회4종 전부. 일반 자원 전체 JSON·비밀·증거 미제공.",
+        "responses": {
+          "200": {
+            "description": "GraphQL SDL",
+            "content": {
+              "application/graphql": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "현재 권한·입력·revision 충돌 또는 처리 실패",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7802,7 +9044,8 @@
             "enum": [
               "http-baseline",
               "import-only",
-              "authorization"
+              "authorization",
+              "isolated"
             ]
           },
           "scope_id": {
@@ -7813,6 +9056,10 @@
           },
           "finding_id": {
             "type": "string"
+          },
+          "execution_profile_id": {
+            "type": "string",
+            "description": "profile=isolated일 때 현재 관리자 격리 실행 프로파일 ID"
           }
         },
         "required": [
@@ -8228,7 +9475,7 @@
             "type": "integer",
             "minimum": 6,
             "maximum": 100,
-            "description": "각 원본 역할 에이전트 루프의 반복 한도"
+            "description": "원본 역할 체인 호출별 반복 한도. 명시 재개 시 새 호출에서 초기화되지만 model_calls/tool_calls 및 active_ms는 누적됩니다."
           },
           "max_model_calls": {
             "type": "integer",
@@ -8378,7 +9625,7 @@
           "upstream_commit",
           "allowed_actions"
         ],
-        "description": "에이전트 실행. completed는 에이전트 작업의 완료이며 취약점 확인 또는 해결을 의미하지 않습니다. 에이전트는 발견 후보만 기록할 수 있습니다. stopped/paused 체인의 이어서 실행 API는 제공하지 않으며 새 POST 요청으로 재시도합니다.",
+        "description": "실제 실행 상태. completed는 에이전트 작업 완료이며 취약점 확인·해결이 아닙니다. 안전 경계의 명시 재개는 같은 ID를 유지하지만 종료·프로세스 강제 종료를 임의 재실행하지 않습니다.",
         "properties": {
           "id": {
             "type": "string"
@@ -8404,13 +9651,16 @@
               "queued",
               "running",
               "waiting_approval",
+              "paused",
+              "waiting_provider",
+              "waiting_input",
               "stopping",
               "completed",
               "failed",
               "cancelled",
               "inconclusive"
             ],
-            "description": "waiting_approval은 관리자 설정이 켜진 경우의 진단 승인 대기입니다. 추가 입력 요구·작업 임대 만료·시간 초과 등으로 판단할 수 없으면 inconclusive가 됩니다."
+            "description": "waiting_provider는 모델 연결 복구 대기, waiting_input은 추가 입력 대기, waiting_approval은 선택적 팀장 검토입니다."
           },
           "prompt": {
             "type": "string",
@@ -8448,12 +9698,14 @@
           "input_tokens": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "성공한 제공자 응답의 usage 합계. 실패한 시도의 정확한 과금 총량이 아닙니다."
           },
           "output_tokens": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "성공한 제공자 응답의 usage 합계. 실패한 시도의 정확한 과금 총량이 아닙니다."
           },
           "cancel_requested": {
             "type": "boolean"
@@ -8484,10 +9736,13 @@
               "type": "string",
               "enum": [
                 "stop",
-                "retry"
+                "retry",
+                "input",
+                "pause",
+                "resume"
               ]
             },
-            "description": "현재 권한과 상태에 따른 UI 동작. retry는 새 실행 POST 요청을 뜻하며 별도의 retry/resume 경로는 없습니다."
+            "description": "현재 사용자와 상태가 허용하는 UI 동작. retry는 새 실행 생성이며 resume은 기존 체크포인트를 명시 재개합니다."
           },
           "last_event_id": {
             "type": "integer",
@@ -8501,6 +9756,51 @@
               "$ref": "#/components/schemas/AgentLinkedScan"
             },
             "description": "상세 응답에서만 제공되는 연결된 Hunter 진단"
+          },
+          "pause_requested": {
+            "type": "boolean"
+          },
+          "resume_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "이미 저장한 활성 시간. 현재 진행 구간은 종료·일시 중지 시 합산"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "author_id": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 20
+          },
+          "additional_input_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "control_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "사용자 제어 revision. 진행 이벤트와 무관하게 pause/resume/input끼리 충돌을 검사합니다."
           }
         }
       },
@@ -12625,6 +13925,1562 @@
           "ticket"
         ],
         "description": "설정field_map에따라필요필드정규화. 원문응답/비밀로그없음. 현재Bearer+Hunter서명필수."
+      },
+      "AgentPlatformStatus": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "open_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "probe_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "circuit_open_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "last_test_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "exporter_id": {
+            "type": "string"
+          }
+        },
+        "description": "공통 회로 상태. models/observability는 status와 표시용 별칭도 반환합니다. 아직 시도하지 않은 공급자는 목록에 없을 수 있습니다."
+      },
+      "AgentPlatformRevision": {
+        "type": "object",
+        "properties": {
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "updated_at"
+        ]
+      },
+      "AgentSearchProvider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "name": {
+            "type": "string",
+            "description": "1~200 UTF-8 바이트"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "duckduckgo",
+              "google_cse",
+              "tavily",
+              "perplexity",
+              "searxng",
+              "http_json"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "인증정보·query·fragment 없는 HTTP(S) 주소. 입력 한도는 UTF-8 바이트 기준."
+          },
+          "api_key": {
+            "type": "string",
+            "description": "조회는 빈 문자열. PUT 빈 값은 같은 ID의 기존 비밀 유지; clear_api_key는 삭제."
+          },
+          "api_key_configured": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "clear_api_key": {
+            "type": "boolean"
+          },
+          "cx": {
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST"
+            ]
+          },
+          "results_path": {
+            "type": "string"
+          },
+          "title_path": {
+            "type": "string"
+          },
+          "url_path": {
+            "type": "string"
+          },
+          "snippet_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "description": "같은 ID의 종류 변경은 불가. DuckDuckGo는 Instant Answer 요약이며 일반 웹 검색 전체를 제공하지 않습니다."
+      },
+      "AgentSearchConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          },
+          "total_timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120,
+            "default": 20
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 3
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 30
+          },
+          "providers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentSearchProvider"
+            },
+            "maxItems": 8
+          }
+        }
+      },
+      "AgentMemoryProvider": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "인증정보·query·fragment 없는 HTTP(S) 주소. 입력 한도는 UTF-8 바이트 기준."
+          },
+          "model": {
+            "type": "string",
+            "description": "활성 embedding은 필수"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "조회 빈 문자열. PUT 빈 값은 같은 embedding/graphiti 슬롯의 비밀 유지; clear_api_key는 삭제."
+          },
+          "api_key_configured": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "clear_api_key": {
+            "type": "boolean"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10
+          }
+        }
+      },
+      "AgentMemoryConfig": {
+        "type": "object",
+        "properties": {
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 10
+          },
+          "vector_backend": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "database",
+              "pgvector"
+            ],
+            "default": "auto"
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 3
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 30
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/AgentMemoryProvider"
+          },
+          "graphiti": {
+            "$ref": "#/components/schemas/AgentMemoryProvider"
+          }
+        },
+        "description": "외부 연동은 기본 비활성. 같은 DB의 로컬 암호화 메모리는 유지하며 pgvector를 자동 설치하지 않습니다."
+      },
+      "AgentModelProvider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$",
+            "description": "legacy 및 legacy- 접두사는 예약됨"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic",
+              "gemini",
+              "ollama"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "base_url": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "인증정보·query·fragment 없는 HTTP(S) 주소. 입력 한도는 UTF-8 바이트 기준."
+          },
+          "model": {
+            "type": "string"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "조회는 빈 문자열. PUT 빈 값은 같은 ID의 기존 비밀 유지; clear_api_key는 삭제."
+          },
+          "api_key_configured": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "clear_api_key": {
+            "type": "boolean"
+          },
+          "context_window": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 262144,
+            "default": 32768
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 262144,
+            "default": 4096,
+            "description": "context_window 이하여야 함"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 600,
+            "default": 120
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 3
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 30
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "base_url",
+          "model"
+        ]
+      },
+      "AgentModelsConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentModelProvider"
+            },
+            "maxItems": 20
+          },
+          "role_providers": {
+            "type": "object",
+            "properties": {
+              "default": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "primary_agent": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "assistant": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "simple": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "simple_json": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "adviser": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "generator": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "refiner": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "searcher": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "enricher": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "coder": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "installer": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "pentester": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "reflector": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              },
+              "copilot": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "description": "역할 목록 순서 → default 목록 → 우선순위 오름차순. enabled=false일 때만 기존 AI 설정 사용. enabled=true인데 모두 불가하면 typed unavailable이며 legacy로 우회하지 않습니다. 부분 응답은 커밋 전에 버려 모델 답변을 혼합하지 않습니다."
+      },
+      "AgentExecutionServer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "mTLS HTTPS Docker API만 허용"
+          },
+          "ca_pem": {
+            "type": "string",
+            "description": "최대 65,536바이트 CA PEM"
+          },
+          "client_cert_pem": {
+            "type": "string",
+            "description": "최대 65,536바이트 클라이언트 인증서 PEM"
+          },
+          "client_key_pem": {
+            "type": "string",
+            "description": "조회는 빈 값, 빈 PUT은 유지. 최대 65,536바이트"
+          },
+          "client_key_pem_configured": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "clear_client_key_pem": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "network": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$",
+            "description": "Docker 네트워크 ASCII 이름. host·none·기본 bridge 제외. 서비스 망 분류는 service_network로 별도 지정."
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 3600
+          },
+          "service_network": {
+            "type": "string",
+            "description": "서비스·현재 Hunter 워커의 망 분류와 정확 일치. 한글 가능, 1~200 UTF-8 바이트. 새 화면 기본 업무망. 생략·빈값이면 기존 network로 호환 처리. 앞뒤 공백 정리 후 검증하며 제어문자는 금지합니다."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "endpoint",
+          "network"
+        ]
+      },
+      "AgentExecutionProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "http_headers",
+              "tls_certificate",
+              "tcp_connect"
+            ]
+          },
+          "image": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,200}@sha256:[a-f0-9]{64}$"
+          },
+          "server_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "image",
+          "server_ids"
+        ]
+      },
+      "AgentExecutionConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "servers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentExecutionServer"
+            },
+            "maxItems": 10
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentExecutionProfile"
+            },
+            "maxItems": 20
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "default": 1
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120,
+            "default": 30
+          }
+        },
+        "description": "관리자가 지정한 같은 Hunter 이미지의 고정 읽기 프로브. 임의 셸·원본 PentAGI Docker 실행기·자동 이미지 pull을 제공하지 않습니다."
+      },
+      "AgentTelemetryExporter": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "otlp",
+              "langfuse"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "인증정보·query·fragment 없는 HTTP(S) 주소. 입력 한도는 UTF-8 바이트 기준."
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "traces",
+                "metrics",
+                "logs"
+              ]
+            },
+            "maxItems": 3
+          },
+          "api_key": {
+            "type": "string",
+            "description": "조회는 빈 문자열. PUT 빈 값은 같은 ID의 기존 비밀 유지; clear_api_key는 삭제."
+          },
+          "api_key_configured": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "clear_api_key": {
+            "type": "boolean"
+          },
+          "public_key": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "failover_group": {
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 3
+          },
+          "cooldown_seconds": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 3600,
+            "default": 30
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "endpoint"
+        ],
+        "description": "Langfuse는 traces와 public/secret Basic 인증. 같은 대체 그룹은 같은 signals. OTLP는 마스킹한 메타데이터만 전달합니다."
+      },
+      "AgentObservabilityConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "exporters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentTelemetryExporter"
+            },
+            "maxItems": 10
+          },
+          "dashboards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "description": "인증정보·query·fragment 없는 HTTP(S) 주소. 입력 한도는 UTF-8 바이트 기준."
+                }
+              },
+              "required": [
+                "name",
+                "url"
+              ]
+            },
+            "maxItems": 10
+          },
+          "max_attempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          },
+          "retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "default": 7
+          }
+        },
+        "description": "암호화 outbox 최대 10,000개, 추가 기록은 최대 150ms 대기 후 업무 요청을 계속합니다. 관측 결과 중복 가능. 실제 프롬프트·도구 결과·증거를 전송하지 않습니다."
+      },
+      "AgentSearchDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentSearchConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "AgentSearchUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentSearchConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "AgentMemoryDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentMemoryConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "AgentMemoryUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentMemoryConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "AgentModelsDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentModelsConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "AgentModelsUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentModelsConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "AgentExecutionDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentExecutionConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "AgentExecutionUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentExecutionConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "AgentObservabilityDocument": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentObservabilityConfig"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "updated_at"
+        ]
+      },
+      "AgentObservabilityUpdate": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/AgentObservabilityConfig"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "config",
+          "expected_updated_at"
+        ]
+      },
+      "AgentSearchTestInput": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string",
+            "description": "비어 있지 않은 2,000바이트 이내의 마스킹 대상 검색어"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_id",
+          "query",
+          "expected_updated_at"
+        ]
+      },
+      "AgentMemoryTestInput": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "enum": [
+              "embedding",
+              "graphiti",
+              "pgvector"
+            ]
+          },
+          "query": {
+            "type": "string",
+            "description": "선택, 최대 2,000바이트. 생략 시 합성 문구"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_id",
+          "expected_updated_at"
+        ]
+      },
+      "AgentModelsTestInput": {
+        "type": "object",
+        "properties": {
+          "provider_id": {
+            "type": "string"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "provider_id",
+          "expected_updated_at"
+        ]
+      },
+      "AgentExecutionTestInput": {
+        "type": "object",
+        "properties": {
+          "server_id": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "server_id",
+          "expected_updated_at"
+        ]
+      },
+      "AgentObservabilityTestInput": {
+        "type": "object",
+        "properties": {
+          "exporter_id": {
+            "type": "string"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "exporter_id",
+          "expected_updated_at"
+        ]
+      },
+      "AgentSearchTestResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "disabled",
+              "unavailable"
+            ]
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "untrusted": {
+            "type": "boolean"
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "provider_kind": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "snippet": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 10
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider_id": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "elapsed_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "maxItems": 8
+          }
+        }
+      },
+      "AgentMemoryTestResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "provider_id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "details": {
+            "type": "object",
+            "properties": {
+              "dimensions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "check_scope": {
+                "type": "string"
+              },
+              "fallback": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "description": "Graphiti 시험은 합성 그룹 검색 형식 확인이며 쓰기·비동기 인덱싱 완료 시험이 아닙니다."
+      },
+      "AgentModelsTestResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "finish_reason": {
+            "type": "string"
+          }
+        },
+        "description": "저장된 모델에 고정 합성 요청을 전송하며 모델 답변 원문을 반환하지 않습니다."
+      },
+      "AgentExecutionTestResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "server_id": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "code": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "description": "Docker 버전·망·선택 이미지 조회만 수행. 컨테이너 생성이나 진단 대상 요청 없음."
+      },
+      "AgentObservabilityTestResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "failed"
+            ]
+          },
+          "latency_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "signals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "signal": {
+                  "type": "string",
+                  "enum": [
+                    "traces",
+                    "metrics",
+                    "logs"
+                  ]
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 3
+          }
+        },
+        "description": "고정 합성 메타데이터 전송. 수집기 접수를 확인하며 대시보드 색인 완료를 보장하지 않습니다."
+      },
+      "AgentSearchStatus": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentPlatformStatus"
+            }
+          }
+        }
+      },
+      "AgentMemoryStatus": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentPlatformStatus"
+            }
+          },
+          "local_available": {
+            "type": "boolean"
+          },
+          "pgvector_available": {
+            "type": "boolean"
+          },
+          "vector_storage": {
+            "type": "string",
+            "const": "encrypted_local"
+          },
+          "graph_results": {
+            "type": "string",
+            "const": "local_authorized_ids_only"
+          }
+        }
+      },
+      "AgentModelsStatus": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentPlatformStatus"
+            }
+          }
+        }
+      },
+      "AgentExecutionStatus": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentPlatformStatus"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uncertain": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "scan_id": {
+                  "type": "string"
+                },
+                "server_id": {
+                  "type": "string"
+                },
+                "profile_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "maxItems": 20
+          }
+        }
+      },
+      "AgentObservabilityStatus": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AgentPlatformStatus"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "queued": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retry": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "discarded": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sending": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "attempts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "completed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "code": {
+                  "type": "string"
+                }
+              }
+            },
+            "maxItems": 50
+          }
+        }
+      },
+      "AgentControlInput": {
+        "type": "object",
+        "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "조회한 control_updated_at을 전달합니다. 기존 현재 run.updated_at도 호환 허용. 현재 상태·권한은 별도 재검사."
+          },
+          "message": {
+            "type": "string",
+            "description": "input에서만 필수. 1~16,000 UTF-8 바이트, 전체 최대 20건·암호문 총 96,000바이트"
+          }
+        },
+        "required": [
+          "expected_updated_at"
+        ]
+      },
+      "ExecutionProfileChoices": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "network": {
+                  "type": "string",
+                  "description": "Docker network 이름이 아닌 서비스 망 분류입니다."
+                }
+              }
+            },
+            "maxItems": 20
+          }
+        }
+      },
+      "GraphQLRequest": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "1~32,768 UTF-8 바이트"
+          },
+          "variables": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "operationName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "GraphQLResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "extensions": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "인증 보호 단계는 일반 Error 응답일 수 있습니다. resolver 권한 실패는 data:null과 errors이며 일부 자료를 반환하지 않습니다."
       }
     },
     "securitySchemes": {

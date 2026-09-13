@@ -1,0 +1,78 @@
+.platform-tabs > .mantine-Tabs-list {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.platform-tabs .mantine-Tabs-tab {
+  font-size: 16px;
+}
+.platform-priority-row {
+  border: 1px solid #dce8e5;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.platform-test-result {
+  background: #f5faf8;
+  border: 1px solid #dce8e5;
+  border-radius: 12px;
+  padding: 18px;
+  overflow-wrap: anywhere;
+}
+.platform-form-section {
+  border: 1px solid #dce8e5;
+  border-radius: 12px;
+  padding: 18px;
+}
+.platform-form-section h3 {
+  font-size: 17px;
+  margin: 0 0 14px;
+}
+.platform-tabs .hunter-table-viewport table {
+  min-width: 1050px;
+}
+.platform-tabs .hunter-table-viewport td {
+  max-width: 350px;
+  overflow-wrap: anywhere;
+}
+.platform-tabs .hunter-table-viewport td:first-child {
+  min-width: 200px;
+}
+.platform-header-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.platform-helper {
+  color: #586f7a;
+  line-height: 1.8;
+}
+.agent-control-actions:not(:empty) {
+  margin-bottom: 18px;
+}
+@media (max-width: 600px) {
+  .platform-priority-row {
+    align-items: flex-start;
+  }
+  .platform-priority-row > .mantine-Text-root {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .platform-form-section {
+    padding: 14px;
+  }
+  .platform-tabs .list-view-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .platform-tabs .list-view-actions .mantine-Button-root {
+    min-width: 0;
+    padding-inline: 10px;
+    min-height: 42px;
+    height: auto;
+  }
+  .platform-tabs .list-view-actions .mantine-Button-label {
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.45;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "commit": "133ccbee9a8b408eb71f31a36ccb9116f5c695ad",
+  "license": "OFL-1.1",
+  "files": {
+    "NanumGothic-Regular.ttf": {
+      "url": "https://raw.githubusercontent.com/google/fonts/133ccbee9a8b408eb71f31a36ccb9116f5c695ad/ofl/nanumgothic/NanumGothic-Regular.ttf",
+      "sha256": "76f45ef4a6bcff344c837c95a7dcc26e017e38b5846d5ae0cdcb5b86be2e2d31",
+      "bytes": 2054744
+    },
+    "OFL.txt": {
+      "url": "https://raw.githubusercontent.com/google/fonts/133ccbee9a8b408eb71f31a36ccb9116f5c695ad/ofl/nanumgothic/OFL.txt",
+      "sha256": "eeacf16032901d0ed0456876ec77b8f0fda6b3fecec7d972f8543eb602e6c30f",
+      "bytes": 4534
+    }
+  }
+}

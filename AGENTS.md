@@ -2,7 +2,6 @@
 
 이 문서는 저장소 전체에서 작업하는 개발 에이전트와 기여자를 위한 지침입니다.
 사용자의 현재 요청과 이미 합의한 작업 범위를 우선하고, 기존 변경을 보존하며 구현·검증·문서화를 끝까지 수행합니다.
-
 ## 1. 작업 시작과 협업
 
 - 먼저 `git status --short`로 기존 변경을 확인하고 자신의 작업 범위를 정합니다.
@@ -10,7 +9,6 @@
 - `CONTRACT.md`는 초기 구현 기록입니다. 오래된 버전·계획을 최신 코드보다 우선하지 않습니다.
 - 같은 파일의 담당 범위를 조율하고 사용자의 기존 변경·다른 에이전트 작업을 되돌리거나 무관한 형식 변경을 섞지 않습니다.
 - 실제 수행하지 않은 테스트·배포·진단 결과를 완료로 보고하지 않습니다.
-
 ## 2. 저장소 구조
 
 | 경로 | 역할 |
@@ -25,13 +23,16 @@
 | `internal/app/sbom.go`, `operations.go` | SBOM 구성·비교·영향 범위와 관리자 운영 점검 |
 | `internal/app/agents.go` | 에이전트 실행 API, 조회·생성·중지·SSE |
 | `internal/app/agents_runner.go` | 원본 코어와 Hunter 실행 수명·한도 연결 |
-| `internal/app/agents_llm.go` | 스트리밍 모델 호출과 도구 호출 조각 조립 |
-| `internal/app/agents_tools.go` | 일곱 Hunter 도구의 권한·범위·저장 처리 |
+| `internal/app/agents_llm.go`, `agent_models*.go` | 네이티브 모델·대체 연결·응답 커밋과 도구 조각 조립 |
+| `internal/app/agent_search*.go`, `agent_memory*.go`, `agent_telemetry*.go` | 선택 검색·로컬 원본 메모리·암호화 관측 큐 |
+| `internal/app/agent_execution*.go`, `agents_control.go` | 고정 mTLS 격리 프로브·체크포인트 제어·입력·도구 영수증 |
+| `internal/app/graphql*.go`, `agent_reports*.go`, `report_assets` | 현재 권한의 조회 GraphQL·오프라인 한글 보고서·폰트 고지 |
+| `internal/app/agents_tools.go` | 여덟 Hunter 도구의 권한·범위·저장 처리 |
 | `internal/app/agents_redaction.go` | 모델·이벤트의 비밀정보 마스킹 |
 | `internal/pentagicore` | 원본 코어 어댑터, 모델·도구 연결, 호환 SQL 저장소 |
 | `third_party/pentagi` | 고정 원본 코어, 라이선스, 출처·파일 해시 |
 | `web/src` | React·TypeScript·Mantine 화면과 한국어 문구 |
-| `web/src/agents.tsx` | 에이전트 목록·상세 다섯 탭 |
+| `web/src/agents.tsx`, `agent-controls.tsx`, `agent-platform*.tsx` | 에이전트 목록·상세·명시 재개·추가 입력·관리자 선택 연동 |
 | `web/src/triage.tsx`, `software.tsx`, `campaigns.tsx`, `operations.tsx` | 조치·SBOM·캠페인·운영과 현재 권한 적용 |
 | `web/src/workflow-navigation.ts`, `resource-form-state.ts`, `finding-bulk*.tsx`, `list-export.ts` | 탭별 조건·초안 복사·편집 기준·일괄 변경·CSV와 주소 복사 |
 | `web/src/agent-events.ts`, `use-agent-run.ts` | SSE 이벤트 병합·재연결 |
@@ -46,7 +47,6 @@
 | `docs` | GitHub Pages, 화면 캡처, 사용자·관리자 가이드 |
 | `scripts` | 릴리즈·문서 생성·원본 검증·라이선스 수집 |
 | `.github/workflows` | CI, 단일 이미지 릴리즈, GitHub Pages 배포 |
-
 ## 3. 유지해야 하는 배포 조건
 
 - 서비스 이름은 `hunter`이며 Go 서버가 8080 포트에서 API와 React 자산을 제공합니다.
@@ -64,7 +64,6 @@
 - Docker 소켓, 호스트 셸, 원본 PentAGI 실행 이미지나 외부 검색을 자동 활성화하지 않습니다.
 - 망별 워커는 같은 이미지의 `--worker-only --worker-id <워커ID>`와 같은 네 환경변수를 사용합니다.
 - 워커의 활성화와 서비스 망의 정확한 일치는 관리자 설정으로 통제합니다.
-
 ## 4. 인증·권한과 데이터 경계
 
 - 관리자·개인화 기능을 분리하고 개인 키는 명시적 키 권한과 현재 역할 권한의 교집합을 적용합니다.
@@ -80,7 +79,6 @@
 - 일괄 변경은 최대 100개·현재 역할/키/부모 권한·각 updated_at을 검사하고 한 항목 충돌도 전체 롤백합니다.
 - 일반 자원 수정은 원래 조회한 expected_updated_at을 전달하고 409에서 입력을 유지합니다. 설정·워커에 같은 계약을 가정하지 않습니다.
 - 조치함·SBOM·캠페인 집계에서 기존 잘린 일반 목록을 전체 데이터로 합산하지 않습니다.
-
 ## 5. PentAGI 원본 보존
 
 - 기준 커밋은 `ea665308baaff015b226f308438a68d929d0f29b`입니다.
@@ -89,12 +87,11 @@
 - bridge 경로는 `third_party/pentagi/backend/pkg/providers/hunter_bridge.go`입니다.
 - `replace pentagi => ./third_party/pentagi/backend`의 로컬 모듈 연결을 유지합니다.
 - 원본 계획·위임·수행·재시도·성찰·요약 경로를 모조 실행기로 바꾸고 통합 완료라고 설명하지 않습니다.
-- 원본 Docker·Graphiti·벡터 확장·클라우드·텔레메트리 초기화는 Hunter 기본 실행 경로에 넣지 않습니다.
+- 원본 Docker·Graphiti·벡터 확장·클라우드·텔레메트리 스택은 자동 초기화하지 않습니다. 관리자가 켠 Hunter 선택 어댑터는 별도 경로이며 원본 312파일을 변경하지 않습니다.
 - 코어 호환 스키마의 대화 기록에는 별도 필드 암호화가 없습니다. 일반 UI에 노출하지 않습니다.
 - 사용자 화면 이벤트·메모리·발견 증거의 암호화와 코어 DB·백업의 접근 통제를 구분합니다.
 - 원본 업데이트가 작업 범위에 포함되면 출처·파일 해시·라이선스·어댑터 호환성을 함께 갱신합니다.
 - 변경 전후 `node scripts/verify-pentagi.mjs`로 원본 해시를 검사합니다.
-
 ## 6. AI와 실제 실행 통제
 
 - AI API는 스트리밍을 기본으로 하고 UTF-8·SSE 경계에서 나뉜 응답과 도구 인자를 복원합니다.
@@ -102,11 +99,18 @@
 - 입력 바이트 기반 예산 검사를 정확한 모델 토큰 계산으로 설명하지 않습니다.
 - 에이전트는 기본 비활성화이며 진단 요청 도구도 별도 허용이 필요합니다.
 - 실제 행위는 `service_context`, `list_findings`, `request_scan`, `scan_result`에 한정된 조회·진단과,
-  `record_candidate`, `remember`, `recall`의 후보·메모리 기능으로 연결합니다.
-- 역할별 반복 24회와 실행 전체 모델 호출 60회·Hunter 도구 호출 40회·시간 15분 한도를 구분합니다.
+  `record_candidate`, `remember`, `recall`과 비신뢰 참고 자료를 반환하는 `search_reference`로 연결합니다.
+- 원본 역할 체인 호출별 반복 24회와 실행 전체 모델 호출 60회·Hunter 도구 호출 40회·활성 시간 15분 한도를 구분합니다. 명시 재개 시 반복 한도는 새 체인 호출에 적용하고 전체 호출·활성 시간은 누적합니다.
 - 원본 역할 위임은 Hunter 도구 수에 포함하지 않습니다. SSE 끊김은 서버 취소가 아니며 ID 기반 재연결·중복 제거를 유지합니다.
 - 중지는 실제 상태 전환과 연결 진단을 처리하고, 다시 시도는 같은 목표의 새 실행을 만듭니다.
-- 기존 실행 ID 재실행이나 비공개 대화 이력 재개를 지원한다고 표시하지 않습니다.
+- 일시 중지·모델 연결 대기·입력 대기에는 같은 ID의 체크포인트를 명시 재개합니다. 종료·프로세스 강제 종료를 자동 재실행하지 않으며 같은 도구 ID와 인자 해시의 영수증을 재사용합니다.
+- 제어 요청 expected_updated_at에는 control_updated_at을 전달합니다. 원래 실행 주체의 현재 키·역할·서비스·범위·정책과 누적 한도를 재검사합니다.
+- 선택 검색·임베딩·Graphiti·모델 플랫폼·격리 실행·관측성은 기본 꺼짐입니다. 모두 실패해도 일반 업무를 중단하지 않으며 모델만 없으면 재개 가능한 대기로 처리합니다.
+- 모델 부분 답변은 성공 커밋 전에 폐기합니다. 실패 제공자의 텍스트·도구를 다른 제공자와 합치지 않고 UTF-8 마스킹·8192바이트 SSE 경계를 유지합니다.
+- 검색·그래프 결과는 실행 지시가 아닙니다. 원격 그래프 원문 대신 현재 권한·로컬 ID/해시가 확인된 기억만 반환합니다.
+- 격리 진단은 profile=isolated와 execution_profile_id로 같은 Hunter 이미지의 고정 프로브만 실행합니다. mTLS·고정 digest·정확한 망·현재 정책, 생성 이후 불명 작업 중복 금지를 유지합니다.
+- 관측에는 마스킹한 수치·안전한 식별자만 비동기 전송합니다. 프롬프트·도구 인자·결과·증거는 관측 payload에 넣지 않습니다.
+- GraphQL은 인증된 query만, 깊이8·필드500·복잡도10000·100행 페이지 한도를 유지합니다. 보고서는 현재 상태와 잘림 한도·오프라인 한글 폰트를 포함합니다.
 - 모델 완료·진단 실패·결과에서 사라짐을 발견 건의 자동 확인·해결 조건으로 사용하지 않습니다.
 - 네트워크 진단에는 승인 서비스·유효 범위·현재 정책이 항상 필요합니다.
 - 팀장 검토·승인·반려는 관리자 설정이 켜졌을 때만 적용하며 대상 범위 승인과 구분합니다.
@@ -124,7 +128,6 @@
 - 실행 스냅샷을 덮어쓰지 않으며 외부 수입·실패·조건 변경·이전 실행을 비교해 자동 해결하지 않습니다.
 - KEV·EPSS·SBOM은 한도를 검증해 반입하고 EPSS null과 0, 라이선스 검토와 적합성 확정을 구분합니다.
 - 구조형 evidence는 거부하며 과거 자료 복구는 키 검사 후 서버 시작 전에 완료합니다. 잠긴 미복구 행을 무시하지 않습니다.
-
 ## 7. 개발과 회귀 검증
 
 Go 1.26.5 이상과 Node.js 26을 사용하고 잠금 파일로 의존성을 설치합니다.
@@ -155,7 +158,6 @@ HUNTER_TEST_DSN='postgres://<TEST_USER>:<TEST_PASSWORD>@<TEST_HOST>:5432/<TEST_D
 `HUNTER_TEST_DSN`은 테스트 전용이며 다섯 번째 서비스 런타임 설정이 아닙니다.
 기존 테스트의 격리 스키마 도우미를 사용하고 공유 DB의 `public` 스키마나 운영 자료를 삭제하지 않습니다.
 관련 테스트 통과 뒤에는 새 변경이나 미해결 실패가 없는 한 같은 검사를 반복하지 않습니다.
-
 ## 8. 원본·라이선스와 이미지 검사
 
 출력 디렉터리는 새 빈 디렉터리를 사용합니다. 이전 결과와 섞거나 누락을 무시하지 않습니다.
@@ -170,11 +172,11 @@ python3 -m py_compile scripts/release-notes.py
 
 - Go·코어·폰트 출처는 이미지의 `/usr/share/licenses/hunter/dependencies.json`에 보존합니다.
 - npm 출처는 `/usr/share/licenses/hunter/npm/manifest.json`과 `npm/components/`에 보존합니다.
+- 보고서 NanumGothic TTF·OFL 출처 해시도 고정하고 외부 PDF 실행 파일 없이 Go에서 생성합니다.
 - 고지 누락 시 수집을 실패시키며 라이선스 원문이나 저작권자를 임의로 작성하지 않습니다.
 - 보충 근거는 고정 출처·해시와 구분 설명을 함께 기록합니다.
 - 이미지 검증은 외부 통신이 차단된 망, 일반 PostgreSQL, 필요한 사내 모의 AI로 수행합니다.
 - 네 환경변수·비특권·읽기 전용·소켓 미노출 조건에서 시작·실제 경로·재시작 후 보존을 확인합니다.
-
 ## 9. 화면과 문서
 
 - 메뉴·버튼·오류는 한국어와 Mantine 체계를 따릅니다. 새로고침 메뉴·탭과 로그인·프로필 버전을 확인합니다.
@@ -198,7 +200,6 @@ git diff --check
 
 가이드 Markdown 변경 후 HTML·PDF를 재생성합니다. 문서 링크·이미지·한글 PDF·모바일·홍보 버전·FAQ·JSON-LD를 확인합니다.
 검증 기록은 수행한 환경과 한계를 명시하며 현재 제공 기능과 후속 확장을 구분합니다.
-
 ## 10. 버전·커밋·배포 완료 기준
 
 - `VERSION`, 웹·문서 패키지 버전, 가이드·홍보·배포 예시를 함께 맞춥니다.

@@ -10,16 +10,16 @@
 - [릴리즈](https://github.com/hkjang/hunter/releases)
 
 ## 핵심 사실
-- 프로젝트명 hunter, 버전 1.7.0.
-- 배포 이미지 hunter:v1.7.0, 서비스 이미지 압축 파일 hunter-v1.7.0.tar.gz.
+- 프로젝트명 hunter, 버전 1.8.0.
+- 배포 이미지 hunter:v1.8.0, 서비스 이미지 압축 파일 hunter-v1.8.0.tar.gz.
 - PostgreSQL은 별도 사내 서비스.
 - 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
 - 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
 - 팀장 승인은 선택. 네트워크 진단 대상의 명시적 승인과 유효 범위는 항상 필요.
 - 외부 진단 엔진은 번들하지 않으며 승인된 외부 실행 결과를 수입.
-- AI 분석은 스트리밍. 에이전트 진단은 관리자가 활성화한 경우 일곱 Hunter 도구 범위에서 실행.
+- AI 분석은 스트리밍. 에이전트 진단은 관리자가 활성화한 경우 여덟 Hunter 도구 범위에서 실행.
 - 에이전트 기본 비활성화, 진단 요청 별도 허용, 기존 권한·대상·범위 통제 적용.
-- PentAGI MIT 코어를 사용하며 원본 Docker 실행기·클라우드 검색·원격 텔레메트리를 초기화하지 않음.
+- PentAGI MIT 코어를 사용하며 원본 Docker 실행기·클라우드 검색·원격 스택을 자동 초기화하지 않음. v1.8 선택 Hunter 어댑터와 구분.
 - 목록 검색·필터·열 정렬·페이지 상태를 URL에 보존. 현재 조회 자료 범위 안에서 탐색.
 - Ctrl+K 빠른 이동, 한글·영어 별칭·초성 메뉴 검색, 브라우저의 사용자별 즐겨찾기·최근 방문.
 - 목록 상단의 결과·조회 수, 검색·필터 조건별 해제, 사용자·메뉴별 저장 보기 최대 8개. 같은 브라우저에 보관하며 적용 시 1페이지.
@@ -74,3 +74,14 @@
 - 보존기본off90일(1~3650일). 적격종결건만본문/수신정보/시도상세/종결receipt접수ID파기. 진행/불명/미확인/보존고정/미정receipt/활성fallback제외. 중복ID/hash/연결유지. 백업소급파기없음.
 - 모든자동화는동일PostgreSQL·4env·단일이미지의제어서버에서실행. 외부실계정/단말전달검증과 로컬모의검증을구분.
 - [공식자료와적용범위](https://hkjang.github.io/hunter/research-automation.md)
+
+## v1.8 선택 에이전트 연동·제어·조회
+- 관리자 /admin/agent-platform: 검색6종·임베딩/Graphiti·모델4종·mTLS 고정 실행·OTLP/Langfuse. 선택 연동 기본off, 추가 필수 env/스택 없음.
+- OpenAI-compatible/Anthropic/Gemini/Ollama native stream 지원. 실패 조각은 커밋 전에 폐기. 순차 대체, 모두 불가하면 에이전트 waiting_provider와 명시 재개.
+- search_reference는 비신뢰 참고 데이터. 로컬 암호화 메모리를 원본으로 유지하고 원격 graph 문장 대신 현재 허용 로컬 ID/hash의 기억만 반환. pgvector 자동 설치 없음.
+- 같은 실행 일시 중지·추가 입력·체크포인트 명시 재개. 모델/도구/활성 시간 누적, 역할 체인 반복은 호출별. 원래 키/서비스/범위/정책 재검사. 종료·프로세스 강제 종료 자동재실행 없음.
+- 격리 실행은 같은 Hunter digest 이미지의 HEAD·TLS 인증서·TCP 연결 고정프로브. 임의 셸·공격도구 번들·자동 pull 없음. 생성 이후 결과 불명은 중복 실행 금지.
+- GraphQL /api/graphql query 전용, 인증된 introspection, 현재resolver권한, 100행·깊이8·복잡도10000. SDL /api/graphql/schema.
+- 실행별 /api/agent-runs/{id}/report?format=md|html|pdf는 중간·실패 상태도 사실대로 마스킹·내보내기, 내장한국어폰트/외부렌더없음.
+- 관측은 마스킹된 메타데이터만 암호화 outbox 비동기전송. full logs/prompts/evidence·벤더스택 번들 아님. 수집 실패로 업무 응답 중단 없음.
+- [공식 규격과 실제 적용](https://hkjang.github.io/hunter/research-agent-platform.md)
