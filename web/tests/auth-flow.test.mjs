@@ -83,7 +83,7 @@ test("SSO preserves internal deep-link query and hash without accepting external
     "/dashboard",
   );
 });
-test("a tab-level attempt guard survives a callback and tolerates blocked storage", () => {
+test("a tab-level attempt guard survives a callback and fails closed on blocked storage", () => {
   const values = new Map();
   globalThis.sessionStorage = {
     getItem: (key) => values.get(key),
@@ -108,9 +108,17 @@ test("a tab-level attempt guard survives a callback and tolerates blocked storag
     },
   };
   assert.doesNotThrow(() => suppressAutomaticLogin());
-  assert.equal(automaticLoginSuppressed(), false);
-  clearAutomaticLoginSuppression();
+  // Unreadable storage counts as "already attempted": treating it as a fresh
+  // tab would send prompt=none on every load and bounce the browser in a loop.
+  assert.equal(automaticLoginSuppressed(), true);
+  assert.equal(
+    shouldAutomaticallyLogin(401, enabled, "", automaticLoginSuppressed()),
+    false,
+  );
+  assert.doesNotThrow(() => clearAutomaticLoginSuppression());
   delete globalThis.sessionStorage;
+  // No storage object at all is likewise not a reason to start an attempt.
+  assert.equal(automaticLoginSuppressed(), true);
 });
 test("OIDC errors become fixed Korean recovery guidance rather than reflected query text", () => {
   assert.match(oidcLoginMessage("?error=oidc_login_required"), /추가 인증/);

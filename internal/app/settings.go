@@ -17,7 +17,7 @@ var allScopes = []string{"services:read", "services:write", "findings:read", "fi
 func defaultSettings() map[string]map[string]any {
 	out := map[string]map[string]any{
 		"general":  {"service_name": "hunter", "public_url": "http://localhost:8080"},
-		"oidc":     {"enabled": false, "auto_login": true, "issuer": "", "client_id": "", "client_secret": "", "default_role": "viewer"},
+		"oidc":     {"enabled": false, "auto_login": false, "issuer": "", "client_id": "", "client_secret": "", "default_role": "viewer"},
 		"ai":       {"enabled": false, "base_url": "", "api_key": "", "model": "", "max_tokens": 8192, "context_window": 262144},
 		"agents":   {"enabled": false, "max_iterations": 24, "max_model_calls": 60, "max_tool_calls": 40, "timeout_minutes": 15, "allow_diagnosis": false, "allow_candidates": true, "memory_enabled": true},
 		"workflow": {"approval_enabled": false},

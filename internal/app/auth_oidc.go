@@ -36,12 +36,10 @@ type oidcSuppression struct {
 	Until  int64  `json:"until"`
 }
 
+// Silent prompt=none attempts are an explicit administrator opt-in: a missing or
+// non-boolean auto_login means off, so a default installation never redirects.
 func oidcAutoEnabled(s map[string]any) bool {
-	if !asBool(s["enabled"]) {
-		return false
-	}
-	value, exists := s["auto_login"]
-	return !exists || asBool(value)
+	return asBool(s["enabled"]) && asBool(s["auto_login"])
 }
 
 // Internal app URLs only. Encoded slash/backslash and dot traversal variants are

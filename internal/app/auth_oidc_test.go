@@ -410,3 +410,54 @@ func TestOIDCExactTrailingSlashIssuer(t *testing.T) {
 		t.Fatal("issuer without the required slash was accepted")
 	}
 }
+
+// auto_login is an administrator opt-in. A default installation, an OIDC record
+// saved without the key, or a crafted ?mode=auto URL must never send prompt=none.
+func TestOIDCAutomaticLoginIsOptInByDefault(t *testing.T) {
+	for _, s := range []map[string]any{{"enabled": true}, {"enabled": true, "auto_login": "true"}, {"enabled": true, "auto_login": nil}, {"enabled": false, "auto_login": true}} {
+		if oidcAutoEnabled(s) {
+			t.Errorf("auto login enabled for %v", s)
+		}
+	}
+	if !oidcAutoEnabled(map[string]any{"enabled": true, "auto_login": true}) {
+		t.Fatal("explicit auto login ignored")
+	}
+	if defaultSettings()["oidc"]["auto_login"] != false {
+		t.Fatal("auto_login default is not off")
+	}
+	_, s := testApp(t)
+	admin := loginTest(t, s, "admin", "test-password-1234")
+	p := newAutomaticOIDCTestProvider(t)
+	mustRequest(t, s, "PUT", "/api/settings/general", map[string]any{"public_url": s.URL}, admin, 200)
+	mustRequest(t, s, "PUT", "/api/settings/oidc", map[string]any{"enabled": true, "issuer": p.server.URL + p.issuerPath, "client_id": "hunter-client", "client_secret": "synthetic-client-secret", "default_role": "viewer"}, admin, 200)
+	c := automaticOIDCClient(t)
+	automaticOIDCExistingIDP(c, p)
+	config := automaticOIDCConfig(t, c, s)
+	if config["oidc_enabled"] != true || config["oidc_auto_login"] != false || config["oidc_auto_login_allowed"] != false {
+		t.Fatalf("default config advertises automatic login: %v", config)
+	}
+	calls := p.discoveries.Load()
+	start := automaticOIDCGet(t, c, s.URL+"/api/auth/oidc/login?mode=auto&return_to=%2Fservices%3Fpage%3D2")
+	location, _ := url.Parse(start.Header.Get("Location"))
+	if start.StatusCode != 303 || location.Path != "/login" || location.Query().Get("sso") != "skip" || location.Query().Get("return_to") != "/services?page=2" || location.Query().Get("error") != "" {
+		t.Fatalf("unrequested silent attempt was not turned into an ordinary login: %s", start.Header.Get("Location"))
+	}
+	if p.discoveries.Load() != calls || p.authorizations.Load() != 0 || automaticOIDCSession(c, s) != "" {
+		t.Fatal("auto_login off still contacted the IdP")
+	}
+	manual := automaticOIDCGet(t, c, s.URL+"/api/auth/oidc/login?mode=interactive")
+	manualURL, _ := url.Parse(manual.Header.Get("Location"))
+	if manual.StatusCode != 302 || manualURL.Query().Get("prompt") != "" || manualURL.Query().Get("state") == "" {
+		t.Fatal("explicit SSO unavailable while auto_login is off")
+	}
+	mustRequest(t, s, "PUT", "/api/settings/oidc", map[string]any{"auto_login": true}, admin, 200)
+	fresh := automaticOIDCClient(t)
+	if automaticOIDCConfig(t, fresh, s)["oidc_auto_login_allowed"] != true {
+		t.Fatal("enabling auto_login did not advertise automatic login")
+	}
+	enabled := automaticOIDCGet(t, fresh, s.URL+"/api/auth/oidc/login?mode=auto")
+	enabledURL, _ := url.Parse(enabled.Header.Get("Location"))
+	if enabled.StatusCode != 302 || enabledURL.Query().Get("prompt") != "none" {
+		t.Fatal("explicit auto_login did not start a silent attempt")
+	}
+}

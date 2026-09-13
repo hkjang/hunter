@@ -46,7 +46,9 @@ export function automaticLoginSuppressed(now = Date.now()): boolean {
       until <= now + 24 * 60 * 60 * 1000
     );
   } catch {
-    return false;
+    // Private modes and blocked site data throw here. Reading that as "not yet
+    // attempted" would restart prompt=none on every load, so fail closed.
+    return true;
   }
 }
 
