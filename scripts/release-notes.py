@@ -17,7 +17,22 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 9, 0):
+if version >= (1, 10, 0):
+    features = """### 자동 SSO 진입의 명시적 사용 설정과 저장소 차단 시 억제
+
+- **자동 진입 기본 꺼짐**: OIDC `auto_login`의 기본값이 꺼짐입니다. 설정 키가 없거나 불리언이 아니면 꺼진 것으로 취급해 기본 설치에서는 prompt=none 요청을 보내지 않습니다. 서버 기본 설정·관리자 설정 화면·OpenAPI 계약이 같은 기본값을 사용합니다.
+- **평범한 로그인 복귀**: 자동 진입이 꺼진 상태의 `?mode=auto` 요청은 IdP에 접속하지 않고 로그인 화면으로 돌아갑니다. 관리자가 켜면 기존과 같이 prompt=none으로 사내 인증 세션을 확인합니다.
+- **저장소 차단 시 재시도 억제**: sessionStorage를 읽을 수 없으면 브라우저는 자동 시도를 이미 한 것으로 간주해 사생활 보호 모드에서 리디렉션을 반복하지 않습니다.
+- **기존 보호 유지**: state·nonce·PKCE·서명 토큰·현재 역할 검사, 자동 시도10분·명시 로그아웃24시간 억제, `/login?local=1` 복구와 `return_to` 검증은 v1.9.0과 같습니다. 관리자 격리 방문 추적은 변경이 없습니다.
+
+v1.9.0에서 자동 진입을 사용하던 조직은 업그레이드 후 **관리자 → 서비스 설정 → OIDC**에서 자동 진입을 다시 켜야 합니다. 기존 설정에 `auto_login: true`가 저장되어 있으면 그대로 유지됩니다. 실제 운영 ReSSO 계정 연동 검증은 미수행이며 사내 환경에서 OIDC Discovery·Code·PKCE·prompt=none 지원을 확인해야 합니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[SSO 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 로그인·복구 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [공식 근거와 적용 범위](https://github.com/hkjang/hunter/blob/main/docs/research-sso-tracking.md) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.10.0.md)
+
+"""
+elif version >= (1, 9, 0):
     features = """### 기존 SSO 세션 자동 진입과 관리자 방문 추적
 
 - **로그인 화면을 거치지 않는 업무 복귀**: 유효한 Hunter 세션은 바로 내부 목적지로 이동하고, OIDC 자동 진입을 켜면 prompt=none으로 사내 인증 세션을 확인합니다. 원래 메뉴·검색 조건·해시를 안전한 내부 주소로 보존합니다.

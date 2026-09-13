@@ -1,5 +1,19 @@
 # Hunter 검증 기록
 
+## v1.10.0 자동 SSO 진입의 명시적 사용 설정
+
+2026년 9월 14일, OIDC `auto_login`을 기본 꺼짐·명시적 사용 설정으로 바꾸고 브라우저 저장소를 읽을 수 없을 때 자동 시도를 억제하도록 보완했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -timeout 35m ./...`로 `internal/app` 596.224초·`internal/pentagicore` 1.783초 통과. 실패·race 보고0개. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| OIDC 기본값 | `TestOIDCAutomaticLoginIsOptInByDefault`: 설정 키 없음·비불리언·`?mode=auto` 요청이 IdP 접속 없이 로그인 화면으로 복귀, 켜면 prompt=none 시작 |
+| 프런트엔드 | `npm test` 86개 통과(차단된 sessionStorage·저장소 없음 → 자동 시도 억제 포함). `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF·화면87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | `docker build --build-arg VERSION=1.10.0`로 서비스 이미지 빌드 통과. 오프라인 반입·브라우저 묶음 시험은 v1.9.0 후보 결과를 대체하지 않으며 이번 릴리즈에서 재실행하지 않았습니다 |
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.10.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.10.0)에 실제 완료 후 기록합니다.
+
 ## v1.9.0 기존 SSO 세션과 격리 방문 추적
 
 2026년 9월 13일, 기존 OIDC 세션 자동 확인과 관리자 공개 코드의 격리 방문 추적을 추가했습니다. [ReSSO 공식 소스의 OIDC 계약과 브라우저 표준](research-sso-tracking.md)을 대조했으며 실제 운영 ReSSO 계정 검증과는 구분합니다. 변경 없는 이전 기능의 v1.8 검증 기록과 화면을 보존합니다.

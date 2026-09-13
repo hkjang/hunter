@@ -46,6 +46,8 @@ UI는 Mantine을 사용합니다. 접근 가능한 폼·대화상자·표·메�
 
 v1.9.0은 **기존 SSO 세션 자동 확인**과 관리자 **방문 추적**을 추가합니다. OIDC 자동 진입을 켜면 인증 서버의 세션을 확인해 원래 업무 화면으로 이동하고, 인증이 필요하면 로컬·명시적 SSO 로그인으로 복귀합니다. 방문 추적은 기본 꺼짐이며 관리자 코드와 허용 원점을 저장해 별도 sandbox에서 고정 페이지 경로·제목만 전달합니다. 추적 오류는 일반 업무와 분리합니다. [설정·호환 조건](docs/research-sso-tracking.md)을 참고하세요.
 
+v1.10.0은 자동 진입을 **관리자가 명시적으로 켠 경우에만** 동작하도록 기본값을 꺼짐으로 바꾸고, 브라우저 저장소를 읽을 수 없으면 자동 시도를 반복하지 않습니다. 기존 설정에 저장한 값은 유지됩니다. [릴리즈 노트](docs/release-v1.10.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -53,7 +55,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.9.0.tar.gz
+docker load -i hunter-v1.10.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -171,13 +173,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.9.0 예시 |
+| 항목 | 형식 | v1.10.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.9.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.9.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.10.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.10.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.9.0
+bash scripts/release.sh 1.10.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.
