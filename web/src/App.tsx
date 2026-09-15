@@ -217,7 +217,7 @@ export default function App() {
     [ready, setReady] = useState(false),
     [authStatus, setAuthStatus] = useState(0),
     [authConfig, setAuthConfig] = useState<LoginConfiguration>({}),
-    [config, setConfig] = useState<Row>({ version: "1.10.0" });
+    [config, setConfig] = useState<Row>({ version: "1.11.0" });
   const refreshConfig = useCallback(async () => {
     const [publicResult, loginResult] = await Promise.allSettled([
       api<Row>("/api/settings/public"),
@@ -518,7 +518,7 @@ function Login({ authConfig }: { authConfig: LoginConfiguration }) {
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} hunter</span>
           <span>
-            서비스 버전 <b>v{authConfig.version || "1.10.0"}</b>
+            서비스 버전 <b>v{authConfig.version || "1.11.0"}</b>
           </span>
         </footer>
       </section>
@@ -755,7 +755,7 @@ function Shell() {
         <div className="sidebar-bottom">
           <div className="sidebar-status">
             <span className="status-led" />
-            오프라인 운영 준비<span>v{config.version || "1.10.0"}</span>
+            오프라인 운영 준비<span>v{config.version || "1.11.0"}</span>
           </div>
           <Menu width={255} position="top-start" shadow="md" offset={12}>
             <Menu.Target>
@@ -800,7 +800,7 @@ function Shell() {
               </Menu.Item>
               <Menu.Divider />
               <Menu.Label>
-                hunter · 서비스 버전 v{config.version || "1.10.0"}
+                hunter · 서비스 버전 v{config.version || "1.11.0"}
               </Menu.Label>
               <Menu.Item
                 color="red"

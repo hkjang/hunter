@@ -17,7 +17,23 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 10, 0):
+if version >= (1, 11, 0):
+    features = """### 실행 보고서 다른 서비스로 보내기와 추적 프레임 CSP 차단 출처 허용
+
+- **다른 서비스로 보내기**: 실행 상세의 실행 보고서 메뉴에서 관리자가 허용한 사내 서비스 이름을 고르면 파일을 내려받지 않고 새 창에서 그 서비스가 Markdown 보고서를 직접 받아 갑니다. 사내 문서 넘기기 표준(HANDOFF-STANDARD)의 보내는 쪽 `markdown` 규격을 따르며 받는 쪽은 만들지 않았습니다.
+- **5분·1회용 표**: `POST /api/v1/handoff/claims`는 지금 이 실행을 읽을 수 있는 사용자에게만 256비트 난수 표를 발급하고(다운로드와 같은 권한 검사, 읽을 수 없는 실행·미설정 404), `GET /api/v1/handoff/claims/{claim}`은 로그인 없이 `text/markdown` 첨부로 한 번만 내주며 사용됨·만료·미발급을 구별 없이 404로 답합니다. 본문은 암호화 저장하고 표는 SHA-256 다이제스트만 남기며 감사 기록에는 실행 ID·바이트 수만 적습니다.
+- **허용 목록 기본 비어 있음**: 서비스 설정의 **다른 서비스로 보내기** 탭(`handoff.targets`)에서 이름·오리진·받는 형식을 최대 20개 관리합니다. 목록이 비어 있으면 메뉴 항목이 없고 발급도 404로 거절하므로 새 설치는 달라지지 않습니다. markdown 을 받지 않는 서비스는 메뉴에 오르지 않습니다.
+- **보안 정책에서 차단된 출처**: 방문 추적 격리 프레임의 CSP 차단(securitypolicyviolation) 출처·지시어를 로그인된 부모 화면이 서버에 대신 신고하고, 관리자는 방문 추적 설정의 새 패널에서 조회·지우기·허용 원점에 추가한 뒤 저장합니다. 인스턴스 메모리 100개 고리 버퍼에 원점·지시어만 보관하고 경로·쿼리·inline·eval·data:·blob: 은 기록하지 않으며 앱 자체 CSP는 완화하지 않습니다.
+- **기존 보호 유지**: OIDC 자동 진입 기본 꺼짐, state·nonce·PKCE·서명 토큰·현재 역할 검사, 방문 추적의 격리 미리보기와 revision 충돌 보호는 v1.10.0과 같습니다.
+
+실제 사내 받는 서비스와의 왕복은 route 스텁으로만 확인했으며 조직에서 `origin/handoff?source=…&claim=…` 진입 화면을 준비해야 합니다. 차단 출처 버퍼는 서버 재시작 시 사라지고 추적이 꺼진 동안 비관리자 신고는 거절합니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[보내기 허용 목록·추적 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 보고서 보내기 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.11.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 10, 0):
     features = """### 자동 SSO 진입의 명시적 사용 설정과 저장소 차단 시 억제
 
 - **자동 진입 기본 꺼짐**: OIDC `auto_login`의 기본값이 꺼짐입니다. 설정 키가 없거나 불리언이 아니면 꺼진 것으로 취급해 기본 설치에서는 prompt=none 요청을 보내지 않습니다. 서버 기본 설정·관리자 설정 화면·OpenAPI 계약이 같은 기본값을 사용합니다.

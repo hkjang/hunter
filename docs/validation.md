@@ -1,5 +1,20 @@
 # Hunter 검증 기록
 
+## v1.11.0 실행 보고서 다른 서비스로 보내기와 추적 프레임 CSP 차단 출처
+
+2026년 9월 15일, 에이전트 실행 보고서를 관리자 허용 목록의 사내 서비스로 넘기는 5분·1회용 markdown 표(HANDOFF 표준 보내는 쪽)와 방문 추적 격리 프레임의 CSP 차단 출처 신고·허용 패널을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -timeout 35m ./...`로 `internal/app` 580.289초·`internal/pentagicore` 1.737초 통과. 실패·race 보고0개. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 다른 서비스로 보내기 | `handoff_test.go`: 설정 검증 10가지 거절·정규화, 파일명·RFC 5987·로그 마스킹, 통합 테스트(허용 목록 비어 있음 404·형식 표 필터·CSRF·남의 실행 404·표 1회·만료 404·감사에 표 없음·만료 행 정리·열람자 403) 통과 |
+| 차단 출처 신고 | `tracking_violations_test.go`: 신고 정규화(경로·쿼리·inline·eval·data:·blob: 제외), 100개 고리 버퍼, 추적 꺼짐 시 비관리자 거절, 관리자 조회·삭제 통과 |
+| 프런트엔드 | `npm test` 90개 통과(넘기기 URL 조립·페이로드 정리·위반 이벤트 파서 포함). `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF·화면87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | `docker build --build-arg VERSION=1.11.0`로 서비스 이미지 빌드 통과. 오프라인 반입·브라우저 묶음 시험은 v1.9.0 후보 결과를 대체하지 않으며 이번 릴리즈에서 재실행하지 않았습니다 |
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.11.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.11.0)에 실제 완료 후 기록합니다.
+
 ## v1.10.0 자동 SSO 진입의 명시적 사용 설정
 
 2026년 9월 14일, OIDC `auto_login`을 기본 꺼짐·명시적 사용 설정으로 바꾸고 브라우저 저장소를 읽을 수 없을 때 자동 시도를 억제하도록 보완했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
