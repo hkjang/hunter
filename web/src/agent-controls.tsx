@@ -14,8 +14,23 @@ import {
   IconMessagePlus,
   IconPlayerPause,
   IconPlayerPlay,
+  IconSend,
 } from "@tabler/icons-react";
-import { api, APIError, dateText, showError, success, useCan } from "./api";
+import {
+  api,
+  APIError,
+  dateText,
+  showError,
+  success,
+  useCan,
+  useData,
+} from "./api";
+import {
+  handoffClaimRequest,
+  handoffOpenURL,
+  type HandoffClaim,
+  type HandoffTargets,
+} from "./handoff-state";
 import { useUnsavedChanges } from "./form-feedback";
 import type { AgentRun } from "./use-agent-run";
 import {
@@ -306,6 +321,39 @@ function ControlEditor({
 }
 export function AgentReportMenu({ run }: { run: AgentRun }) {
   const [busy, setBusy] = useState(false);
+  // Receiving services an administrator listed; empty on a fresh install, so no menu.
+  const handoff = useData<HandoffTargets>("/api/handoff/targets");
+  const targets = handoff.data?.targets || [];
+  async function send(target: { name: string; origin: string }) {
+    if (busy) return;
+    setBusy(true);
+    // Open the window while still inside the click so popup blockers allow it; it
+    // carries the claim only after Hunter has issued one. The opener is cut so the
+    // receiving service cannot reach this page.
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+    try {
+      if (!popup)
+        throw new Error(
+          "새 창이 차단되었습니다. 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.",
+        );
+      const issued = await api<HandoffClaim>("/api/v1/handoff/claims", {
+        method: "POST",
+        body: JSON.stringify(handoffClaimRequest(run.id)),
+      });
+      popup.location.replace(
+        handoffOpenURL(target.origin, issued.source, issued.claim),
+      );
+      success(
+        `${target.name}에서 보고서를 받아 가도록 새 창을 열었습니다. 표는 5분 동안 한 번만 쓸 수 있습니다.`,
+      );
+    } catch (e) {
+      popup?.close();
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function download(format: "md" | "html" | "pdf") {
     if (busy) return;
     setBusy(true);
@@ -377,6 +425,22 @@ export function AgentReportMenu({ run }: { run: AgentRun }) {
         <Menu.Item disabled={busy} onClick={() => download("pdf")}>
           PDF (.pdf)
         </Menu.Item>
+        {targets.length > 0 && (
+          <>
+            <Menu.Divider />
+            <Menu.Label>다른 서비스로 보내기 (Markdown)</Menu.Label>
+            {targets.map((target) => (
+              <Menu.Item
+                key={target.origin}
+                disabled={busy}
+                leftSection={<IconSend size={15} />}
+                onClick={() => void send(target)}
+              >
+                {target.name}
+              </Menu.Item>
+            ))}
+          </>
+        )}
       </Menu.Dropdown>
     </Menu>
   );

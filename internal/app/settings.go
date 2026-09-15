@@ -28,6 +28,8 @@ func defaultSettings() map[string]map[string]any {
 		out[group] = values
 	}
 	out["inventory"] = map[string]any{"stale_after_days": 30, "review_licenses": []string{}}
+	// Empty until an administrator names a receiving service; then the send menu appears.
+	out["handoff"] = map[string]any{"targets": []any{}}
 	return out
 }
 
@@ -227,6 +229,8 @@ func validateSettings(group string, v map[string]any) error {
 		return validateFindingOpsSettings(group, v)
 	case "inventory":
 		return validateInventorySettings(v)
+	case "handoff":
+		return validateHandoffSettings(v)
 	case "general":
 		if strings.TrimSpace(asString(v["service_name"])) == "" || !validURL(asString(v["public_url"])) {
 			return fmt.Errorf("서비스 이름과 유효한 서비스 주소를 입력해 주세요")

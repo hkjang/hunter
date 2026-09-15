@@ -197,6 +197,7 @@ PostgreSQL TLS는 DSN의 `sslmode=verify-full`과 `sslrootcert=/경로/ca.pem` �
 | 기본 정보 | 서비스 이름, 외부 접근 주소 |
 | SSO·로그인 | OIDC 활성화·기존 세션 자동 진입, Issuer, Client ID, Client Secret, 신규 계정 역할 |
 | 방문 추적 | 사용 여부·공개 코드·허용 원점과 저장 전 격리 미리보기 |
+| 다른 서비스로 보내기 | 실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록(`handoff.targets`) — 기본은 비어 있음 |
 | AI 분석 | 활성화, Base URL, API 키, 모델, 최대 출력 토큰, 컨텍스트 창 |
 | 에이전트 진단 | 활성화, 반복·모델·도구 한도, 제한 시간, 진단·후보·기억 허용 |
 | 검토·승인 | 팀장 검토·승인 흐름 활성화 |
@@ -309,6 +310,60 @@ window.addEventListener('hunter:pageview', (event) => {
 | `DELETE /api/admin/tracking/violations` | 차단 출처 기록 지우기, 감사 사건 기록 |
 
 자세한 규격과 공개 자료의 근거는 [SSO·방문 추적 조사](../research-sso-tracking.md)를 참고하세요.
+
+### 5.7 다른 서비스로 보내기 허용 목록
+
+생각은 umm 의 캔버스에서 시작해 muni 의 문서가 되고 ptium 의 슬라이드가 되어 weekly 의 보고로 들어갑니다. 형식은 이미 맞았지만 단계마다 사람이 파일을 내려받아 다시 올리는 손이 남아 있었습니다. Hunter 는 사내 문서 넘기기 표준(`HANDOFF-STANDARD.md`)의 **보내는 쪽**이며, 보내는 것은 **에이전트 실행 보고서의 Markdown** 하나입니다. 받는 쪽은 만들지 않습니다 — Hunter 가 들이는 진단 결과·SBOM 은 이 표준의 형식 표에 없는 형식입니다.
+
+#### 어떻게 넘어가는가
+
+1. 사용자가 실행 상세의 **실행 보고서** 메뉴에서 **다른 서비스로 보내기 → (서비스 이름)** 을 고릅니다.
+2. Hunter 가 그 순간의 Markdown 보고서(다운로드와 같은 본문·같은 권한 검사)를 만들고 `POST /api/v1/handoff/claims` 로 **표(claim)** 를 발급합니다 — 256비트 난수, **5분**, **한 번**만 쓸 수 있고, 그 사용자가 읽을 수 있는 그 실행 하나에만 묶입니다.
+3. 브라우저가 새 창에서 받는 서비스의 `https://<서비스>/handoff?source=<Hunter 주소>&claim=<표>` 를 엽니다. 새 창은 opener 가 끊긴 상태로 열립니다.
+4. 받는 서비스가 `GET <Hunter 주소>/api/v1/handoff/claims/<표>` 로 문서를 받아 갑니다. 로그인은 없습니다 — 표가 곧 자격입니다. 받아 가는 순간 표는 지워지고, 두 번째 요청·만료된 표·발급된 적 없는 표는 모두 같은 `404` 로 답하며 이유를 구별해 주지 않습니다.
+
+문서는 표를 발급하는 순간 만들어 암호화해 표와 함께 저장하므로(`handoff_claims`, 표는 SHA-256 다이제스트로만 저장) 받는 쪽이 가져가는 바이트는 표가 알린 `bytes` 그대로입니다. 만료된 행은 다음 표를 발급할 때 정리됩니다. 감사 기록(`agent.handoff`)에는 실행 ID·바이트 수만 남고 표는 남지 않으며, 오류 로그도 이 경로를 `/api/v1/handoff/claims/{claim}` 으로만 적습니다.
+
+`source` 는 **기본 정보 → 서비스 외부 접근 주소**의 오리진입니다. 받는 쪽은 이 값을 자기 허용 목록과 대조하므로 그쪽 목록의 표기와 스킴·호스트·포트가 정확히 같아야 합니다.
+
+#### 허용 목록 설정
+
+관리자 → 서비스 설정 → **다른 서비스로 보내기**. 기본값은 **비어 있고**, 그때는 실행 상세의 보고서 메뉴에 보내기 항목이 나타나지 않으며 `POST /api/v1/handoff/claims` 도 `404` 로 거절합니다 — 새로 설치한 곳에서는 아무것도 달라지지 않습니다.
+
+| 항목 | 뜻 |
+| --- | --- |
+| 이름 | 메뉴에 보이는 이름(1~60자). 예: `Ptium` |
+| 주소 (오리진) | `https://ptium.intra` 처럼 **스킴과 호스트(포트)까지만**. 경로·쿼리·자격 증명·와일드카드가 있으면 저장되지 않습니다. 같은 주소를 두 번 적을 수 없습니다. |
+| 그 서비스가 받는 형식 | 표준의 형식 표에 있는 말(`markdown` `docx` `csv` `xlsx` `txt` `pptx`) 중 하나 이상. Hunter 는 `markdown` 만 보내므로 **`markdown` 이 없는 항목은 저장되어도 메뉴에 오르지 않습니다.** |
+
+표준의 형식 표대로면 `muni`·`ptium`·`weekly` 가 `markdown` 을 받습니다. `kanpic` 은 받지 않으므로 적어도 메뉴에 나오지 않습니다. 목록은 20개까지입니다.
+
+API 로는 `PUT /api/settings/handoff` 에 아래 모양을 보냅니다(관리자 권한, 브라우저 세션이면 `X-Hunter-CSRF: 1`).
+
+~~~json
+{"targets": [
+  {"name": "Ptium",  "origin": "https://ptium.intra",  "formats": ["markdown", "docx", "csv", "xlsx", "txt"]},
+  {"name": "Weekly", "origin": "https://weekly.intra", "formats": ["markdown", "docx", "pptx"]}
+]}
+~~~
+
+#### 받는 쪽에 알려 줄 것
+
+받는 서비스의 관리자는 자기 허용 목록에 Hunter 의 오리진(위 `source`)을 적어야 합니다. 그쪽 목록에 없으면 받는 서비스는 Hunter 에 아무 요청도 보내지 않고 거절합니다 — 그것이 표준입니다.
+
+#### 확인 절차
+
+1. 목록이 비어 있을 때 실행 상세의 **실행 보고서** 메뉴에 **다른 서비스로 보내기**가 없는지 봅니다.
+2. 서비스를 하나 적고 저장한 뒤 메뉴에 그 이름이 나오는지, 고르면 새 창에 받는 서비스의 `/handoff?source=…&claim=…` 가 열리는지 봅니다. 팝업이 막히면 화면이 그렇게 말합니다.
+3. 감사 기록에서 `agent.handoff` 사건에 실행 ID·바이트 수만 있고 표가 없는지 봅니다.
+4. 같은 표로 두 번 받으면(`curl -i <Hunter 주소>/api/v1/handoff/claims/<표>`) 두 번째는 `404` 입니다.
+
+| 경로 | 역할 |
+| --- | --- |
+| `GET /api/handoff/targets` | `markdown` 을 받는 보낼 곳 목록과 `source`, 에이전트 조회 권한 |
+| `POST /api/v1/handoff/claims` | `{"resource": "<실행 ID>", "format": "markdown"}` → `201` 표 발급, 보낼 곳 미설정·접근 불가 실행 `404` |
+| `GET /api/v1/handoff/claims/{claim}` | 로그인 없이 표로 한 번 받아 가기, 그 외 모두 `404` |
+| `PUT /api/settings/handoff` | 허용 목록 저장, 관리자 권한 |
 
 ## 6. Keycloak·OIDC SSO
 
