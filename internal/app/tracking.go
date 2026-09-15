@@ -270,6 +270,7 @@ func (a *App) registerTracking(m *http.ServeMux) {
 		}
 		a.serveTrackingFrame(w, r, c)
 	}))
+	a.registerTrackingViolations(m)
 	m.HandleFunc("GET /api/tracking/preview/{token}", a.trackingAdmin(func(w http.ResponseWriter, r *http.Request) {
 		var cipher string
 		e := a.DB.QueryRow(r.Context(), `DELETE FROM visitor_tracking_previews WHERE token_hash=$1 AND user_id=$2 AND expires_at>now() RETURNING config_encrypted`, digest(r.PathValue("token")), currentUser(r).ID).Scan(&cipher)
@@ -398,7 +399,15 @@ window.addEventListener('message',event=>{
 });
 window.addEventListener('error',()=>send('error','script_error'));
 window.addEventListener('unhandledrejection',()=>send('error','script_error'));
-document.addEventListener('securitypolicyviolation',()=>send('blocked','policy_blocked'));
+const reported=new Set();
+document.addEventListener('securitypolicyviolation',event=>{
+ send('blocked','policy_blocked');
+ const blocked=String(event.blockedURI||'').slice(0,300),directive=String(event.effectiveDirective||'').slice(0,40);
+ const key=directive+' '+blocked;
+ if(!/^https?:/i.test(blocked) || reported.has(key) || reported.size>=100)return;
+ reported.add(key);
+ parent.postMessage({type:'hunter:tracking-violation',blocked_uri:blocked,directive},'*');
+});
 window.run=async scripts=>{
  for(const item of scripts){
   const script=document.createElement('script');

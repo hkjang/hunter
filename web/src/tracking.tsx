@@ -20,8 +20,10 @@ import {
   IconCheck,
   IconEye,
   IconPlayerStop,
+  IconPlus,
   IconRefresh,
   IconShieldCheck,
+  IconTrash,
 } from "@tabler/icons-react";
 import { api, APIError, fullDate, useData } from "./api";
 import { LoadState } from "./components";
@@ -32,10 +34,14 @@ import {
   trackingFrameURL,
   trackingPage,
   trackingStatus,
+  trackingViolation,
+  trackingViolationOrigin,
   validateTrackingDraft,
   type TrackingConfiguration,
   type TrackingPage,
   type TrackingValidation,
+  type TrackingViolation,
+  type TrackingViolationReport,
 } from "./tracking-state";
 import "./tracking.css";
 
@@ -52,10 +58,12 @@ function TrackingFrame({
   url,
   page,
   onStatus,
+  onViolation,
 }: {
   url: string;
   page: TrackingPage;
   onStatus?: (status: FrameStatus) => void;
+  onViolation?: (report: TrackingViolationReport) => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const currentPage = useRef(page);
@@ -63,6 +71,8 @@ function TrackingFrame({
   const notified = useRef<TrackingPage | null>(null);
   const callback = useRef(onStatus);
   callback.current = onStatus;
+  const violationCallback = useRef(onViolation);
+  violationCallback.current = onViolation;
   const ready = useRef(false);
   useEffect(() => {
     ready.current = false;
@@ -73,6 +83,11 @@ function TrackingFrame({
       // sandbox has an opaque origin; validate the exact iframe window instead.
       if (!frame.current || event.source !== frame.current.contentWindow)
         return;
+      const violation = trackingViolation(event.data);
+      if (violation) {
+        violationCallback.current?.(violation);
+        return;
+      }
       const status = trackingStatus(event.data);
       if (!status) return;
       if (status === "error" || status === "blocked") failed = true;
@@ -142,9 +157,36 @@ export function TrackingRuntime() {
     };
   }, [!!page, reload]);
   const url = trackingFrameURL(data?.frame_url);
+  const pending = useRef<(TrackingViolationReport & { page: string })[]>([]);
+  const flush = useRef<number | undefined>(undefined);
+  const report = (violation: TrackingViolationReport) => {
+    const key = violation.directive + " " + violation.blocked_uri;
+    if (!page || relayed.has(key) || relayed.size >= 100) return;
+    relayed.add(key);
+    pending.current.push({ ...violation, page: page.path });
+    // Each blocked origin repeats on every page; one short batch per burst is enough.
+    if (flush.current === undefined)
+      flush.current = window.setTimeout(() => {
+        flush.current = undefined;
+        const violations = pending.current.splice(0, 100);
+        void api("/api/tracking/violations", {
+          method: "POST",
+          body: JSON.stringify({ violations }),
+        }).catch(() => undefined);
+      }, 2000);
+  };
   if (!page || !data?.enabled || error || !url) return null;
-  return <TrackingFrame key={data.revision} url={url} page={page} />;
+  return (
+    <TrackingFrame
+      key={data.revision}
+      url={url}
+      page={page}
+      onViolation={report}
+    />
+  );
 }
+// Blocked origin·directive pairs already relayed to the server by this document.
+const relayed = new Set<string>();
 
 type SettingsProps = {
   active: boolean;
@@ -178,6 +220,14 @@ export function TrackingSettings({
   const [status, setStatus] = useState<FrameStatus>("loading");
   const [previewPath, setPreviewPath] = useState("/services");
   const previewPage = useMemo(() => trackingPage(previewPath)!, [previewPath]);
+  const [previewViolations, setPreviewViolations] = useState<
+    TrackingViolationReport[]
+  >([]);
+  const violations = useData<{
+    violations: TrackingViolation[];
+    limit: number;
+  }>("/api/admin/tracking/violations");
+  const [clearing, setClearing] = useState(false);
   const effective = useMemo(
     () => ({
       ...draft,
@@ -210,6 +260,28 @@ export function TrackingSettings({
   useEffect(() => {
     if (!active) setPreview(null);
   }, [active]);
+  const originLines = originText
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  function addOrigin(origin: string) {
+    if (originLines.includes(origin)) return;
+    setOriginText([...originLines, origin].join("\n"));
+    setError("");
+  }
+  async function clearViolations() {
+    setClearing(true);
+    try {
+      await api("/api/admin/tracking/violations", { method: "DELETE" });
+      await violations.reload();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "차단 기록을 지우지 못했습니다.",
+      );
+    } finally {
+      setClearing(false);
+    }
+  }
   function check() {
     const issues = validateTrackingDraft(effective, window.location.origin);
     if (issues.length) {
@@ -253,6 +325,7 @@ export function TrackingSettings({
     if (busy || !check()) return;
     setBusy(true);
     setPreview(null);
+    setPreviewViolations([]);
     setStatus("loading");
     try {
       const value = await api<TrackingValidation>("/api/admin/tracking/test", {
@@ -437,6 +510,89 @@ export function TrackingSettings({
             {data.updated_at ? fullDate(data.updated_at) : "아직 저장하지 않음"}
             . 사용 중인 화면은 변경 사항을 최대 30초 내에 확인합니다.
           </Text>
+          <Paper withBorder p="lg" mt="xl" className="tracking-violations">
+            <Group justify="space-between">
+              <Text fw={700}>보안 정책에서 차단된 출처</Text>
+              <Group gap="xs">
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={() => void violations.reload()}
+                  disabled={violations.loading || clearing}
+                >
+                  새로 고침
+                </Button>
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="compact-sm"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() => void clearViolations()}
+                  disabled={clearing || !violations.data?.violations.length}
+                >
+                  기록 지우기
+                </Button>
+              </Group>
+            </Group>
+            <Text size="sm" c="dimmed" mt="sm">
+              격리 프레임이 허용 원점 밖으로 보내려다 차단된 요청의 출처와
+              지시어입니다. 이 서버 인스턴스의 메모리에 최대{" "}
+              {violations.data?.limit ?? 100}개만 보관하며 재시작하면
+              사라집니다. 로그인한 사용자 화면이 전달한 내용이므로 수집기 주소가
+              맞는지 확인한 뒤 허용 목록에 추가하고 저장하세요.
+            </Text>
+            <LoadState
+              loading={violations.loading}
+              error={violations.error}
+              reload={violations.reload}
+            />
+            {violations.data && violations.data.violations.length === 0 && (
+              <Text size="sm" mt="md">
+                기록된 차단이 없습니다.
+              </Text>
+            )}
+            {violations.data && violations.data.violations.length > 0 && (
+              <Stack gap="xs" mt="md">
+                {violations.data.violations.map((item) => (
+                  <Group
+                    key={item.directive + " " + item.origin}
+                    justify="space-between"
+                    align="flex-start"
+                    wrap="nowrap"
+                  >
+                    <div>
+                      <Group gap="xs">
+                        <Code>{item.directive}</Code>
+                        <Text size="sm" fw={500}>
+                          {item.origin}
+                        </Text>
+                      </Group>
+                      <Text size="xs" c="dimmed">
+                        {item.count}회 · 최근 {fullDate(item.last_seen)}
+                        {item.page ? ` · ${item.page}` : ""}
+                      </Text>
+                    </div>
+                    {item.allowed || originLines.includes(item.origin) ? (
+                      <Badge color="teal" variant="light">
+                        {item.allowed ? "허용됨" : "저장 대기"}
+                      </Badge>
+                    ) : (
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        leftSection={<IconPlus size={14} />}
+                        onClick={() => addOrigin(item.origin)}
+                        disabled={busy}
+                      >
+                        허용 목록에 추가
+                      </Button>
+                    )}
+                  </Group>
+                ))}
+              </Stack>
+            )}
+          </Paper>
           {preview && (
             <Paper withBorder p="lg" mt="xl" className="tracking-preview">
               <Group justify="space-between">
@@ -505,6 +661,34 @@ export function TrackingSettings({
                   스크립트 문법과 허용 원점, 브라우저 네트워크 정책을
                   확인하세요. 이 오류는 Hunter 업무 기능을 중지하지 않습니다.
                   수정한 뒤 미리보기를 다시 시작할 수 있습니다.
+                  {previewViolations.length > 0 && (
+                    <Stack gap="xs" mt="sm">
+                      {previewViolations.map((item) => {
+                        const origin = trackingViolationOrigin(
+                          item.blocked_uri,
+                        );
+                        return (
+                          <Group
+                            key={item.directive + " " + item.blocked_uri}
+                            gap="xs"
+                          >
+                            <Code>{item.directive}</Code>
+                            <Text size="sm">{origin ?? item.blocked_uri}</Text>
+                            {origin && !originLines.includes(origin) && (
+                              <Button
+                                size="compact-xs"
+                                variant="light"
+                                leftSection={<IconPlus size={14} />}
+                                onClick={() => addOrigin(origin)}
+                              >
+                                허용 목록에 추가
+                              </Button>
+                            )}
+                          </Group>
+                        );
+                      })}
+                    </Stack>
+                  )}
                 </Alert>
               )}
               {active && previewURL && (
@@ -513,6 +697,17 @@ export function TrackingSettings({
                   url={previewURL}
                   page={previewPage}
                   onStatus={setStatus}
+                  onViolation={(item) =>
+                    setPreviewViolations((current) =>
+                      current.some(
+                        (v) =>
+                          v.directive === item.directive &&
+                          v.blocked_uri === item.blocked_uri,
+                      ) || current.length >= 100
+                        ? current
+                        : [...current, item],
+                    )
+                  }
                 />
               )}
             </Paper>

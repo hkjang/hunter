@@ -5,8 +5,70 @@ import {
   trackingFrameURL,
   trackingPage,
   trackingStatus,
+  trackingViolation,
+  trackingViolationOrigin,
   validateTrackingDraft,
 } from "../src/tracking-state.ts";
+
+test("frame policy violations are relayed only for allowable http(s) targets", () => {
+  assert.deepEqual(
+    trackingViolation({
+      type: "hunter:tracking-violation",
+      blocked_uri: "https://stats.internal/collect?x=1",
+      directive: "Connect-Src",
+    }),
+    {
+      blocked_uri: "https://stats.internal/collect?x=1",
+      directive: "connect-src",
+    },
+  );
+  for (const value of [
+    null,
+    "blocked",
+    { type: "hunter:tracking-status", status: "blocked" },
+    {
+      type: "hunter:tracking-violation",
+      blocked_uri: "inline",
+      directive: "script-src",
+    },
+    {
+      type: "hunter:tracking-violation",
+      blocked_uri: "data:text/plain,a",
+      directive: "img-src",
+    },
+    {
+      type: "hunter:tracking-violation",
+      blocked_uri: "https://stats.internal",
+      directive: "connect-src; script-src *",
+    },
+    {
+      type: "hunter:tracking-violation",
+      blocked_uri: "https://" + "a".repeat(300),
+      directive: "img-src",
+    },
+    {
+      type: "hunter:tracking-violation",
+      blocked_uri: "https://stats.internal",
+      directive: 1,
+    },
+  ])
+    assert.equal(trackingViolation(value), null, JSON.stringify(value));
+  assert.equal(
+    trackingViolationOrigin("HTTPS://Stats.Internal:443/collect?id=1#frag"),
+    "https://stats.internal",
+  );
+  assert.equal(
+    trackingViolationOrigin("http://collector.internal:8443/pixel.gif"),
+    "http://collector.internal:8443",
+  );
+  for (const uri of [
+    "inline",
+    "data:text/plain,a",
+    "blob:https://x/1",
+    "https://",
+  ])
+    assert.equal(trackingViolationOrigin(uri), null, uri);
+});
 
 test("tracking emits only fixed ordinary-page templates and titles", () => {
   assert.deepEqual(trackingPage("/services"), {

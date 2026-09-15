@@ -28,6 +28,8 @@ type App struct {
 	WorkerID  string
 	AuthSlots chan struct{}
 	Assets    fs.FS
+	// Origins the tracking frame policy refused; in memory only, see tracking_violations.go.
+	TrackingViolations trackingViolationLog
 }
 type User struct {
 	ID       string   `json:"id"`

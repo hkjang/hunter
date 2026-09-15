@@ -13,6 +13,19 @@ export type TrackingValidation = {
   preview_token: string;
   preview_url: string;
 };
+export type TrackingViolationReport = {
+  blocked_uri: string;
+  directive: string;
+};
+export type TrackingViolation = {
+  origin: string;
+  directive: string;
+  page: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  allowed: boolean;
+};
 export const emptyTracking: TrackingConfiguration = {
   enabled: false,
   name: "방문 통계",
@@ -92,6 +105,45 @@ export function trackingStatus(
     ["ready", "error", "blocked"].includes(event.status)
     ? (event.status as "ready" | "error" | "blocked")
     : null;
+}
+
+// The sandboxed frame relays securitypolicyviolation events; only http(s)
+// targets can ever be allowed, so anything else is dropped here.
+export function trackingViolation(
+  value: unknown,
+): TrackingViolationReport | null {
+  if (!value || typeof value !== "object") return null;
+  const event = value as {
+    type?: unknown;
+    blocked_uri?: unknown;
+    directive?: unknown;
+  };
+  if (
+    event.type !== "hunter:tracking-violation" ||
+    typeof event.blocked_uri !== "string" ||
+    typeof event.directive !== "string" ||
+    event.blocked_uri.length > 300 ||
+    event.directive.length > 40 ||
+    !/^https?:\/\//i.test(event.blocked_uri) ||
+    !/^[a-z]+(?:-[a-z]+)*$/i.test(event.directive)
+  )
+    return null;
+  return {
+    blocked_uri: event.blocked_uri,
+    directive: event.directive.toLowerCase(),
+  };
+}
+
+// Origin an administrator could add to the allowed list for a blocked URI.
+export function trackingViolationOrigin(blockedURI: string): string | null {
+  try {
+    const url = new URL(blockedURI);
+    return ["http:", "https:"].includes(url.protocol) && url.host
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function validateTrackingDraft(
