@@ -8953,6 +8953,86 @@
         }
       }
     },
+    "/api/admin/tracking/violations": {
+      "get": {
+        "summary": "격리 프레임 정책이 차단한 출처 목록",
+        "operationId": "list_admin_tracking_violations",
+        "tags": [
+          "방문 추적"
+        ],
+        "description": "로그인한 사용자 화면이 전달한 securitypolicyviolation 신고를 출처·지시어별로 모은 목록입니다. 서버 인스턴스 메모리에 최대 100개(가장 오래된 항목부터 축출)만 보관하며 재시작하면 사라지고 감사 기록에 남기지 않습니다. allowed는 현재 허용 원점 포함 여부입니다. 사용자 브라우저가 보낸 값이므로 허용 전에 수집기 주소를 확인합니다. 현재 브라우저 세션과 admin:manage 권한이 필요하며 개인 Bearer API 키는 사용할 수 없습니다.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingViolationList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류. 인증 없음 401, 현재 관리자 권한/브라우저 세션 조건 위반 403, 잘못된 입력 400, 추적 비활성 404 등.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "차단 출처 기록 지우기",
+        "operationId": "clear_admin_tracking_violations",
+        "tags": [
+          "방문 추적"
+        ],
+        "description": "이 인스턴스의 차단 출처 기록을 모두 지웁니다. 추적 설정은 변경하지 않으며 tracking.violations.clear 감사 사건만 남깁니다.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cleared": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "cleared"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류. 인증 없음 401, 현재 관리자 권한/브라우저 세션 조건 위반 403, 잘못된 입력 400, 추적 비활성 404 등.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tracking/config": {
       "get": {
         "summary": "현재 브라우저의 추적 활성 상태 조회",
@@ -9042,6 +9122,62 @@
             }
           }
         ]
+      }
+    },
+    "/api/tracking/violations": {
+      "post": {
+        "summary": "격리 프레임의 정책 차단 신고 전달",
+        "operationId": "report_tracking_violations",
+        "tags": [
+          "방문 추적"
+        ],
+        "description": "sandbox 프레임은 불투명 출처라 report-uri 신고에 세션이 실리지 않으므로, 로그인한 부모 화면이 프레임의 securitypolicyviolation 이벤트(blockedURI·effectiveDirective)와 고정 경로 템플릿을 대신 전달합니다. http(s) 출처만 정규화해 기록하고 inline·eval·data:·blob:은 버립니다. 추적이 꺼져 있으면 관리자 미리보기만 신고할 수 있습니다(그 외 404). 세션·CSRF 검사를 그대로 적용하며 개인 Bearer API 키는 사용할 수 없습니다.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "JSON 본문 최대 64KiB, 항목 최대 100개.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackingViolationReportInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "접수. recorded는 실제 기록한 항목 수",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recorded": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "recorded"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류. 인증 없음 401, 현재 관리자 권한/브라우저 세션 조건 위반 403, 잘못된 입력 400, 추적 비활성 404 등.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/tracking/preview/{token}": {
@@ -15984,6 +16120,102 @@
           "name",
           "message",
           "ok"
+        ]
+      },
+      "TrackingViolationReportInput": {
+        "type": "object",
+        "properties": {
+          "violations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "properties": {
+                "blocked_uri": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "description": "SecurityPolicyViolationEvent.blockedURI"
+                },
+                "directive": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "description": "effectiveDirective, 예: connect-src"
+                },
+                "page": {
+                  "type": "string",
+                  "maxLength": 100,
+                  "description": "고정 경로 템플릿(예: /services, /agents/:id). 실제 문서 주소는 넣지 않음"
+                }
+              },
+              "required": [
+                "blocked_uri",
+                "directive"
+              ]
+            }
+          }
+        },
+        "required": [
+          "violations"
+        ]
+      },
+      "TrackingViolation": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "description": "정규화한 http(s) 출처. 경로·쿼리는 보관하지 않음"
+          },
+          "directive": {
+            "type": "string"
+          },
+          "page": {
+            "type": "string",
+            "description": "가장 최근 신고의 고정 경로 템플릿, 없으면 빈 문자열"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "allowed": {
+            "type": "boolean",
+            "description": "현재 저장된 허용 원점에 포함되면 true"
+          }
+        },
+        "required": [
+          "origin",
+          "directive",
+          "page",
+          "count",
+          "first_seen",
+          "last_seen",
+          "allowed"
+        ]
+      },
+      "TrackingViolationList": {
+        "type": "object",
+        "properties": {
+          "violations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackingViolation"
+            },
+            "description": "최근 차단 순"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "보관 상한(100)"
+          }
+        },
+        "required": [
+          "violations",
+          "limit"
         ]
       },
       "TrackingPreview": {

@@ -403,6 +403,7 @@ curl --fail http://localhost:8080/api/health
 </code></pre>
 <p>전달하는 자료는 <code>{path, title}</code>뿐입니다. 일반 메뉴와 <code>/agents/:id</code>·<code>/software/:id</code>·<code>/campaigns/:id</code> 같은 고정 상세 템플릿을 사용하고 실제 자료 ID·쿼리·해시·사용자 식별자·발견 증거·AI 대화는 넣지 않습니다. 로그인·관리자·개인화 페이지는 제외합니다. 수집기는 HTTP 연결의 IP·User-Agent 등 브라우저 기본 정보를 별도로 관측할 수 있으므로 이를 개인정보 전송이 전혀 없는 기능으로 설명하지 않습니다.</p>
 <p><strong>격리와 호환 범위:</strong> 코드는 별도 CSP <code>sandbox allow-scripts</code> 프레임에서 실행하며 Hunter 쿠키·localStorage·부모 DOM에 접근할 수 없습니다. <code>eval</code>, iframe, worker, 폼 제출, 새 창·상위 화면 이동 권한을 부여하지 않습니다. 스크립트 로드·연결·이미지는 지정한 원점으로 제한합니다. 사용자·DOM 자동 수집, 쿠키 또는 저장소를 전제로 한 범용 분석 SDK는 그대로 동작하지 않을 수 있으므로 위 페이지 이벤트용 어댑터로 연결합니다. 서버는 JavaScript 문법 전체를 정적 검증하지 않으므로 실제 브라우저 미리보기로 확인합니다.</p>
+<p><strong>콘텐츠 보안 정책(CSP)과 차단된 출처:</strong> Hunter 화면 자체의 정책은 <code>script-src 'self'</code>이며 추적 코드를 위해 <code>'unsafe-inline'</code>이나 nonce를 더하지 않습니다. 코드는 요청마다 별도로 만드는 격리 프레임 안에서만 실행되고, 그 프레임의 정책은 추적이 켜진 동안에만 존재하며 <code>script-src</code>·<code>connect-src</code>·<code>img-src</code>를 <strong>허용된 외부 원점</strong>으로 제한합니다. 추적을 끄면 프레임이 사라지므로 정책은 원래대로 좁아집니다. 허용 원점에 없는 주소로 스크립트 로드·요청·이미지를 시도하면 브라우저가 조용히 차단하는데, 이때 프레임이 <code>securitypolicyviolation</code> 이벤트의 <strong>출처와 지시어</strong>를 로그인한 부모 화면에 전달하고, 부모 화면이 세션·CSRF 검사를 거친 <code>POST /api/tracking/violations</code>로 서버에 대신 신고합니다(격리 프레임은 불투명 출처라 <code>report-uri</code>에 세션이 실리지 않습니다). 서버는 http(s) 출처만 정규화해 <strong>이 인스턴스의 메모리</strong>에 출처·지시어별 최대 100개(가장 오래된 항목부터 축출)를 보관하며, 경로·쿼리·실제 문서 주소는 저장하지 않고 재시작하면 사라집니다. 설정 화면 아래 <strong>보안 정책에서 차단된 출처</strong> 패널에서 목록을 새로 고치고, <strong>허용 목록에 추가</strong>를 누르면 해당 원점이 허용 원점 입력에 채워지므로 검토한 뒤 저장합니다. 격리 미리보기 중 차단된 출처도 같은 방식으로 경고 안에 표시됩니다. 이 목록은 로그인한 사용자 브라우저가 보낸 값이므로 수집기 주소가 맞는지 확인한 뒤 허용하고, <code>inline</code>·<code>eval</code>·<code>data:</code>·<code>blob:</code> 차단은 허용 대상이 아니라 기록하지 않습니다. 기록은 감사 로그가 아니며 <strong>기록 지우기</strong>만 감사 사건(<code>tracking.violations.clear</code>)으로 남습니다. 추적이 꺼져 있으면 관리자 미리보기만 신고할 수 있습니다.</p>
 <p><strong>저장 충돌과 복구:</strong> GET으로 받은 숫자 <code>revision</code>을 PUT에 전달하며 다른 관리자가 먼저 저장하면 409로 거부합니다. 화면에서 내 입력을 유지한 채 최신 자료를 확인하고 다시 검토합니다. 여기서는 <code>expected_updated_at</code>을 사용하지 않습니다. 미리보기는 현재 관리자 전용·5분·한 번 사용이며 새 시험은 그 관리자의 이전 미사용 미리보기를 대체합니다. 만료·소비 후 다시 시작할 수 있습니다. 코드가 차단되거나 로드에 실패하면 허용 원점·HTTPS 혼합 콘텐츠·수집기 CORS·코드 문법을 확인합니다. <code>Origin: null</code>의 격리 환경을 고려하되 비밀을 사용하는 인증 API의 CORS를 광범위하게 열어 우회하지 않습니다.</p>
 <table>
 <thead>
@@ -435,6 +436,18 @@ curl --fail http://localhost:8080/api/health
 <tr>
 <td><code>GET /api/tracking/preview/{token}</code></td>
 <td>현재 관리자 토큰을 원자적으로 소비하고 초안 실행</td>
+</tr>
+<tr>
+<td><code>POST /api/tracking/violations</code></td>
+<td>로그인 화면이 프레임의 정책 차단(출처·지시어·고정 경로)을 대신 신고, 최대 100건</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/tracking/violations</code></td>
+<td>인스턴스 메모리의 차단 출처 목록(최근 순, 허용 여부 포함)</td>
+</tr>
+<tr>
+<td><code>DELETE /api/admin/tracking/violations</code></td>
+<td>차단 출처 기록 지우기, 감사 사건 기록</td>
 </tr>
 </tbody>
 </table>
