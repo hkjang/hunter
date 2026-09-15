@@ -39,6 +39,7 @@ import {
   IconPlus,
   IconRefresh,
   IconRotateClockwise,
+  IconSend,
   IconSettings,
   IconShieldCheck,
   IconSparkles,
@@ -82,6 +83,8 @@ import {
   requiredIssues,
 } from "./form-state";
 import { TrackingSettings } from "./tracking";
+import { HandoffTargetsEditor } from "./handoff-settings";
+import { handoffTargetsPayload, type HandoffTarget } from "./handoff-state";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
   label: `${scopeNames[s]} · ${s}`,
@@ -97,6 +100,7 @@ const settingGroups: [string, string, any][] = [
   ["inventory", "소프트웨어 구성", IconSettings],
   ["security", "보안 · 세션", IconLock],
   ["tracking", "방문 추적", IconEye],
+  ["handoff", "다른 서비스로 보내기", IconSend],
   ["roles", "역할 · 권한", IconUsers],
 ];
 const settingFields: Record<string, Field[]> = {
@@ -396,6 +400,10 @@ const settingFields: Record<string, Field[]> = {
 };
 function settingsGroupValues(group: string, data?: Row): Row {
   if (group === "roles") return data || {};
+  if (group === "handoff")
+    return handoffTargetsPayload(
+      Array.isArray(data?.targets) ? (data!.targets as HandoffTarget[]) : [],
+    );
   const values = initialValues(settingFields[group] || [], data);
   if (group === "oidc") values.clear_client_secret = false;
   if (group === "ai") values.clear_api_key = false;
@@ -490,7 +498,10 @@ export function SettingsPage() {
       },
     }));
     if (issues.length) return;
-    const submitted = values[group] || {};
+    const submitted =
+      group === "handoff"
+        ? handoffTargetsPayload(values.handoff?.targets || [])
+        : values[group] || {};
     setBusy(true);
     try {
       const saved = await api<Row>(`/api/settings/${group}`, {
@@ -607,7 +618,9 @@ export function SettingsPage() {
                   <p>
                     {tab === "roles"
                       ? "역할별 접근 가능한 기능을 정의합니다. 개인 키 권한은 소유자 권한을 초과할 수 없습니다."
-                      : "워크스페이스의 설정을 확인하고 변경하세요."}
+                      : tab === "handoff"
+                        ? "실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록입니다. 기본값은 비어 있습니다."
+                        : "워크스페이스의 설정을 확인하고 변경하세요."}
                   </p>
                 </div>
               </div>
@@ -640,6 +653,16 @@ export function SettingsPage() {
                       </div>
                     ))}
                   </Stack>
+                ) : tab === "handoff" ? (
+                  <HandoffTargetsEditor
+                    targets={values.handoff?.targets || []}
+                    publicURL={
+                      values.general?.public_url || window.location.origin
+                    }
+                    onChange={(targets) =>
+                      setValues({ ...values, handoff: { targets } })
+                    }
+                  />
                 ) : (
                   <FieldForm
                     idPrefix={`settings-${tab}`}

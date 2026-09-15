@@ -96,3 +96,8 @@
 - 미리보기 현재관리자5분1회·운영설정변경없음. 허용된 수집기에 합성이벤트 전송 가능. bridge준비와 수집기접수는 별도. 활성페이지30초설정poll.
 - 프레임 CSP 차단(securitypolicyviolation)의 출처·지시어를 로그인 부모화면이 POST /api/tracking/violations로 대신 신고. 서버 인스턴스 메모리 100개 고리버퍼(경로·쿼리 미보관, 재시작 소멸). 관리자 화면 "보안 정책에서 차단된 출처" 패널에서 조회·지우기·허용 목록에 추가 후 저장. inline/eval/data:/blob:는 기록 안 함.
 - [공식 근거와 실제 범위](https://hkjang.github.io/hunter/research-sso-tracking.md)
+
+## 다른 서비스로 보내기 (사내 HANDOFF 표준, 보내는 쪽 markdown만)
+- 실행 보고서 메뉴 → 다른 서비스로 보내기 → 서비스 이름. POST /api/v1/handoff/claims {"resource":실행ID,"format":"markdown"} → 201 {claim,source,filename,content_type,bytes,expires_at}. 표는 256bit 난수·5분·1회·그 사용자가 읽을 수 있는 그 실행 하나. 다운로드와 같은 권한 검사, 보낼 곳 미설정·접근 불가 404.
+- 새 창에서 <받는 서비스>/handoff?source=<Hunter 오리진>&claim=<표>. 받는 쪽이 GET /api/v1/handoff/claims/{claim}(로그인 없음, text/markdown attachment filename*)로 받아 가면 표 소멸. 사용됨·만료·미발급 모두 404 구별 없음. 표는 SHA-256만 저장, 본문 암호화 저장, 감사 agent.handoff에 실행ID·bytes만, 로그 경로 {claim} 마스킹.
+- 허용 목록 /admin/settings?tab=handoff = PUT /api/settings/handoff {"targets":[{name,origin(스킴+호스트[:포트]만),formats(markdown|docx|csv|xlsx|txt|pptx)}]} 최대20. 기본 빈 목록 → 메뉴 없음. markdown 없는 항목은 메뉴에 안 오름. GET /api/handoff/targets는 markdown 받는 곳만. source는 기본 정보 public_url 오리진. 받는 쪽은 만들지 않음(진단 결과·SBOM은 형식 표 밖).

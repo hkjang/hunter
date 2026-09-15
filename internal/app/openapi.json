@@ -3081,7 +3081,8 @@
                 "roles",
                 "sla",
                 "risk",
-                "inventory"
+                "inventory",
+                "handoff"
               ]
             }
           }
@@ -9228,6 +9229,133 @@
             }
           }
         ]
+      }
+    },
+    "/api/handoff/targets": {
+      "get": {
+        "summary": "실행 보고서를 받아 갈 수 있는 사내 서비스 목록",
+        "operationId": "list_handoff_targets",
+        "tags": [
+          "다른 서비스로 보내기"
+        ],
+        "description": "관리자가 설정(handoff.targets)에 적은 서비스 중 markdown 을 받는 것만 이름·오리진으로 돌려줍니다. source 는 받는 쪽이 표를 받아 갈 Hunter 오리진(기본 정보의 서비스 외부 접근 주소)입니다. 목록이 비어 있으면 화면에 보내기 메뉴가 나타나지 않습니다. agents:read 권한이 필요합니다.",
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffTargets"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류. 인증 없음 401, 권한 없음 403.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/handoff/claims": {
+      "post": {
+        "summary": "실행 보고서를 다른 서비스로 넘기는 표(claim) 발급",
+        "operationId": "issue_handoff_claim",
+        "tags": [
+          "다른 서비스로 보내기"
+        ],
+        "description": "사내 문서 넘기기 표준(HANDOFF-STANDARD.md)의 보내는 쪽입니다. resource 는 에이전트 실행 ID, format 은 markdown 만 가능합니다. 실행 보고서 다운로드와 같은 권한 검사(에이전트·서비스·발견 건·진단 조회 권한과 현재 서비스 접근)를 거쳐 그 순간의 Markdown 보고서를 만들고 5분 동안 한 번만 쓸 수 있는 256비트 난수 표에 묶습니다. 표를 만든다고 권한이 넓어지지 않으며 읽을 수 없는 실행은 404 입니다. 보낼 곳이 하나도 설정되지 않았으면 404 로 거절합니다. 표는 SHA-256 다이제스트로만 저장하고 감사 기록(agent.handoff)에는 실행 ID·바이트 수만 남습니다. 브라우저 세션 요청에는 X-Hunter-CSRF 가 필요합니다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "발급됨",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffClaim"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류. 형식이 markdown 이 아니거나 본문 오류 400, 인증 없음 401, 권한·CSRF 403, 접근 불가 실행 또는 보낼 곳 미설정 404, 보고서 생성 혼잡 503.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/handoff/claims/{claim}": {
+      "get": {
+        "summary": "표로 실행 보고서 받아 가기 (받는 서비스가 호출)",
+        "operationId": "redeem_handoff_claim",
+        "tags": [
+          "다른 서비스로 보내기"
+        ],
+        "security": [],
+        "description": "로그인이 필요 없습니다 — 표가 곧 자격입니다. 그래서 표는 짧고(5분) 한 번만 쓰이며 문서 하나에 묶여 있습니다. 성공하면 text/markdown 본문을 Content-Disposition: attachment; filename*=UTF-8'' 로 내려주고 표는 그 자리에서 지워집니다. 이미 쓴 표·만료된 표·발급된 적 없는 표는 모두 같은 404 로 답하며 이유를 구별해 주지 않습니다. 이 경로의 표는 접근·오류 로그에 {claim} 으로만 남습니다.",
+        "parameters": [
+          {
+            "name": "claim",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "문서 본문(다운로드 파일). Cache-Control: no-store",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "표를 찾을 수 없음(사용됨·만료·미발급 구별 없음)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -16243,6 +16371,150 @@
           "preview_token",
           "preview_url",
           "checks"
+        ]
+      },
+      "HandoffTargets": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "origin": {
+                  "type": "string",
+                  "description": "정규화한 http(s) 오리진"
+                }
+              },
+              "required": [
+                "name",
+                "origin"
+              ]
+            },
+            "description": "markdown 을 받는 서비스만"
+          },
+          "source": {
+            "type": "string",
+            "description": "받는 쪽이 표를 받아 갈 Hunter 오리진"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "markdown"
+            ]
+          }
+        },
+        "required": [
+          "targets",
+          "source",
+          "format"
+        ]
+      },
+      "HandoffClaimRequest": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "string",
+            "description": "에이전트 실행 ID"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "markdown"
+            ]
+          }
+        },
+        "required": [
+          "resource",
+          "format"
+        ]
+      },
+      "HandoffClaim": {
+        "type": "object",
+        "properties": {
+          "claim": {
+            "type": "string",
+            "description": "256비트 난수(base64url). 한 번만, 5분 안에 쓸 수 있음. 로그·감사에 남기지 않음"
+          },
+          "source": {
+            "type": "string",
+            "description": "받는 쪽이 GET {source}/api/v1/handoff/claims/{claim} 으로 받아 갈 오리진"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text/markdown; charset=utf-8"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "description": "받아 갈 본문 크기. 표 발급 시점에 고정"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "claim",
+          "source",
+          "filename",
+          "content_type",
+          "bytes",
+          "expires_at"
+        ]
+      },
+      "HandoffSettings": {
+        "type": "object",
+        "description": "PUT /api/settings/handoff 본문. 기본값은 빈 목록이며 그때는 보내기 메뉴가 없습니다.",
+        "properties": {
+          "targets": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "origin": {
+                  "type": "string",
+                  "description": "경로 없이 http(s)://호스트[:포트]. 같은 주소 중복 불가"
+                },
+                "formats": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "markdown",
+                      "docx",
+                      "csv",
+                      "xlsx",
+                      "txt",
+                      "pptx"
+                    ]
+                  },
+                  "description": "그 서비스가 받는 형식(표준의 형식 표). markdown 이 없으면 저장되어도 메뉴에 오르지 않음"
+                }
+              },
+              "required": [
+                "name",
+                "origin",
+                "formats"
+              ]
+            }
+          }
+        },
+        "required": [
+          "targets"
         ]
       }
     },

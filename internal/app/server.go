@@ -104,7 +104,7 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
-	for _, init := range []func(context.Context) error{a.initAuth, a.initTracking, a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution} {
+	for _, init := range []func(context.Context) error{a.initAuth, a.initTracking, a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution, a.initHandoff} {
 		if err = init(ctx); err != nil {
 			return nil, err
 		}
@@ -188,6 +188,7 @@ func (a *App) Routes() http.Handler {
 	a.registerAgentExecution(m)
 	a.registerGraphQL(m)
 	a.registerAgentReports(m)
+	a.registerHandoff(m)
 	a.registerMCP(m)
 	a.registerDomain(m)
 	a.registerFindingOps(m)
@@ -230,7 +231,7 @@ func (a *App) Routes() http.Handler {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 		defer func() {
 			if e := recover(); e != nil {
-				slog.Error("request panic", "path", r.URL.Path)
+				slog.Error("request panic", "path", loggedPath(r.URL.Path))
 				fail(w, 500, "요청 처리 중 오류가 발생했습니다")
 			}
 		}()
