@@ -33,6 +33,7 @@ import {
   emptyTracking,
   trackingFrameURL,
   trackingPage,
+  trackingSnippetOrigins,
   trackingStatus,
   trackingViolation,
   trackingViolationOrigin,
@@ -264,11 +265,18 @@ export function TrackingSettings({
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
-  function addOrigin(origin: string) {
-    if (originLines.includes(origin)) return;
-    setOriginText([...originLines, origin].join("\n"));
+  function addOrigin(...origins: string[]) {
+    const missing = origins.filter((o) => !originLines.includes(o));
+    if (!missing.length) return;
+    setOriginText([...originLines, ...missing].join("\n"));
+    setPreview(null);
     setError("");
   }
+  // Addresses written in the snippet that the frame policy would still block.
+  const suggestedOrigins = trackingSnippetOrigins(
+    draft.script,
+    window.location.origin,
+  ).filter((origin) => !originLines.includes(origin));
   async function clearViolations() {
     setClearing(true);
     try {
@@ -460,6 +468,44 @@ export function TrackingSettings({
                   placeholder="https://analytics.internal\nhttps://collector.internal:8443"
                   description="한 줄에 하나씩 최대 10개·총 1,536바이트. 프로토콜과 호스트·포트만 입력하세요. Hunter 자체 주소, 경로, 와일드카드는 허용되지 않습니다. 스크립트와 수집 주소를 모두 등록하세요."
                 />
+                {suggestedOrigins.length > 0 && (
+                  <Alert
+                    color="blue"
+                    title="스크립트에 적힌 주소가 허용 목록에 없습니다"
+                    className="tracking-suggested-origins"
+                  >
+                    <Text size="sm">
+                      아래 원점은 추적 스크립트에서 찾은 http(s) 주소입니다.
+                      수집기·스크립트 주소가 맞는지 확인한 뒤 추가하세요.
+                      허용하지 않으면 격리 프레임의 보안 정책이 해당 요청을
+                      차단합니다.
+                    </Text>
+                    <Group gap="xs" mt="sm">
+                      {suggestedOrigins.map((origin) => (
+                        <Button
+                          key={origin}
+                          size="compact-xs"
+                          variant="light"
+                          leftSection={<IconPlus size={14} />}
+                          onClick={() => addOrigin(origin)}
+                          disabled={busy}
+                        >
+                          {origin}
+                        </Button>
+                      ))}
+                      {suggestedOrigins.length > 1 && (
+                        <Button
+                          size="compact-xs"
+                          variant="filled"
+                          onClick={() => addOrigin(...suggestedOrigins)}
+                          disabled={busy}
+                        >
+                          모두 추가
+                        </Button>
+                      )}
+                    </Group>
+                  </Alert>
+                )}
                 <Alert
                   color="teal"
                   title="화면과 계정 정보의 경계를 유지합니다"

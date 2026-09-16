@@ -4,6 +4,7 @@ import {
   emptyTracking,
   trackingFrameURL,
   trackingPage,
+  trackingSnippetOrigins,
   trackingStatus,
   trackingViolation,
   trackingViolationOrigin,
@@ -202,4 +203,53 @@ test("script bytes, Unicode name length and exact permitted origins match the ad
     ).join(" "),
     /1,536바이트/,
   );
+});
+
+test("snippet origins are extracted with ASCII-only scheme matching and browser normalization", () => {
+  const app = "https://hunter.internal";
+  const snippet = `<script async src="HTTPS://Stats.Internal:443/hunter.js"></script>
+<script>
+  // 이름: "방문 통계 İ" — 다국어 주석 뒤에도 위치가 어긋나지 않아야 한다
+  fetch('https://collector.internal:8443/collect?x=1', {mode:'no-cors'});
+  new Image().src = "http://img.internal:80/p.gif#f";
+  fetch("https://stats.internal/other");
+  fetch(\`https://\${host}/collect\`);
+  const idn = 'https://통계.example/x';
+  const v6 = 'http://[::1]:9000/';
+  const self = 'https://hunter.internal/api/tracking/violations';
+</script>`;
+  assert.deepEqual(trackingSnippetOrigins(snippet, app), [
+    "https://stats.internal",
+    "https://collector.internal:8443",
+    "http://img.internal",
+    "https://xn--989an41e.example",
+    "http://[::1]:9000",
+  ]);
+  // Unicode case folding must not turn lookalike schemes into http(s):
+  // U+212A KELVIN SIGN folds to "k" and U+017F LONG S folds to "s"; U+0130 changes
+  // length when lowercased. None of these may produce or shift an origin.
+  for (const text of [
+    "\u210Cttps://fold.internal",
+    "HTTP\u017F://fold.internal",
+    "\u0130ttps://fold.internal",
+    "https://",
+    "https://user:pw@cred.internal",
+    "https://esc%2Eexample",
+    "https://under_score.internal",
+    "wss://socket.internal",
+    "https://${host}",
+  ])
+    assert.deepEqual(
+      trackingSnippetOrigins(text, app),
+      [],
+      JSON.stringify(text),
+    );
+  assert.deepEqual(
+    trackingSnippetOrigins(
+      "\u212Attp://x.internal https://\u212Aelvin.internal",
+      app,
+    ),
+    ["https://kelvin.internal"],
+  );
+  assert.deepEqual(trackingSnippetOrigins("", app), []);
 });
