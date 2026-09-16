@@ -277,6 +277,9 @@ func (a *App) suspendAgent(v agentRun, status, reason string, inputAfter int64) 
 	if err == nil {
 		err = a.agentEventTx(ctx, tx, v.ID, pentagicore.Event{Type: "run.updated", Status: status, Message: reason})
 	}
+	if err == nil && status == "waiting_input" {
+		a.mailAgentRun(ctx, tx, v, "agent_waiting", status, reason)
+	}
 	if err != nil {
 		return err
 	}

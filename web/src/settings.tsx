@@ -36,6 +36,7 @@ import {
   IconEye,
   IconKey,
   IconLock,
+  IconMail,
   IconPlus,
   IconRefresh,
   IconRotateClockwise,
@@ -84,6 +85,7 @@ import {
 } from "./form-state";
 import { TrackingSettings } from "./tracking";
 import { HandoffTargetsEditor } from "./handoff-settings";
+import { MailSettingsPanel } from "./mail-settings";
 import { handoffTargetsPayload, type HandoffTarget } from "./handoff-state";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
@@ -101,9 +103,108 @@ const settingGroups: [string, string, any][] = [
   ["security", "보안 · 세션", IconLock],
   ["tracking", "방문 추적", IconEye],
   ["handoff", "다른 서비스로 보내기", IconSend],
+  ["mail", "메일 알림", IconMail],
   ["roles", "역할 · 권한", IconUsers],
 ];
+// The five events people actually wait for (MAIL-STANDARD.md); keys match mail.notify_<event>.
+const mailEvents: [string, string, string][] = [
+  [
+    "approval_requested",
+    "진단 검토 요청",
+    "검토·승인이 켜져 있을 때 관리자와 해당 팀 팀장에게. 요청자 본인에게는 보내지 않습니다.",
+  ],
+  ["approval_decided", "진단 검토 결과", "승인·반려 결과를 요청자에게."],
+  [
+    "scan_failed",
+    "진단 실패",
+    "실패·결과 미확정으로 끝난 진단을 요청자에게. 에이전트가 만든 진단은 실행 중단 알림으로 갈음합니다.",
+  ],
+  ["agent_waiting", "에이전트 입력 대기", "에이전트 진단이 추가 입력을 기다릴 때 요청자에게."],
+  ["agent_failed", "에이전트 실행 중단", "에이전트 진단이 실패·미확정으로 멈췄을 때 요청자에게."],
+];
 const settingFields: Record<string, Field[]> = {
+  mail: [
+    {
+      key: "enabled",
+      label: "메일 알림 사용",
+      type: "switch",
+      default: false,
+      description:
+        "기본 꺼짐입니다. 켜면 아래 이벤트를 사내 SMTP 릴레이로 보냅니다. 발송은 배경에서 처리하므로 릴레이가 멈춰도 다른 작업은 평소처럼 끝납니다.",
+    },
+    {
+      key: "smtp_host",
+      label: "SMTP 릴레이 호스트",
+      placeholder: "postra.intra",
+      description:
+        "사내 릴레이 주소입니다. 폐쇄망에서는 사내 메일 서비스(postra)를 권장합니다.",
+    },
+    {
+      key: "smtp_port",
+      label: "SMTP 포트",
+      type: "number",
+      default: 25,
+      min: 1,
+      max: 65535,
+      description: "사내 릴레이는 대개 25입니다. 465는 자동으로 TLS로 연결합니다.",
+    },
+    {
+      key: "security",
+      label: "보안 협상",
+      type: "select",
+      options: ["auto", "none", "starttls", "tls"],
+      default: "auto",
+      description:
+        "auto는 서버가 STARTTLS를 알리면 암호화하고 아니면 평문으로 보냅니다. 인증서 검증에는 보안·세션의 사내 CA를 사용합니다.",
+    },
+    {
+      key: "skip_tls_verify",
+      label: "TLS 인증서 검증 생략",
+      type: "switch",
+      default: false,
+      description: "사내 인증서가 사설이고 CA를 등록할 수 없을 때만 켭니다.",
+    },
+    {
+      key: "username",
+      label: "SMTP 사용자 이름 (선택)",
+      description: "인증 없는 릴레이가 흔하므로 비워 둘 수 있습니다.",
+    },
+    {
+      key: "password",
+      label: "SMTP 비밀번호 (선택)",
+      type: "password",
+      description:
+        "암호화하여 저장하며 다시 보여 주지 않습니다. 빈 값은 기존 비밀번호를 유지합니다.",
+    },
+    {
+      key: "from_address",
+      label: "보내는 사람 주소",
+      placeholder: "hunter@corp.local",
+    },
+    { key: "from_name", label: "보내는 사람 이름", default: "Hunter" },
+    {
+      key: "base_url",
+      label: "메일 속 링크 주소",
+      placeholder: "https://hunter.intra",
+      description:
+        "비우면 기본 정보의 서비스 외부 접근 주소를 사용합니다.",
+    },
+    {
+      key: "timeout_seconds",
+      label: "연결 시간 제한 (초)",
+      type: "number",
+      default: 10,
+      min: 1,
+      max: 120,
+    },
+    ...mailEvents.map(([key, label, description]) => ({
+      key: `notify_${key}`,
+      label: `알림: ${label}`,
+      type: "switch" as const,
+      default: true,
+      description,
+    })),
+  ],
   sla: [
     {
       key: "enabled",
@@ -407,6 +508,7 @@ function settingsGroupValues(group: string, data?: Row): Row {
   const values = initialValues(settingFields[group] || [], data);
   if (group === "oidc") values.clear_client_secret = false;
   if (group === "ai") values.clear_api_key = false;
+  if (group === "mail") values.clear_password = false;
   return values;
 }
 type SaveFeedback = {
@@ -620,7 +722,9 @@ export function SettingsPage() {
                       ? "역할별 접근 가능한 기능을 정의합니다. 개인 키 권한은 소유자 권한을 초과할 수 없습니다."
                       : tab === "handoff"
                         ? "실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록입니다. 기본값은 비어 있습니다."
-                        : "워크스페이스의 설정을 확인하고 변경하세요."}
+                        : tab === "mail"
+                          ? "사람이 기다리는 일만 사내 SMTP 릴레이로 알립니다. 받는 사람은 계정의 연락처 메일 또는 메일 형식의 사용자 이름으로 정합니다."
+                          : "워크스페이스의 설정을 확인하고 변경하세요."}
                   </p>
                 </div>
               </div>
@@ -681,6 +785,19 @@ export function SettingsPage() {
                     setValues={(v) =>
                       setValues({ ...values, [tab || "general"]: v })
                     }
+                  />
+                )}
+                {tab === "mail" && (
+                  <MailSettingsPanel
+                    passwordConfigured={!!data.mail?.password_configured}
+                    clearPassword={!!values.mail?.clear_password}
+                    onClearPassword={(checked) =>
+                      setValues({
+                        ...values,
+                        mail: { ...values.mail, clear_password: checked },
+                      })
+                    }
+                    dirty={dirty}
                   />
                 )}
                 {tab === "oidc" && (

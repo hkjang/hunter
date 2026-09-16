@@ -49,6 +49,7 @@ func main() {
 	a.StartScheduler(ctx)
 	a.StartMaintenance(ctx)
 	a.StartNotifications(ctx)
+	a.StartMail(ctx)
 	a.StartAutomation(ctx)
 	a.StartAgents(ctx)
 	a.StartAgentTelemetry(ctx)
