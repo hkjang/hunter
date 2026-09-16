@@ -146,6 +146,43 @@ export function trackingViolationOrigin(blockedURI: string): string | null {
   }
 }
 
+// Origins an administrator could allow for the http(s) addresses written in a
+// snippet. The scheme is matched with explicit ASCII classes rather than case
+// folding: Unicode folding would treat U+212A (Kelvin) or U+017F (long s) as
+// ASCII letters and lowercasing U+0130 shifts string offsets, so a lookalike
+// scheme is never taken and the address is always sliced from the original text.
+// Every candidate goes through the URL parser (IDNA, default ports, lowercase)
+// so the result matches what the browser would actually contact.
+export function trackingSnippetOrigins(
+  script: string,
+  applicationOrigin: string,
+): string[] {
+  const found: string[] = [];
+  const scheme = /[hH][tT][tT][pP][sS]?:\/\//g;
+  for (const match of script.matchAll(scheme)) {
+    const rest = script.slice(match.index + match[0].length, match.index + 300);
+    const end = rest.search(/[\s\u0000-\u0020\u007f"'`\\/?#<>(){},;$]/);
+    const authority = end < 0 ? rest : rest.slice(0, end);
+    if (!authority || authority.includes("@") || authority.includes("%"))
+      continue;
+    try {
+      const url = new URL(match[0].toLowerCase() + authority);
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        !/^(?:[a-z0-9.-]+|\[[0-9a-f:.]+\])$/.test(url.hostname) ||
+        url.origin === "null" ||
+        url.origin === applicationOrigin ||
+        found.includes(url.origin)
+      )
+        continue;
+      found.push(url.origin);
+    } catch {
+      // Not an address the browser could contact; leave it to the administrator.
+    }
+  }
+  return found;
+}
+
 export function validateTrackingDraft(
   value: TrackingConfiguration,
   applicationOrigin: string,

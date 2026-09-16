@@ -95,6 +95,7 @@
 - 일반 업무 페이지 고정path/title만 전달. 로그인/admin/personal/실제ID/query/hash/user/evidence 제외. IP·UA 등 일반HTTP정보는 수집기 관측 가능.
 - 미리보기 현재관리자5분1회·운영설정변경없음. 허용된 수집기에 합성이벤트 전송 가능. bridge준비와 수집기접수는 별도. 활성페이지30초설정poll.
 - 프레임 CSP 차단(securitypolicyviolation)의 출처·지시어를 로그인 부모화면이 POST /api/tracking/violations로 대신 신고. 서버 인스턴스 메모리 100개 고리버퍼(경로·쿼리 미보관, 재시작 소멸). 관리자 화면 "보안 정책에서 차단된 출처" 패널에서 조회·지우기·허용 목록에 추가 후 저장. inline/eval/data:/blob:는 기록 안 함.
+- 추적 스크립트에 적힌 http(s) 원점 중 허용 목록에 없는 것은 설정 화면이 ASCII 전용 scheme 검색+브라우저 URL 정규화로 자동 제안(원점 버튼·모두 추가). 유니코드 유사 문자(U+212A·U+017F·U+0130)·템플릿 변수·자격정보·퍼센트 인코딩은 제안하지 않음.
 - [공식 근거와 실제 범위](https://hkjang.github.io/hunter/research-sso-tracking.md)
 
 ## 다른 서비스로 보내기 (사내 HANDOFF 표준, 보내는 쪽 markdown만)
