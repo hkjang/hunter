@@ -101,3 +101,9 @@
 - 실행 보고서 메뉴 → 다른 서비스로 보내기 → 서비스 이름. POST /api/v1/handoff/claims {"resource":실행ID,"format":"markdown"} → 201 {claim,source,filename,content_type,bytes,expires_at}. 표는 256bit 난수·5분·1회·그 사용자가 읽을 수 있는 그 실행 하나. 다운로드와 같은 권한 검사, 보낼 곳 미설정·접근 불가 404.
 - 새 창에서 <받는 서비스>/handoff?source=<Hunter 오리진>&claim=<표>. 받는 쪽이 GET /api/v1/handoff/claims/{claim}(로그인 없음, text/markdown attachment filename*)로 받아 가면 표 소멸. 사용됨·만료·미발급 모두 404 구별 없음. 표는 SHA-256만 저장, 본문 암호화 저장, 감사 agent.handoff에 실행ID·bytes만, 로그 경로 {claim} 마스킹.
 - 허용 목록 /admin/settings?tab=handoff = PUT /api/settings/handoff {"targets":[{name,origin(스킴+호스트[:포트]만),formats(markdown|docx|csv|xlsx|txt|pptx)}]} 최대20. 기본 빈 목록 → 메뉴 없음. markdown 없는 항목은 메뉴에 안 오름. GET /api/handoff/targets는 markdown 받는 곳만. source는 기본 정보 public_url 오리진. 받는 쪽은 만들지 않음(진단 결과·SBOM은 형식 표 밖).
+
+## 메일 알림 (사내 MAIL 표준, SMTP 릴레이)
+- /admin/settings?tab=mail = PUT /api/settings/mail {enabled(기본false),smtp_host,smtp_port(25),security(auto|none|starttls|tls),skip_tls_verify,username,password(선택·암호화·password_configured만 반환·clear_password로 삭제),from_address,from_name,base_url(비우면 general.public_url),timeout_seconds(10),notify_<이벤트>(true)}.
+- 이벤트 5개: approval_requested(관리자+팀 팀장, 요청자 제외), approval_decided(요청자), scan_failed(요청자, 에이전트 진단 제외), agent_waiting(요청자), agent_failed(요청자). 받는 주소 = 검증된 연락처 메일 또는 메일 형식 사용자 이름. 명부 없음.
+- 배경 발송(이벤트 트랜잭션에 mail_deliveries 행, 제어 서버 루프가 전송, 워커 전용은 전송 안 함), 연결 실패 30초 뒤 1회 재시도, 같은 사람·같은 이벤트 10초 묶음. 시도마다 시각·이벤트·수신자·제목·상태·결과 기록, 본문 없음(전송 중만 암호화 보관·완료 후 삭제), 90일 보존.
+- POST /api/admin/mail/test {"to"} 저장된 설정으로 실제 1통 동기 발송·결과 즉시 반환(꺼짐 409). GET /api/admin/mail/deliveries 최근 200건+상태 집계. 모두 admin:manage.

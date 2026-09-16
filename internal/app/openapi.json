@@ -3082,7 +3082,8 @@
                 "sla",
                 "risk",
                 "inventory",
-                "handoff"
+                "handoff",
+                "mail"
               ]
             }
           }
@@ -9341,6 +9342,96 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mail/deliveries": {
+      "get": {
+        "summary": "사내 메일 알림 발송 기록",
+        "operationId": "list_admin_mail_deliveries",
+        "tags": [
+          "메일 알림"
+        ],
+        "description": "사내 SMTP 릴레이로 나간 알림의 시도 기록입니다(MAIL-STANDARD). 최근 200건을 최신순으로 돌려주며 시각·이벤트·받는 사람·제목·상태·시도 횟수·결과만 담고 본문은 기록하지 않습니다. 성공과 실패가 모두 남으므로 '안 왔다'는 문의에 답할 수 있습니다. admin:manage 권한이 필요합니다.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "성공",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailDeliveryList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/mail/test": {
+      "post": {
+        "summary": "메일 알림 시험 발송",
+        "operationId": "test_admin_mail",
+        "tags": [
+          "메일 알림"
+        ],
+        "description": "저장된 mail 설정으로 실제 메일 한 통을 동기적으로 보내고 릴레이의 응답을 돌려줍니다. 받는 사람을 비우면 현재 계정의 메일 주소(검증된 연락처 메일, 없으면 메일 형식의 사용자 이름)로 보내며 주소가 없으면 400입니다. mail.enabled가 꺼져 있거나 호스트·보내는 사람이 없으면 409입니다. 시도는 발송 기록에 event=test로 남습니다. 브라우저 세션에는 X-Hunter-CSRF 헤더가 필요하고 admin:manage 권한이 필요합니다.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "받는 사람 메일 주소. 비우면 현재 계정의 주소"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "시도 결과. state가 sent이면 릴레이가 접수한 것이고 failed이면 code·detail에 이유가 있습니다.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailTestResult"
                 }
               }
             }
@@ -16516,6 +16607,119 @@
         "required": [
           "targets"
         ]
+      },
+      "MailDelivery": {
+        "type": "object",
+        "description": "메일 알림 시도 기록 한 건. 본문은 포함하지 않습니다.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string",
+            "description": "approval_requested · approval_decided · scan_failed · agent_waiting · agent_failed · test"
+          },
+          "event_label": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "recipient_user_id": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "entity_id": {
+            "type": "string",
+            "description": "진단 또는 에이전트 실행 ID"
+          },
+          "actor_id": {
+            "type": "string",
+            "description": "이 이벤트를 일으킨 계정. 본인에게는 보내지 않습니다"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "failed"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "MailDeliveryList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailDelivery"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "status": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "MailTestResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "failed"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
       }
     },
     "securitySchemes": {

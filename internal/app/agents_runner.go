@@ -382,6 +382,9 @@ func (a *App) finishAgent(v agentRun, status, result, reason string) {
 	if err == nil {
 		err = a.agentEventTx(ctx, tx, v.ID, pentagicore.Event{Type: "run.updated", Status: status, Message: reason})
 	}
+	if err == nil && (status == "failed" || status == "inconclusive") {
+		a.mailAgentRun(ctx, tx, v, "agent_failed", status, reason)
+	}
 	if err != nil || tx.Commit(ctx) != nil {
 		return
 	}

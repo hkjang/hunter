@@ -30,6 +30,8 @@ type App struct {
 	Assets    fs.FS
 	// Origins the tracking frame policy refused; in memory only, see tracking_violations.go.
 	TrackingViolations trackingViolationLog
+	// Nudges the mail loop when an event queues a message; nil until initMail ran.
+	mailWake chan struct{}
 }
 type User struct {
 	ID       string   `json:"id"`
@@ -104,7 +106,7 @@ func New(ctx context.Context, version string, assets fs.FS) (*App, error) {
 	if err = a.initDomain(ctx); err != nil {
 		return nil, err
 	}
-	for _, init := range []func(context.Context) error{a.initAuth, a.initTracking, a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution, a.initHandoff} {
+	for _, init := range []func(context.Context) error{a.initAuth, a.initTracking, a.initFindingOps, a.initSBOM, a.initCampaigns, a.initNotifications, a.initNotificationAutomation, a.initNotificationOperations, a.initWorkflowAutomation, a.initAgentPlatform, a.initAgentKnowledge, a.initAgentProviders, a.initAgentControl, a.initAgentExecution, a.initHandoff, a.initMail} {
 		if err = init(ctx); err != nil {
 			return nil, err
 		}
@@ -189,6 +191,7 @@ func (a *App) Routes() http.Handler {
 	a.registerGraphQL(m)
 	a.registerAgentReports(m)
 	a.registerHandoff(m)
+	a.registerMail(m)
 	a.registerMCP(m)
 	a.registerDomain(m)
 	a.registerFindingOps(m)

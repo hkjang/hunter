@@ -292,6 +292,10 @@ curl --fail http://localhost:8080/api/health
 <td>실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록(<code>handoff.targets</code>) — 기본은 비어 있음</td>
 </tr>
 <tr>
+<td>메일 알림</td>
+<td>사내 SMTP 릴레이(<code>mail.*</code>)로 사람이 기다리는 다섯 가지 이벤트를 보냄, 시험 발송과 발송 기록 — 기본은 꺼짐</td>
+</tr>
+<tr>
 <td>AI 분석</td>
 <td>활성화, Base URL, API 키, 모델, 최대 출력 토큰, 컨텍스트 창</td>
 </tr>
@@ -530,6 +534,138 @@ curl --fail http://localhost:8080/api/health
 <tr>
 <td><code>PUT /api/settings/handoff</code></td>
 <td>허용 목록 저장, 관리자 권한</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-8-사내-smtp-릴레이-메일-알림">5.8 사내 SMTP 릴레이 메일 알림</h3>
+<p>알림센터의 채널·규칙 엔진과 별도로, <strong>서비스 설정 → 메일 알림</strong>은 사내 메일 표준(MAIL-STANDARD)의 모양 그대로 하나의 릴레이와 이벤트별 스위치만 둡니다. 기준은 하나입니다 — <em>이 메일이 오지 않으면 누군가 손해를 보거나 화면을 계속 새로고침한다</em>. 그래서 &quot;무언가 바뀜&quot;은 보내지 않고 아래 다섯 가지만 보냅니다.</p>
+<table>
+<thead>
+<tr>
+<th>이벤트</th>
+<th>받는 사람</th>
+<th>언제</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>진단 검토 요청 <code>approval_requested</code></td>
+<td>관리자와 해당 팀 팀장(요청자 제외)</td>
+<td>검토·승인이 켜진 상태에서 진단이 검토 대기가 될 때. 캠페인처럼 한 번에 여러 건이 생기면 한 통으로 묶음</td>
+</tr>
+<tr>
+<td>진단 검토 결과 <code>approval_decided</code></td>
+<td>요청자</td>
+<td>팀장·관리자가 승인 또는 반려했을 때</td>
+</tr>
+<tr>
+<td>진단 실패 <code>scan_failed</code></td>
+<td>요청자</td>
+<td>진단이 실패·결과 미확정으로 끝났을 때. 에이전트가 만든 진단은 실행 중단 알림으로 갈음</td>
+</tr>
+<tr>
+<td>에이전트 입력 대기 <code>agent_waiting</code></td>
+<td>요청자</td>
+<td>에이전트 진단이 추가 입력을 기다리며 멈췄을 때</td>
+</tr>
+<tr>
+<td>에이전트 실행 중단 <code>agent_failed</code></td>
+<td>요청자</td>
+<td>에이전트 진단이 실패·미확정으로 멈췄을 때(사용자가 중지한 경우 제외)</td>
+</tr>
+</tbody>
+</table>
+<p>지키는 규칙은 다음과 같습니다.</p>
+<ul>
+<li><strong>요청을 막지 않습니다.</strong> 이벤트가 생기면 발송 대기 행만 같은 트랜잭션에 남기고, 제어 서버의 배경 루프가 보냅니다. 릴레이가 느리거나 죽어 있어도 진단 요청·승인·에이전트 실행은 평소처럼 끝납니다. 연결 실패는 30초 뒤 한 번 더 시도한 뒤 실패로 기록합니다. 워커 전용 프로세스는 행만 남기고 보내지 않습니다.</li>
+<li><strong>시도마다 기록합니다.</strong> 시각·이벤트·받는 사람·제목·상태·시도 횟수·결과가 <code>mail_deliveries</code>에 남고, 성공과 실패가 모두 보입니다. <strong>본문은 기록하지 않습니다</strong> — 보내는 동안만 암호화해 두었다가 시도가 끝나면 지웁니다. 기록은 90일 뒤 정리됩니다.</li>
+<li><strong>사용자 명부를 새로 만들지 않습니다.</strong> 받는 사람 주소는 계정 ID로만 정합니다 — 자동화 관리의 <strong>검증된 연락처 메일</strong>이 있으면 그것, 없으면 사용자 이름이 메일 주소 형식일 때 그 이름입니다. 주소가 없는 계정은 조용히 건너뜁니다.</li>
+<li><strong>비밀번호는 되읽히지 않습니다.</strong> SMTP 비밀번호는 암호화 저장되고 설정 조회에는 <code>password_configured</code>만 돌아오며 화면에는 &quot;저장됨&quot;만 보입니다. 감사 기록에도 <code>[REDACTED]</code>로 남습니다.</li>
+<li><strong>시끄러우면 꺼집니다.</strong> 자기가 한 일은 자기에게 보내지 않고(요청자는 검토 요청을, 검토자는 검토 결과를 받지 않음), 같은 사람에게 같은 이벤트가 10초 안에 여러 건 생기면 한 통으로 묶습니다. 이벤트 종류별 스위치로 그 종류만 끌 수 있습니다.</li>
+</ul>
+<p>설정 키는 표준과 같습니다. <code>PUT /api/settings/mail</code>로 저장하며 화면의 항목과 1:1입니다.</p>
+<table>
+<thead>
+<tr>
+<th>키</th>
+<th>기본값</th>
+<th>뜻</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mail.enabled</code></td>
+<td><code>false</code></td>
+<td>꺼짐이 기본. 켜려면 호스트와 보내는 사람 주소가 필요</td>
+</tr>
+<tr>
+<td><code>mail.smtp_host</code></td>
+<td>—</td>
+<td>사내 릴레이 주소. 폐쇄망에서는 사내 메일 서비스(postra)를 권장</td>
+</tr>
+<tr>
+<td><code>mail.smtp_port</code></td>
+<td><code>25</code></td>
+<td>사내 릴레이는 대개 25. <code>465</code>는 auto에서 TLS로 연결</td>
+</tr>
+<tr>
+<td><code>mail.security</code></td>
+<td><code>auto</code></td>
+<td><code>auto</code> · <code>none</code> · <code>starttls</code> · <code>tls</code>. auto는 서버가 STARTTLS를 알리면 암호화</td>
+</tr>
+<tr>
+<td><code>mail.skip_tls_verify</code></td>
+<td><code>false</code></td>
+<td>사내 인증서가 사설이고 보안·세션의 사내 CA로도 검증할 수 없을 때만</td>
+</tr>
+<tr>
+<td><code>mail.username</code> · <code>mail.password</code></td>
+<td>빈 값</td>
+<td>인증 없는 릴레이가 흔하므로 <strong>선택 사항</strong>. 비밀번호 삭제는 <code>clear_password: true</code></td>
+</tr>
+<tr>
+<td><code>mail.from_address</code> · <code>mail.from_name</code></td>
+<td>— · <code>Hunter</code></td>
+<td>보내는 사람</td>
+</tr>
+<tr>
+<td><code>mail.base_url</code></td>
+<td>—</td>
+<td>메일 속 링크가 가리킬 주소. 비우면 기본 정보의 외부 접근 주소</td>
+</tr>
+<tr>
+<td><code>mail.timeout_seconds</code></td>
+<td><code>10</code></td>
+<td>릴레이 연결·전송 시간 제한(1~120)</td>
+</tr>
+<tr>
+<td><code>mail.notify_approval_requested</code> 등 <code>notify_&lt;이벤트&gt;</code></td>
+<td><code>true</code></td>
+<td>이벤트 종류별 스위치</td>
+</tr>
+</tbody>
+</table>
+<p><strong>시험 발송:</strong> 설정을 저장한 뒤 화면 아래 <strong>시험 발송</strong>에 받는 사람을 적고 누르면 저장된 설정으로 실제 한 통을 보내고 릴레이의 응답(접수 <code>250</code>, 인증 실패 <code>535</code>, 연결 실패 등)을 그 자리에서 보여 줍니다. 받는 사람을 비우면 내 계정의 주소로 보냅니다. 시도는 발송 기록에 <code>시험 발송</code>으로 남습니다. 릴레이 설정은 한 번에 맞는 일이 드무니 켜기 전에 반드시 한 번 보내 보세요. API로는 <code>POST /api/admin/mail/test {&quot;to&quot;: &quot;me@corp.local&quot;}</code>(관리자, 브라우저 세션이면 <code>X-Hunter-CSRF: 1</code>)입니다.</p>
+<p><strong>확인 절차:</strong> (1) 새로 설치한 곳에서 설정 조회의 <code>mail.enabled</code>가 <code>false</code>이고 발송 기록이 비어 있는지, (2) 시험 발송이 시험용 SMTP나 실제 릴레이에 도착하는지, (3) 릴레이를 끊어 놓고 진단을 요청해도 <code>201</code>로 끝나고 기록에 실패가 남는지, (4) 요청자 본인에게는 검토 요청이 오지 않는지 봅니다.</p>
+<table>
+<thead>
+<tr>
+<th>경로</th>
+<th>역할</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PUT /api/settings/mail</code></td>
+<td>릴레이·이벤트 스위치 저장, 비밀번호는 돌려주지 않음</td>
+</tr>
+<tr>
+<td><code>POST /api/admin/mail/test</code></td>
+<td>저장된 설정으로 실제 한 통을 보내고 결과를 즉시 반환</td>
+</tr>
+<tr>
+<td><code>GET /api/admin/mail/deliveries</code></td>
+<td>최근 200건 시도 기록(본문 없음)과 상태별 집계</td>
 </tr>
 </tbody>
 </table>

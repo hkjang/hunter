@@ -30,10 +30,12 @@ func defaultSettings() map[string]map[string]any {
 	out["inventory"] = map[string]any{"stale_after_days": 30, "review_licenses": []string{}}
 	// Empty until an administrator names a receiving service; then the send menu appears.
 	out["handoff"] = map[string]any{"targets": []any{}}
+	// The standard's mail.* keys; off until an administrator names a relay (mail.go).
+	out[mailSettingsGroup] = mailDefaultSettings()
 	return out
 }
 
-var secretFields = map[string][]string{"oidc": {"client_secret"}, "ai": {"api_key"}}
+var secretFields = map[string][]string{"oidc": {"client_secret"}, "ai": {"api_key"}, mailSettingsGroup: {"password"}}
 
 func (a *App) setting(ctx context.Context, group string) (map[string]any, error) {
 	defaults, ok := defaultSettings()[group]
@@ -231,6 +233,8 @@ func validateSettings(group string, v map[string]any) error {
 		return validateInventorySettings(v)
 	case "handoff":
 		return validateHandoffSettings(v)
+	case mailSettingsGroup:
+		return validateMailSettings(v)
 	case "general":
 		if strings.TrimSpace(asString(v["service_name"])) == "" || !validURL(asString(v["public_url"])) {
 			return fmt.Errorf("서비스 이름과 유효한 서비스 주소를 입력해 주세요")

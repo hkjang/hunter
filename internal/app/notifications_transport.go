@@ -600,7 +600,8 @@ func (a *App) sendSMTPNotification(ctx context.Context, channel NotificationChan
 	if err != nil {
 		return NotificationSendResult{State: "failed", Code: "ca", Detail: "사내 CA 인증서 설정을 확인해 주세요"}
 	}
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: host}
+	// skip_tls_verify exists for the mail relay only (mail.go); channel validation rejects it.
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: host, InsecureSkipVerify: boolean(c, "skip_tls_verify")}
 	dialer := net.Dialer{Timeout: notificationTimeout(c)}
 	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(asInt(c["port"]))))
 	if err != nil {
@@ -628,7 +629,14 @@ func (a *App) sendSMTPNotification(ctx context.Context, channel NotificationChan
 	if err = client.Hello("hunter.local"); err != nil {
 		return notificationSMTPError(err, false)
 	}
-	if str(c, "security") == "starttls" {
+	security := str(c, "security")
+	if security == "auto" {
+		// The mail relay's default: encrypt when the server offers it, plain otherwise.
+		if supported, _ := client.Extension("STARTTLS"); supported {
+			security = "starttls"
+		}
+	}
+	if security == "starttls" {
 		if supported, _ := client.Extension("STARTTLS"); !supported {
 			return NotificationSendResult{State: "failed", Code: "starttls_required", Detail: "SMTP 서버가 필수 STARTTLS를 지원하지 않습니다"}
 		}

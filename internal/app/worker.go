@@ -171,6 +171,7 @@ func (a *App) insertPreparedScan(ctx context.Context, tx pgx.Tx, u User, prepare
 			if _, err = tx.Exec(ctx, `INSERT INTO resources(id,kind,owner_id,data) VALUES($1,'approvals',$2,$3)`, newID(), u.ID, approval); err != nil {
 				return nil, err
 			}
+			a.mailApprovalRequested(ctx, tx, u, id, m)
 		}
 	}
 	m["id"] = id
@@ -265,6 +266,7 @@ func (a *App) approveScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.audit(r, "scan."+str(m, "decision"), s.ID, map[string]any{"reason": str(m, "reason")})
+	a.mailApprovalDecided(r.Context(), a.DB, currentUser(r), s, str(m, "decision"), str(m, "reason"))
 	jsonResponse(w, 200, map[string]any{"status": status})
 }
 
@@ -545,6 +547,9 @@ func (a *App) finishScan(ctx context.Context, workerID, id, status string, resul
 	patch, _ := json.Marshal(map[string]any{"status": status, "result": result, "logs": logs, "finished_at": time.Now().UTC()})
 	_, err = tx.Exec(ctx, `UPDATE resources SET data=data||$2::jsonb,updated_at=now() WHERE id=$1`, id, patch)
 	if err == nil {
+		if status == "failed" || status == "inconclusive" {
+			a.mailScanFailed(ctx, tx, id, status)
+		}
 		_ = tx.Commit(ctx)
 	}
 }
