@@ -1,5 +1,19 @@
 # Hunter 검증 기록
 
+## v1.12.0 MCP · SSO 연결
+
+2026년 9월 18일, `/mcp` 를 OAuth 2.1 리소스 서버로 만들어 개인 키와 함께 Keycloak 액세스 토큰도 받는 MCP · SSO 연결(`mcp.oauth.*`, 기본 꺼짐)을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -timeout 35m ./...`로 `internal/app` 635.905초·`internal/pentagicore` 1.781초 통과. 실패·race 보고0개. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| MCP · SSO 연결 | `mcp_oauth_test.go`: 기본 꺼짐·메타데이터 404·꺼진 상태의 토큰 거부(JWKS 미요청)·OIDC 없이 켜기 400, 설정 검증 6가지 거절과 정규화, 가짜 IdP 가 서명한 JWT 로 메타데이터·MCP 전용 401 헤더·Audience 매퍼 경로 통과·감사 `auth: sso`·다른 대상 거부 메시지(aud/azp·적을 값)·azp 허용 목록·웹 client_id·만료·nbf·다른 issuer·typ=ID·cnf·sub 없음·미등록·HS256(키 요청 없이)·비활성 계정·빈 교집합 거부·REST/GraphQL 에서 토큰 거부·키 그대로 동작·공개 설정·끄면 즉시 닫힘·사용자 지정 리소스 통과 |
+| 프런트엔드 | `npm test` 92개 통과. `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF·화면87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | `docker build --build-arg VERSION=1.12.0`로 서비스 이미지 빌드 통과. 오프라인 반입·브라우저 묶음 시험은 v1.9.0 후보 결과를 대체하지 않으며 이번 릴리즈에서 재실행하지 않았습니다. 실제 Keycloak·실제 MCP 클라이언트 연결은 이 환경에 Keycloak 이 없어 수행하지 않았습니다 |
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.12.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.12.0)에 실제 완료 후 기록합니다.
+
 ## v1.11.0 실행 보고서 다른 서비스로 보내기와 추적 프레임 CSP 차단 출처
 
 2026년 9월 15일, 에이전트 실행 보고서를 관리자 허용 목록의 사내 서비스로 넘기는 5분·1회용 markdown 표(HANDOFF 표준 보내는 쪽)와 방문 추적 격리 프레임의 CSP 차단 출처 신고·허용 패널을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.

@@ -51,6 +51,8 @@ v1.10.0은 자동 진입을 **관리자가 명시적으로 켠 경우에만** �
 
 v1.11.0은 에이전트 실행 보고서를 관리자가 허용한 사내 서비스로 넘기는 **다른 서비스로 보내기**(사내 문서 넘기기 표준의 보내는 쪽, Markdown·5분 1회용 표)와 방문 추적 격리 프레임의 CSP 차단 출처를 한 번에 허용 원점에 추가하는 **보안 정책에서 차단된 출처** 패널을 추가합니다. 두 기능 모두 기본 꺼짐이며 허용 목록이 비어 있으면 보고서 메뉴에 보내기 항목이 나타나지 않습니다. [릴리즈 노트](docs/release-v1.11.0.md)를 참고하세요.
 
+v1.12.0은 `/mcp` 를 **OAuth 2.1 리소스 서버**로 만드는 **MCP · SSO 연결**을 추가합니다. 관리자가 켜면 MCP 클라이언트(Claude, Cursor 등)에 MCP 주소 하나만 넣어도 클라이언트가 스스로 Keycloak 로그인을 거쳐 액세스 토큰을 받아 오고, Hunter 는 그 토큰을 서명·발급자·만료·대상까지 검사해 **이미 웹 로그인한 활성 계정**만 통과시킵니다. 개인 키 체계는 그대로이며 기본값은 꺼짐입니다. [릴리즈 노트](docs/release-v1.12.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -58,7 +60,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.11.0.tar.gz
+docker load -i hunter-v1.12.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -176,13 +178,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.11.0 예시 |
+| 항목 | 형식 | v1.12.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.11.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.11.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.12.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.12.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.11.0
+bash scripts/release.sh 1.12.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

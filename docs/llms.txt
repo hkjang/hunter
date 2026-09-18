@@ -10,8 +10,8 @@
 - [릴리즈](https://github.com/hkjang/hunter/releases)
 
 ## 핵심 사실
-- 프로젝트명 hunter, 버전 1.11.0.
-- 배포 이미지 hunter:v1.11.0, 서비스 이미지 압축 파일 hunter-v1.11.0.tar.gz.
+- 프로젝트명 hunter, 버전 1.12.0.
+- 배포 이미지 hunter:v1.12.0, 서비스 이미지 압축 파일 hunter-v1.12.0.tar.gz.
 - PostgreSQL은 별도 사내 서비스.
 - 런타임 환경변수 POSTGRES_DSN, BOOTSTRAP_ADMIN, BOOTSTRAP_ADMIN_PASSWORD, ENCRYPTION_KEY.
 - 관리자 화면에서 OIDC, AI, 역할 권한, 정책과 연동 관리.
