@@ -269,7 +269,6 @@ export function TrackingSettings({
     const missing = origins.filter((o) => !originLines.includes(o));
     if (!missing.length) return;
     setOriginText([...originLines, ...missing].join("\n"));
-    setPreview(null);
     setError("");
   }
   // Addresses written in the snippet that the frame policy would still block.
