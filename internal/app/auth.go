@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"golang.org/x/crypto/bcrypt"
 	"net"
 	"net/http"
@@ -55,6 +56,16 @@ func (a *App) authenticate(r *http.Request) (User, error) {
 	var keyScopes []string
 	if strings.HasPrefix(header, "Bearer ") {
 		token := strings.TrimPrefix(header, "Bearer ")
+		// One header, two credentials: a Hunter key (hnt_…) or a Keycloak access
+		// token (three dot-separated parts). Tokens are honoured on /mcp only; on
+		// every other route they fall through to the generic sign-in refusal, so
+		// a deployment that never switched SSO on says nothing new.
+		if !strings.HasPrefix(token, "hnt_") && looksLikeJWT(token) {
+			if r.Context().Value(mcpRequestKey{}) == nil {
+				return u, mcpRefuse("SSO 액세스 토큰은 /mcp 에서만 받습니다", errors.New("sso token outside /mcp"))
+			}
+			return a.mcpOAuthPrincipal(r.Context(), token)
+		}
 		var b []byte
 		var keyID string
 		err = a.DB.QueryRow(r.Context(), "SELECT u.id,u.username,u.name,u.role,u.team,k.scopes,k.id FROM api_keys k JOIN users u ON u.id=k.user_id WHERE k.token_hash=$1 AND k.revoked_at IS NULL AND k.expires_at>now() AND NOT u.disabled", digest(token)).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.Team, &b, &keyID)

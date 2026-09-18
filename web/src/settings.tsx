@@ -36,6 +36,7 @@ import {
   IconEye,
   IconKey,
   IconLock,
+  IconPlugConnected,
   IconPlus,
   IconRefresh,
   IconRotateClockwise,
@@ -84,6 +85,8 @@ import {
 } from "./form-state";
 import { TrackingSettings } from "./tracking";
 import { HandoffTargetsEditor } from "./handoff-settings";
+import { McpOAuthSettings } from "./mcp-oauth-settings";
+import { type McpOAuth, mcpOAuthValues } from "./mcp-oauth-state";
 import { handoffTargetsPayload, type HandoffTarget } from "./handoff-state";
 const scopesOptions = allScopes.map((s) => ({
   value: s,
@@ -92,6 +95,7 @@ const scopesOptions = allScopes.map((s) => ({
 const settingGroups: [string, string, any][] = [
   ["general", "기본 정보", IconSettings],
   ["oidc", "SSO · 로그인", IconShieldCheck],
+  ["mcp", "MCP · SSO 연결", IconPlugConnected],
   ["ai", "AI 분석", IconSparkles],
   ["agents", "에이전트 진단", IconAdjustments],
   ["workflow", "검토 · 승인", IconAdjustments],
@@ -404,6 +408,7 @@ function settingsGroupValues(group: string, data?: Row): Row {
     return handoffTargetsPayload(
       Array.isArray(data?.targets) ? (data!.targets as HandoffTarget[]) : [],
     );
+  if (group === "mcp") return mcpOAuthValues(data);
   const values = initialValues(settingFields[group] || [], data);
   if (group === "oidc") values.clear_client_secret = false;
   if (group === "ai") values.clear_api_key = false;
@@ -501,7 +506,9 @@ export function SettingsPage() {
     const submitted =
       group === "handoff"
         ? handoffTargetsPayload(values.handoff?.targets || [])
-        : values[group] || {};
+        : group === "mcp"
+          ? mcpOAuthValues(values.mcp)
+          : values[group] || {};
     setBusy(true);
     try {
       const saved = await api<Row>(`/api/settings/${group}`, {
@@ -609,6 +616,8 @@ export function SettingsPage() {
                     <IconSparkles />
                   ) : tab === "oidc" ? (
                     <IconShieldCheck />
+                  ) : tab === "mcp" ? (
+                    <IconPlugConnected />
                   ) : (
                     <IconSettings />
                   )}
@@ -620,7 +629,9 @@ export function SettingsPage() {
                       ? "역할별 접근 가능한 기능을 정의합니다. 개인 키 권한은 소유자 권한을 초과할 수 없습니다."
                       : tab === "handoff"
                         ? "실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록입니다. 기본값은 비어 있습니다."
-                        : "워크스페이스의 설정을 확인하고 변경하세요."}
+                        : tab === "mcp"
+                          ? "개인 키 없이 Keycloak 액세스 토큰으로 /mcp 에 연결하게 합니다. 기본값은 꺼짐이며 계정은 만들지 않습니다."
+                          : "워크스페이스의 설정을 확인하고 변경하세요."}
                   </p>
                 </div>
               </div>
@@ -653,6 +664,17 @@ export function SettingsPage() {
                       </div>
                     ))}
                   </Stack>
+                ) : tab === "mcp" ? (
+                  <McpOAuthSettings
+                    value={(values.mcp?.oauth as McpOAuth) || mcpOAuthValues().oauth}
+                    publicURL={
+                      values.general?.public_url || window.location.origin
+                    }
+                    oidcEnabled={!!values.oidc?.enabled}
+                    onChange={(oauth) =>
+                      setValues({ ...values, mcp: { oauth } })
+                    }
+                  />
                 ) : tab === "handoff" ? (
                   <HandoffTargetsEditor
                     targets={values.handoff?.targets || []}
@@ -1202,7 +1224,7 @@ function keyState(row: Row): keyof typeof keyStateLabels {
   return Date.parse(row.expires_at) <= Date.now() ? "expired" : "active";
 }
 export function KeysPage() {
-  const { user } = useSession();
+  const { user, config } = useSession();
   const { data, loading, error, reload } = useData<Row[]>("/api/keys");
   const view = useListView<Row>({
     rows: data || [],
@@ -1585,6 +1607,24 @@ export function KeysPage() {
             서비스 조회, 발견 건 조회, 정책을 적용한 진단 요청 도구를
             제공합니다.
           </Text>
+          {config.mcp_sso_enabled ? (
+            <Alert color="teal" mt="md" title="키 없이 SSO 로 연결하기">
+              <Text size="sm">
+                이 서버는 사내 SSO(Keycloak) 액세스 토큰도 받습니다. 키를
+                만들지 말고 MCP 클라이언트에 아래 주소 하나만 넣으세요. 처음
+                연결할 때 클라이언트가 SSO 로그인 창을 띄우고, 이미 로그인돼
+                있으면 바로 연결됩니다. 이 화면에 로그인한 계정 그대로이며 권한은
+                관리자가 정한 범위와 내 역할의 교집합입니다.
+              </Text>
+              <Code
+                block
+                mt="sm"
+                style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+              >
+                {String(config.mcp_sso_url || `${window.location.origin}/mcp`)}
+              </Code>
+            </Alert>
+          ) : null}
         </Paper>
       </SimpleGrid>
       <Modal

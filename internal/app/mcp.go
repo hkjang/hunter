@@ -1,17 +1,25 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 )
 
+// mcpRequestKey marks a request on the MCP path: the only place authenticate
+// may turn a Keycloak access token into a principal.
+type mcpRequestKey struct{}
+
 func (a *App) registerMCP(m *http.ServeMux) {
 	m.HandleFunc("POST /mcp", func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(context.WithValue(r.Context(), mcpRequestKey{}, true))
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
-			w.Header().Set("WWW-Authenticate", "Bearer")
+			a.mcpChallenge(w, r, false)
 			fail(w, 401, "개인 API 키가 필요합니다")
 			return
 		}
@@ -23,8 +31,25 @@ func (a *App) registerMCP(m *http.ServeMux) {
 				return
 			}
 		}
-		a.protect("", a.mcp)(w, r)
+		// Bearer requests are exempt from the cookie CSRF rule in protect; the
+		// key path keeps its generic refusal, an SSO token gets the sentence the
+		// client can act on while the cause goes to the log here and only here.
+		u, e := a.authenticate(r)
+		if e != nil {
+			a.mcpChallenge(w, r, true)
+			var refusal mcpOAuthRefusal
+			if errors.As(e, &refusal) {
+				slog.Warn("mcp sso token rejected", "cause", refusal.cause.Error())
+				fail(w, 401, refusal.message)
+				return
+			}
+			fail(w, 401, "로그인이 필요합니다")
+			return
+		}
+		a.mcp(w, r.WithContext(context.WithValue(r.Context(), userContextKey{}, u)))
 	})
+	m.HandleFunc("/.well-known/oauth-protected-resource", a.mcpResourceMetadata)
+	m.HandleFunc("/.well-known/oauth-protected-resource/mcp", a.mcpResourceMetadata)
 	m.HandleFunc("GET /mcp", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "POST")
 		fail(w, 405, "이 서버는 상태 없는 Streamable HTTP POST를 지원합니다")
@@ -158,7 +183,11 @@ func (a *App) mcp(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"isError": true, "content": []map[string]string{{"type": "text", "text": e.Error()}}})
 			return
 		}
-		a.audit(r, "mcp."+p.Name, "", map[string]string{"tool": p.Name})
+		detail := map[string]string{"tool": p.Name}
+		if u.Auth == "oauth" {
+			detail["auth"] = "sso"
+		}
+		a.audit(r, "mcp."+p.Name, "", detail)
 		b, _ := json.Marshal(result)
 		reply(map[string]any{"isError": false, "content": []map[string]string{{"type": "text", "text": string(b)}}})
 	default:

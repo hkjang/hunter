@@ -30,6 +30,8 @@ func defaultSettings() map[string]map[string]any {
 	out["inventory"] = map[string]any{"stale_after_days": 30, "review_licenses": []string{}}
 	// Empty until an administrator names a receiving service; then the send menu appears.
 	out["handoff"] = map[string]any{"targets": []any{}}
+	// Off until an administrator switches it on; a new installation keeps /mcp key-only.
+	out["mcp"] = map[string]any{"oauth": mcpOAuthDefaults()}
 	return out
 }
 
@@ -119,7 +121,14 @@ func (a *App) registerSettings(m *http.ServeMux) {
 		ai, _ := a.setting(r.Context(), "ai")
 		agents, _ := a.setting(r.Context(), "agents")
 		platformEnabled, _ := a.platformModelsEnabled(r.Context())
-		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": asBool(ai["enabled"]) || platformEnabled, "agents_enabled": agents["enabled"], "agent_upstream_commit": "ea665308baaff015b226f308438a68d929d0f29b"})
+		// The key page tells signed-in people whether /mcp also takes SSO; only the
+		// public MCP address goes out, never the audience list or issuer.
+		sso, _ := a.mcpOAuth(r.Context())
+		mcpURL := ""
+		if sso.Enabled {
+			mcpURL = sso.Resource
+		}
+		jsonResponse(w, 200, map[string]any{"service_name": g["service_name"], "version": a.Version, "approval_enabled": flow["approval_enabled"], "ai_enabled": asBool(ai["enabled"]) || platformEnabled, "agents_enabled": agents["enabled"], "agent_upstream_commit": "ea665308baaff015b226f308438a68d929d0f29b", "mcp_sso_enabled": sso.Enabled, "mcp_sso_url": mcpURL})
 	}))
 	m.HandleFunc("GET /api/settings", a.protect("admin:manage", func(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{}
@@ -171,6 +180,12 @@ func (a *App) registerSettings(m *http.ServeMux) {
 		if e = validateSettings(group, v); e != nil {
 			fail(w, 400, e.Error())
 			return
+		}
+		if group == "mcp" {
+			if e = a.validateMCPSettingsLinks(r.Context(), v); e != nil {
+				fail(w, 400, e.Error())
+				return
+			}
 		}
 		for _, k := range secretFields[group] {
 			if s := asString(v[k]); s != "" {
@@ -231,6 +246,8 @@ func validateSettings(group string, v map[string]any) error {
 		return validateInventorySettings(v)
 	case "handoff":
 		return validateHandoffSettings(v)
+	case "mcp":
+		return validateMCPSettings(v)
 	case "general":
 		if strings.TrimSpace(asString(v["service_name"])) == "" || !validURL(asString(v["public_url"])) {
 			return fmt.Errorf("서비스 이름과 유효한 서비스 주소를 입력해 주세요")
