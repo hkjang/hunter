@@ -616,7 +616,7 @@ curl 'https://hunter.internal/api/services' \
   -H 'Authorization: Bearer YOUR_HUNTER_KEY'
 ~~~
 
-MCP 주소는 `https://hunter.internal/mcp`이며 개인 Bearer 키를 지원하는 HTTP 클라이언트에서 연결합니다. 현재는 API 키 인증 방식이며 OAuth 동적 클라이언트 등록 방식은 아닙니다.
+MCP 주소는 `https://hunter.internal/mcp`이며 개인 Bearer 키를 지원하는 HTTP 클라이언트에서 연결합니다. 관리자가 MCP·SSO 연결을 켠 서버에서는 아래처럼 키 없이도 연결할 수 있습니다.
 
 | MCP 도구 | 하는 일 | 필요한 권한 |
 | --- | --- | --- |
@@ -629,6 +629,16 @@ MCP 주소는 `https://hunter.internal/mcp`이며 개인 Bearer 키를 지원하
 | hunter_compare_campaigns | 같은 조건의 캠페인 관측 비교 | services:read + scans:read + findings:read |
 
 MCP에서 진단을 요청해도 서비스 승인, 범위 제한, 팀장 승인 설정과 긴급 중지를 우회하지 않습니다.
+
+#### 키 없이 SSO 로 연결하기
+
+관리자가 **MCP · SSO 연결**을 켜 두었다면 개인 키 페이지의 MCP 연결 카드에 "키 없이 SSO 로 연결하기" 안내가 보입니다. 이때는 키를 만들지 않고 MCP 클라이언트(Claude, Cursor 등)에 **MCP 주소 하나**만 넣으면 됩니다.
+
+1. 클라이언트에 `https://hunter.internal/mcp` 를 등록합니다. 헤더는 비워 둡니다.
+2. 처음 연결할 때 클라이언트가 사내 SSO(Keycloak) 로그인 창을 띄웁니다. 이미 로그인돼 있으면 거의 바로 넘어갑니다.
+3. 연결되면 이 화면에 로그인한 **바로 그 계정**으로 도구를 씁니다. 권한은 관리자가 정한 SSO 범위와 내 역할 권한의 교집합이며, 키로 연결했을 때와 같은 서비스·팀 범위 검사를 받습니다.
+
+SSO 로 연결하려면 먼저 웹으로 한 번 SSO 로그인해 계정이 있어야 합니다("등록되지 않았거나 비활성" 이라고 나오면 웹 로그인부터 하세요). 토큰은 짧게 살고 클라이언트가 스스로 갱신하며, 키 없이 못 붙는 자동화 스크립트나 폐쇄망 클라이언트는 지금처럼 개인 키를 쓰면 됩니다.
 
 ### 12.5 업무 알림을 받을 때
 

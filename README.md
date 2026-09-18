@@ -94,13 +94,13 @@ curl 'https://hunter.internal/api/services' \
 ~~~
 
 - OpenAPI: `/api/openapi.json`
-- MCP: `POST /mcp`, 개인 Bearer 키 인증
+- MCP: `POST /mcp`, 개인 Bearer 키 인증. 관리자가 **MCP · SSO 연결**(`mcp.oauth.*`, 기본 꺼짐)을 켜면 같은 헤더로 Keycloak 액세스 토큰도 받습니다 — `/.well-known/oauth-protected-resource` 메타데이터와 401 의 `resource_metadata` 로 클라이언트가 스스로 로그인하며, Hunter 는 토큰을 발급하지 않고 이미 웹 로그인한 활성 계정만 통과시킵니다. [관리자 가이드 §15.6](docs/guides/admin-guide.md#15-6-mcp-sso-연결-키-없이-keycloak-토큰으로)
 - 도구: 기존 서비스·발견 조회와 진단 요청에 더해 `hunter_finding_queue`, `hunter_list_components`, `hunter_list_campaigns`, `hunter_compare_campaigns`를 제공합니다. [관리자 가이드의 MCP 권한 표](docs/guides/admin-guide.md#153-mcp-연결)를 참고하세요.
 - AI: `POST /api/ai/chat`, SSE 스트리밍
 - GraphQL: `GET/POST /api/graphql`, 조회 전용. 인증된 SDL은 `/api/graphql/schema`
 - 실행 보고서: `GET /api/agent-runs/{id}/report?format=md|html|pdf`, 기존 에이전트 조회 네 권한과 현재 서비스 접근 적용
 
-MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며 OAuth 동적 등록을 제공하지 않습니다. AI 최대 설정은 연결한 실제 모델의 지원 한도에 따라 조정합니다.
+MCP는 API 키를 지원하는 HTTP 클라이언트에서 사용하며, SSO 연결을 켜도 Hunter 가 인증 서버 노릇(`/token`, 동적 클라이언트 등록)을 하지는 않습니다. AI 최대 설정은 연결한 실제 모델의 지원 한도에 따라 조정합니다.
 
 방문 추적은 **서비스 설정 → 방문 추적**에서 관리자 브라우저 세션으로만 편집·미리보기 합니다. JavaScript 32KiB 또는 최대10개 script 태그와 정확한 HTTP(S) 원점 최대10개를 허용합니다. 로그인·관리자·개인화 화면과 쿼리·실제 자료 ID·사용자 정보는 페이지 이벤트에서 제외합니다. 브라우저의 IP·User-Agent 등 일반 HTTP 정보는 수집기에서 관측될 수 있으며 쿠키·부모 DOM·스토리지에 의존하는 SDK는 별도 이벤트 어댑터가 필요합니다. 미리보기 준비 완료는 통계 수집 완료가 아닙니다. 격리 프레임의 정책이 차단한 출처·지시어는 로그인 화면이 서버에 대신 신고해 설정 화면의 **보안 정책에서 차단된 출처** 패널에 인스턴스 메모리 기준 최대 100개까지 보이며, 한 번 눌러 허용 원점에 추가한 뒤 저장할 수 있습니다. 앱 자체 CSP는 완화하지 않습니다.
 

@@ -196,6 +196,7 @@ PostgreSQL TLS는 DSN의 `sslmode=verify-full`과 `sslrootcert=/경로/ca.pem` �
 | --- | --- |
 | 기본 정보 | 서비스 이름, 외부 접근 주소 |
 | SSO·로그인 | OIDC 활성화·기존 세션 자동 진입, Issuer, Client ID, Client Secret, 신규 계정 역할 |
+| MCP·SSO 연결 | 개인 키 없이 Keycloak 액세스 토큰으로 `/mcp` 연결 허용(`mcp.oauth.*`) — 기본 꺼짐, §15.6 |
 | 방문 추적 | 사용 여부·공개 코드·허용 원점과 저장 전 격리 미리보기 |
 | 다른 서비스로 보내기 | 실행 보고서를 받아 갈 수 있는 사내 서비스의 허용 목록(`handoff.targets`) — 기본은 비어 있음 |
 | AI 분석 | 활성화, Base URL, API 키, 모델, 최대 출력 토큰, 컨텍스트 창 |
@@ -1294,7 +1295,7 @@ curl 'https://hunter.internal/api/findings' \
 
 ### 15.3 MCP 연결
 
-HTTP 엔드포인트는 `/mcp`입니다. MCP 프로토콜 2025-06-18과 2025-11-25에 대한 초기화 협상을 지원하고, 개인 API 키 인증으로 사용합니다. OAuth 자동 등록과 브라우저 인증을 요구하는 MCP 클라이언트는 그대로 연결되지 않을 수 있습니다.
+HTTP 엔드포인트는 `/mcp`입니다. MCP 프로토콜 2025-06-18과 2025-11-25에 대한 초기화 협상을 지원하고, 개인 API 키 인증으로 사용합니다. 브라우저 로그인으로 토큰을 받아 오는 MCP 클라이언트(Claude, Cursor 등)를 키 없이 연결하려면 §15.6의 MCP·SSO 연결을 켭니다.
 
 ~~~json
 {
@@ -1354,6 +1355,94 @@ query ServiceFindings($service: ID!, $n: Int!) {
 `GET /api/agent-runs/{id}/report?format=md|html|pdf`는 기존 에이전트 조회 네 권한과 현재 서비스 접근을 요구합니다. 기본 형식은 md이며 파일명은 `hunter-agent-{실행ID}.{형식}`입니다. 결과는 JSON envelope가 아닌 다운로드 파일이고 `Cache-Control: no-store`와 `Content-Disposition: attachment`를 적용합니다.
 
 PDF는 내장 NanumGothic 폰트로 Go 프로세스 안에서 생성합니다. HTML은 결과 텍스트 이스케이프와 외부 자원 차단 CSP를 적용합니다. 동시 생성4개·요청20초 제한이며 혼잡하면503, 형식오류400, 권한없음403, 비접근실행404를 반환합니다. 보고서의 생략 한도와 중간 상태 해석은 [사용자 가이드](user-guide.md#108-실행-보고서-다운로드)를 확인하세요.
+
+### 15.6 MCP·SSO 연결 — 키 없이 Keycloak 토큰으로
+
+MCP 인가 규격(2025-06-18 이후)은 OAuth 2.1입니다. 이 절을 켜면 MCP 클라이언트에 `/mcp` 주소 하나만 주어도 클라이언트가 스스로 Keycloak 로그인 창을 띄우고 액세스 토큰을 받아 옵니다. **Hunter 는 리소스 서버**입니다 — 토큰을 발급하지 않고(`/authorize`·`/token`·동적 클라이언트 등록 없음), 토큰을 저장하거나 세션으로 바꾸지도 않으며, 요청마다 Keycloak 서명키로 검사합니다. 개인 키 체계는 그대로이고 기본값은 **꺼짐**입니다.
+
+흐름은 다음과 같습니다.
+
+1. 토큰 없이 `/mcp` 를 부르면 `401` 과 `WWW-Authenticate: Bearer realm="hunter", resource_metadata="https://<공개 주소>/.well-known/oauth-protected-resource/mcp"` 를 돌려줍니다. 이 헤더는 MCP 경로에서만 붙고 REST 401 에는 붙지 않습니다.
+2. 클라이언트가 그 메타데이터(RFC 9728, 인증 없이 맨 JSON, `Access-Control-Allow-Origin: *`)를 읽어 `authorization_servers` 의 Keycloak realm 으로 갑니다. Hunter 는 인증 서버 메타데이터를 대신 서빙하지 않고 클라이언트가 Keycloak 의 `/.well-known/openid-configuration` 을 직접 읽습니다.
+3. 사람이 Keycloak 에 로그인하면(이미 로그인돼 있으면 화면이 거의 없음) 클라이언트가 액세스 토큰을 받아 같은 `Authorization: Bearer` 헤더로 `/mcp` 를 부릅니다. 값이 `hnt_` 로 시작하면 키, 점 두 개의 JWT 모양이면 SSO 토큰으로 가르고, 둘 다 아니면 지금과 같은 "로그인이 필요합니다" 입니다.
+
+**설정 표** (`관리자 → 서비스 설정 → MCP · SSO 연결`, API 로는 `PUT /api/settings/mcp` 의 `oauth` 객체)
+
+| 키 | 기본값 | 뜻 |
+| --- | --- | --- |
+| `mcp.oauth.enabled` | `false` | 꺼짐이 기본. 켜려면 SSO·로그인 그룹의 OIDC 가 켜져 있고 Issuer URL 이 저장돼 있어야 하며, 아니면 저장이 거부됩니다 |
+| `mcp.oauth.resource` | 빈 값 | 리소스 식별자. 비우면 **서비스 외부 접근 주소 + `/mcp`** 로 만듭니다. 프록시 뒤 내부 주소가 아니라 클라이언트가 실제로 접속하는 공개 HTTPS 주소여야 하며, 요청 `Host` 헤더는 쓰지 않습니다 |
+| `mcp.oauth.audience` | 빈 목록 | 허용 대상. 토큰의 `aud` 또는 `azp` 와 비교합니다(화면은 목록, API 는 배열 또는 공백 구분 문자열). 최대 20개 |
+| `mcp.oauth.scopes` | `services:read findings:read scans:read` | SSO 토큰 주체에게 주는 권한의 **상한**. 실제 권한은 이 목록 ∩ 사용자 역할 권한이며, 교집합이 비면 연결을 거부합니다. 켤 때 비어 있으면 저장이 거부됩니다 |
+| (재사용) `oidc.issuer`, `oidc.client_id` | SSO·로그인 그룹 | 새로 만들지 않습니다. 발급자는 서명·`iss` 검사에, 웹 로그인 Client ID 는 항상 허용 대상에 포함됩니다 |
+
+켜진 뒤에도 OIDC 를 끄거나 외부 접근 주소를 지우면 조용히 꺼진 것처럼 동작하고(메타데이터 404, 토큰 거부) 이유를 `mcp oauth switched on but inactive` 로그로 남깁니다.
+
+**토큰 검사 항목**
+
+| 항목 | 규칙 |
+| --- | --- |
+| 서명 | Keycloak JWKS(Discovery 의 `jwks_uri`). RS·ES·PS 계열만, `HS*`·`none` 은 서명키를 받기 전에 거부 |
+| `iss` | `oidc.issuer` 와 같아야 함 |
+| `exp`·`nbf` | 만료·아직 유효하지 않음 거부 |
+| `typ` | `ID` 면 거부 — ID 토큰은 로그인 증거이지 API 자격이 아님 |
+| `cnf` | 있으면 거부(검증할 수 없는 DPoP·mTLS 소지자 증명) |
+| `sub` | 비어 있으면 거부 |
+| 대상 | `aud` 에 리소스 식별자가 있거나(Audience 매퍼 정식 경로), `aud` 또는 `azp` 가 허용 대상 목록 또는 웹 로그인 Client ID 에 있어야 함(호환 경로). 실제 Keycloak 26 은 `aud` 에 `account` 만 싣고 클라이언트 ID 는 `azp` 에 담습니다 |
+| 계정 | `iss|sub` 해시로 **이미 웹 로그인한 활성 계정**만 찾습니다. 계정을 만들거나 비활성 계정을 열지 않고, 토큰의 role 을 권한으로 옮기지 않습니다 |
+
+**Keycloak 쪽 할 일**
+
+1. MCP 클라이언트용 **공개(public) 클라이언트**를 만듭니다. Standard Flow 켬, PKCE `S256`, Direct Access Grants·Implicit·Service accounts 끔. 웹 로그인 클라이언트(`oidc.client_id`)와 **다른** 클라이언트입니다.
+2. Valid Redirect URIs 에 쓰는 MCP 클라이언트의 콜백을 정확히 적습니다(Claude 는 `https://claude.ai/api/mcp/auth_callback`, 로컬 클라이언트는 `http://127.0.0.1:*/callback` 류). `*` 하나로 다 여는 것은 금지입니다.
+3. 정식 경로: 그 클라이언트(또는 전용 client scope)에 **Audience 매퍼**를 둡니다.
+
+   | Mapper 항목 | 값 |
+   | --- | --- |
+   | Mapper type | Audience |
+   | Included Custom Audience | 리소스 식별자(예: `https://hunter.internal/mcp`) |
+   | Add to access token | ON |
+   | Add to ID token | OFF |
+
+   호환 경로: 매퍼 없이 Hunter 의 허용 대상에 그 클라이언트 ID 를 적습니다. 거부 메시지가 무엇을 적어야 하는지 그대로 알려 줍니다.
+4. 액세스 토큰 수명은 짧게(5분 안팎) 둡니다. Hunter 는 introspection 을 하지 않으므로 Keycloak 에서 로그아웃하거나 사용자를 끄더라도 이미 발급된 토큰은 만료까지 삽니다. 급하면 Hunter 사용자도 비활성화하세요 — 비활성 계정의 토큰은 즉시 거부됩니다.
+
+**curl 로 확인하기**
+
+~~~bash
+# 1) 메타데이터: 인증 없이 200, 맨 JSON
+curl -si https://hunter.internal/.well-known/oauth-protected-resource/mcp
+# {"resource":"https://hunter.internal/mcp","authorization_servers":["https://keycloak.internal/realms/company"],
+#  "bearer_methods_supported":["header"],"scopes_supported":["services:read","findings:read","scans:read"],"resource_name":"hunter MCP"}
+
+# 2) 토큰 없는 /mcp: 401 과 resource_metadata 헤더
+curl -si -X POST https://hunter.internal/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ping"}' | grep -i www-authenticate
+# WWW-Authenticate: Bearer realm="hunter", resource_metadata="https://hunter.internal/.well-known/oauth-protected-resource/mcp"
+
+# 3) 토큰으로 tools/list (토큰은 MCP 클라이언트나 Keycloak 에서 받은 액세스 토큰)
+curl -s -X POST https://hunter.internal/mcp -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+# 4) 같은 토큰은 REST 에서 거부돼야 함 (401, WWW-Authenticate 없음)
+curl -si https://hunter.internal/api/auth/me -H "Authorization: Bearer $TOKEN" | head -1
+~~~
+
+**거부 메시지별 조치** (`401` 본문의 `error`; 하위 원인은 서버 로그 `mcp sso token rejected` 의 `cause` 에 남습니다)
+
+| 메시지 | 조치 |
+| --- | --- |
+| 이 서버는 SSO 액세스 토큰을 받지 않습니다 | `mcp.oauth.enabled` 를 켜거나(전제: OIDC 켜짐·Issuer·외부 접근 주소), 개인 키를 씁니다. 로그의 `cause` 가 어떤 전제가 빠졌는지 말합니다 |
+| SSO 토큰이 이 서버를 위해 발급된 것이 아닙니다(aud […], azp "…") | 메시지에 적힌 `azp` 값을 허용 대상에 더하거나, Keycloak 클라이언트에 메시지의 리소스 식별자로 Audience 매퍼를 둡니다. 다른 앱용 토큰이라면 의도된 차단입니다 |
+| SSO 액세스 토큰이 유효하지 않습니다(서명·발급자·만료) | 클라이언트에서 다시 로그인. 계속되면 `oidc.issuer` 가 realm issuer 와 정확히 같은지, Hunter 의 신뢰 CA·시계를 확인합니다 |
+| ID 토큰은 로그인 증거이지 MCP 자격이 아닙니다 | 클라이언트가 `id_token` 을 보내고 있습니다. 액세스 토큰을 쓰도록 클라이언트 설정을 고칩니다 |
+| 서명 알고리즘을 받지 않습니다 | realm 의 액세스 토큰 서명 알고리즘을 RS256(또는 ES·PS 계열)로 둡니다 |
+| 소지자 증명(cnf)이 묶인 토큰 | 해당 클라이언트의 DPoP·mTLS 바인딩을 끄거나 개인 키를 씁니다 |
+| 이 SSO 계정은 Hunter 에 등록되지 않았거나 비활성입니다 | 그 사람이 웹으로 한 번 SSO 로그인해 계정을 만든 뒤 다시 연결합니다. 비활성 계정은 관리자가 활성화해야 합니다 |
+| 이 계정의 역할에는 SSO 로 허용된 MCP 권한이 없습니다 | `mcp.oauth.scopes` 와 역할 권한(§7.3)의 교집합이 비었습니다. 둘 중 하나를 넓히거나 의도된 제한이면 그대로 둡니다 |
+| Keycloak 발급자 정보를 읽지 못해 | Hunter 서버에서 Keycloak Discovery 주소로 나가는 연결·DNS·신뢰 CA 를 확인합니다 |
+
+SSO 토큰으로 호출한 도구는 감사 기록 `mcp.<도구>` 에 `auth: sso` 로 표시됩니다. 토큰과 사용자 식별자는 로그에 남기지 않습니다.
 
 ## 16. 감사 기록과 증거 관리
 
