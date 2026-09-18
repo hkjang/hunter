@@ -132,7 +132,7 @@ func mcpOAuthSetup(t *testing.T) (*App, *httptest.Server, string, *mcpOAuthIdP) 
 	idp := newMCPOAuthIdP(t)
 	mustRequest(t, s, "PUT", "/api/settings/general", map[string]any{"service_name": "hunter", "public_url": "https://hunter.example"}, admin, 200)
 	mustRequest(t, s, "PUT", "/api/settings/oidc", map[string]any{"enabled": true, "auto_login": false, "issuer": idp.issuer, "client_id": "hunter-web", "client_secret": "web-secret", "default_role": "viewer"}, admin, 200)
-	if _, err := a.DB.Exec(context.Background(), `INSERT INTO users(id,username,name,role,oidc_subject) VALUES($1,$2,$3,$4,$5)`, newID(), "employee-"+digest(idp.issuer+"|employee-1")[:10], "SSO 직원", "analyst", digest(idp.issuer+"|employee-1")); err != nil {
+	if _, err := a.DB.Exec(context.Background(), `INSERT INTO users(id,username,name,role,oidc_subject) VALUES($1,$2,$3,$4,$5)`, newID(), "employee-"+digest(idp.issuer + "|employee-1")[:10], "SSO 직원", "analyst", digest(idp.issuer+"|employee-1")); err != nil {
 		t.Fatal(err)
 	}
 	return a, s, admin, idp

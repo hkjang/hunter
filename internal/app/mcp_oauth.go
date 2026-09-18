@@ -270,7 +270,9 @@ type mcpOAuthRefusal struct {
 func (r mcpOAuthRefusal) Error() string { return r.message }
 func (r mcpOAuthRefusal) Unwrap() error { return r.cause }
 
-func mcpRefuse(message string, cause error) error { return mcpOAuthRefusal{message: message, cause: cause} }
+func mcpRefuse(message string, cause error) error {
+	return mcpOAuthRefusal{message: message, cause: cause}
+}
 
 // mcpOAuthPrincipal turns a bearer access token into a Hunter principal, or
 // says exactly why it will not.
