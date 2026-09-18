@@ -30,6 +30,8 @@ type App struct {
 	Assets    fs.FS
 	// Origins the tracking frame policy refused; in memory only, see tracking_violations.go.
 	TrackingViolations trackingViolationLog
+	// Cached Keycloak discovery for SSO access tokens on /mcp, see mcp_oauth.go.
+	MCPOAuth mcpOAuthProviderCache
 }
 type User struct {
 	ID       string   `json:"id"`
@@ -39,6 +41,10 @@ type User struct {
 	Scopes   []string `json:"scopes"`
 	Team     string   `json:"team"`
 	KeyID    string   `json:"-"`
+	// Auth is "oauth" for an SSO access token accepted on /mcp. Such a principal
+	// has no KeyID, so anything that reads an empty KeyID as "browser session"
+	// must also look here; today only /mcp ever sees one.
+	Auth string `json:"-"`
 }
 type userContextKey struct{}
 

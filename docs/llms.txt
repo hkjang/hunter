@@ -37,6 +37,7 @@
 - 캠페인 비교는 동일조건의 내장 완료실행 스냅샷만. 외부수입/이전버전/실패 결과는 비교불가. 미관측≠해결.
 - 관리자 운영점검은 DB·큐·워커·긴급중지·설정여부·자료갱신일을 확인하며 외부연결을 시험하지 않음.
 - 새 읽기전용 MCP도구: hunter_finding_queue, hunter_list_components, hunter_list_campaigns, hunter_compare_campaigns.
+- MCP SSO(OAuth 2.1 리소스 서버, 기본 꺼짐): /.well-known/oauth-protected-resource(/mcp) 메타데이터, /mcp 401의 resource_metadata, Keycloak JWT를 서명·iss·exp·nbf·typ·cnf·대상(aud 또는 azp) 검사해 이미 웹 로그인한 활성 계정만 통과. 범위는 mcp.oauth.scopes ∩ 역할. 토큰은 /mcp에서만.
 - [공식 자료 조사와 채택 범위](https://hkjang.github.io/hunter/research-v140.md). 이번 운영기능은 Hunter 자체코드, PentAGI 원본312파일 그대로.
 
 ## v1.5 반복 업무 편의

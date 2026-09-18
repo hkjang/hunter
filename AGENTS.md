@@ -28,6 +28,7 @@
 | `internal/app/agent_execution*.go`, `agents_control.go` | 고정 mTLS 격리 프로브·체크포인트 제어·입력·도구 영수증 |
 | `internal/app/graphql*.go`, `agent_reports*.go`, `report_assets` | 현재 권한의 조회 GraphQL·오프라인 한글 보고서·폰트 고지 |
 | `internal/app/auth_oidc*.go`, `tracking*.go`, `web/src/auth-flow.ts`, `tracking*` | 한 번의 OIDC 자동 진입·로컬 복구와 관리자 격리 추적 |
+| `internal/app/mcp_oauth.go`, `web/src/mcp-oauth-*` | `/mcp` 의 OAuth 2.1 리소스 서버 — RFC 9728 메타데이터·401 도전·Keycloak 토큰 검사·기존 계정 매핑(기본 꺼짐) |
 | `internal/app/agents_tools.go` | 여덟 Hunter 도구의 권한·범위·저장 처리 |
 | `internal/app/agents_redaction.go` | 모델·이벤트의 비밀정보 마스킹 |
 | `internal/pentagicore` | 원본 코어 어댑터, 모델·도구 연결, 호환 SQL 저장소 |

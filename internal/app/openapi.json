@@ -3082,12 +3082,13 @@
                 "sla",
                 "risk",
                 "inventory",
-                "handoff"
+                "handoff",
+                "mcp"
               ]
             }
           }
         ],
-        "description": "설정 그룹: general, oidc, ai, agents, workflow, security, roles, sla, risk, inventory. SLA 기본 비활성, 수동 조치 기한 우선. 위험 점수는 심각도와 별도이며 자동 상태 변경에 사용하지 않습니다. inventory.review_licenses는 라이선스 식별자 정확 일치 목록입니다."
+        "description": "설정 그룹: general, oidc, ai, agents, workflow, security, roles, sla, risk, inventory. SLA 기본 비활성, 수동 조치 기한 우선. 위험 점수는 심각도와 별도이며 자동 상태 변경에 사용하지 않습니다. inventory.review_licenses는 라이선스 식별자 정확 일치 목록입니다. mcp 그룹은 oauth 객체 하나(enabled·resource·audience·scopes)로 MCP·SSO 연결(mcp.oauth.*)을 정하며 기본 꺼짐입니다; 켤 때는 oidc 그룹의 enabled·issuer 가 저장돼 있어야 하고 scopes 가 비면 400 입니다."
       }
     },
     "/api/profile/password": {
@@ -3959,7 +3960,7 @@
     },
     "/mcp": {
       "post": {
-        "summary": "Streamable HTTP JSON-RPC; Bearer 키 필요",
+        "summary": "Streamable HTTP JSON-RPC; Bearer 개인 키 또는(관리자가 켠 경우) Keycloak 액세스 토큰",
         "operationId": "post_mcp",
         "responses": {
           "200": {
@@ -4016,7 +4017,74 @@
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "description": "같은 Authorization: Bearer 헤더에서 hnt_ 접두사는 개인 키, JWT 모양은 SSO 액세스 토큰으로 가릅니다. 토큰은 mcp.oauth.enabled 가 켜진 서버의 /mcp 에서만 받고 서명·iss·exp·nbf·typ(ID 거부)·cnf(있으면 거부)·대상(aud 에 리소스 식별자, 또는 aud/azp 가 허용 대상·웹 로그인 client_id)을 검사한 뒤 이미 웹 로그인한 활성 계정만 통과시킵니다. 계정을 만들지 않으며 권한은 mcp.oauth.scopes ∩ 역할 권한입니다. 401 에는 WWW-Authenticate: Bearer realm=\"hunter\"(켜져 있으면 resource_metadata=\"…/.well-known/oauth-protected-resource/mcp\", 토큰을 거부했으면 error=\"invalid_token\")가 붙습니다."
+      }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "summary": "OAuth 보호 리소스 메타데이터 (RFC 9728)",
+        "operationId": "get_oauth_protected_resource",
+        "tags": [
+          "MCP"
+        ],
+        "description": "MCP 클라이언트가 401 의 resource_metadata 를 따라 읽는 문서입니다. 인증 없이 맨 JSON 으로 답하고 Access-Control-Allow-Origin: * 를 붙입니다. mcp.oauth.enabled 가 꺼져 있거나 전제(OIDC issuer, 외부 접근 주소)가 빠지면 404 입니다. /.well-known/oauth-protected-resource/mcp 도 같은 문서를 냅니다. Hunter 는 인증 서버가 아니므로 authorization_servers 의 Keycloak issuer 에서 클라이언트가 직접 openid-configuration 을 읽습니다.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "메타데이터",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthProtectedResourceMetadata"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP·SSO 연결이 꺼져 있음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/.well-known/oauth-protected-resource/mcp": {
+      "get": {
+        "summary": "OAuth 보호 리소스 메타데이터 (RFC 9728)",
+        "operationId": "get_oauth_protected_resource_mcp",
+        "tags": [
+          "MCP"
+        ],
+        "description": "MCP 클라이언트가 401 의 resource_metadata 를 따라 읽는 문서입니다. 인증 없이 맨 JSON 으로 답하고 Access-Control-Allow-Origin: * 를 붙입니다. mcp.oauth.enabled 가 꺼져 있거나 전제(OIDC issuer, 외부 접근 주소)가 빠지면 404 입니다. /.well-known/oauth-protected-resource/mcp 도 같은 문서를 냅니다. Hunter 는 인증 서버가 아니므로 authorization_servers 의 Keycloak issuer 에서 클라이언트가 직접 openid-configuration 을 읽습니다.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "메타데이터",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthProtectedResourceMetadata"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "MCP·SSO 연결이 꺼져 있음",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/schedules": {
@@ -16516,6 +16584,57 @@
         "required": [
           "targets"
         ]
+      },
+      "OAuthProtectedResourceMetadata": {
+        "type": "object",
+        "required": [
+          "resource",
+          "authorization_servers",
+          "bearer_methods_supported",
+          "scopes_supported"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "description": "리소스 식별자. mcp.oauth.resource 가 비면 general.public_url + /mcp",
+            "example": "https://hunter.internal/mcp"
+          },
+          "authorization_servers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "oidc.issuer 하나",
+            "example": [
+              "https://keycloak.internal/realms/company"
+            ]
+          },
+          "bearer_methods_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "header"
+            ]
+          },
+          "scopes_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "mcp.oauth.scopes",
+            "example": [
+              "services:read",
+              "findings:read",
+              "scans:read"
+            ]
+          },
+          "resource_name": {
+            "type": "string",
+            "example": "hunter MCP"
+          }
+        }
       }
     },
     "securitySchemes": {
