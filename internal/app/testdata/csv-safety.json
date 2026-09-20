@@ -1,0 +1,417 @@
+[
+  {
+    "name": "empty",
+    "input": "",
+    "expected": ""
+  },
+  {
+    "name": "korean",
+    "input": "\ud55c\uae00 \ubc1c\uacac \uac74",
+    "expected": "\ud55c\uae00 \ubc1c\uacac \uac74"
+  },
+  {
+    "name": "cve",
+    "input": "CVE-2026-1234",
+    "expected": "CVE-2026-1234"
+  },
+  {
+    "name": "quoted",
+    "input": "\uacb0\uc81c \"API\", \uac80\ud1a0",
+    "expected": "\uacb0\uc81c \"API\", \uac80\ud1a0"
+  },
+  {
+    "name": "multiline",
+    "input": "\uccab \uc904\n\ub458\uc9f8 \uc904",
+    "expected": "\uccab \uc904\n\ub458\uc9f8 \uc904"
+  },
+  {
+    "name": "protected",
+    "input": "' =1+1",
+    "expected": "' =1+1"
+  },
+  {
+    "name": "space-text",
+    "input": " \uc77c\ubc18 \ubcf8\ubb38",
+    "expected": " \uc77c\ubc18 \ubcf8\ubb38"
+  },
+  {
+    "name": "space-tab-text",
+    "input": " \t\ubcf8\ubb38",
+    "expected": " \t\ubcf8\ubb38"
+  },
+  {
+    "name": "direct-=",
+    "input": "=1+1",
+    "expected": "'=1+1"
+  },
+  {
+    "name": "space-=",
+    "input": " =1+1",
+    "expected": "' =1+1"
+  },
+  {
+    "name": "space-tab-=",
+    "input": " \t=1+1",
+    "expected": "' \t=1+1"
+  },
+  {
+    "name": "mixed-=",
+    "input": " \u0001\u000b\u00a0=1+1",
+    "expected": "' \u0001\u000b\u00a0=1+1"
+  },
+  {
+    "name": "direct-+",
+    "input": "+1+1",
+    "expected": "'+1+1"
+  },
+  {
+    "name": "space-+",
+    "input": " +1+1",
+    "expected": "' +1+1"
+  },
+  {
+    "name": "space-tab-+",
+    "input": " \t+1+1",
+    "expected": "' \t+1+1"
+  },
+  {
+    "name": "mixed-+",
+    "input": " \u0001\u000b\u00a0+1+1",
+    "expected": "' \u0001\u000b\u00a0+1+1"
+  },
+  {
+    "name": "direct--",
+    "input": "-1+1",
+    "expected": "'-1+1"
+  },
+  {
+    "name": "space--",
+    "input": " -1+1",
+    "expected": "' -1+1"
+  },
+  {
+    "name": "space-tab--",
+    "input": " \t-1+1",
+    "expected": "' \t-1+1"
+  },
+  {
+    "name": "mixed--",
+    "input": " \u0001\u000b\u00a0-1+1",
+    "expected": "' \u0001\u000b\u00a0-1+1"
+  },
+  {
+    "name": "direct-@",
+    "input": "@1+1",
+    "expected": "'@1+1"
+  },
+  {
+    "name": "space-@",
+    "input": " @1+1",
+    "expected": "' @1+1"
+  },
+  {
+    "name": "space-tab-@",
+    "input": " \t@1+1",
+    "expected": "' \t@1+1"
+  },
+  {
+    "name": "mixed-@",
+    "input": " \u0001\u000b\u00a0@1+1",
+    "expected": "' \u0001\u000b\u00a0@1+1"
+  },
+  {
+    "name": "c0-00",
+    "input": "\u0000=1+1",
+    "expected": "'\u0000=1+1"
+  },
+  {
+    "name": "c0-01",
+    "input": "\u0001=1+1",
+    "expected": "'\u0001=1+1"
+  },
+  {
+    "name": "c0-02",
+    "input": "\u0002=1+1",
+    "expected": "'\u0002=1+1"
+  },
+  {
+    "name": "c0-03",
+    "input": "\u0003=1+1",
+    "expected": "'\u0003=1+1"
+  },
+  {
+    "name": "c0-04",
+    "input": "\u0004=1+1",
+    "expected": "'\u0004=1+1"
+  },
+  {
+    "name": "c0-05",
+    "input": "\u0005=1+1",
+    "expected": "'\u0005=1+1"
+  },
+  {
+    "name": "c0-06",
+    "input": "\u0006=1+1",
+    "expected": "'\u0006=1+1"
+  },
+  {
+    "name": "c0-07",
+    "input": "\u0007=1+1",
+    "expected": "'\u0007=1+1"
+  },
+  {
+    "name": "c0-08",
+    "input": "\b=1+1",
+    "expected": "'\b=1+1"
+  },
+  {
+    "name": "c0-09",
+    "input": "\t=1+1",
+    "expected": "'\t=1+1"
+  },
+  {
+    "name": "c0-0a",
+    "input": "\n=1+1",
+    "expected": "'\n=1+1"
+  },
+  {
+    "name": "c0-0b",
+    "input": "\u000b=1+1",
+    "expected": "'\u000b=1+1"
+  },
+  {
+    "name": "c0-0c",
+    "input": "\f=1+1",
+    "expected": "'\f=1+1"
+  },
+  {
+    "name": "c0-0d",
+    "input": "\r=1+1",
+    "expected": "'\r=1+1"
+  },
+  {
+    "name": "c0-0e",
+    "input": "\u000e=1+1",
+    "expected": "'\u000e=1+1"
+  },
+  {
+    "name": "c0-0f",
+    "input": "\u000f=1+1",
+    "expected": "'\u000f=1+1"
+  },
+  {
+    "name": "c0-10",
+    "input": "\u0010=1+1",
+    "expected": "'\u0010=1+1"
+  },
+  {
+    "name": "c0-11",
+    "input": "\u0011=1+1",
+    "expected": "'\u0011=1+1"
+  },
+  {
+    "name": "c0-12",
+    "input": "\u0012=1+1",
+    "expected": "'\u0012=1+1"
+  },
+  {
+    "name": "c0-13",
+    "input": "\u0013=1+1",
+    "expected": "'\u0013=1+1"
+  },
+  {
+    "name": "c0-14",
+    "input": "\u0014=1+1",
+    "expected": "'\u0014=1+1"
+  },
+  {
+    "name": "c0-15",
+    "input": "\u0015=1+1",
+    "expected": "'\u0015=1+1"
+  },
+  {
+    "name": "c0-16",
+    "input": "\u0016=1+1",
+    "expected": "'\u0016=1+1"
+  },
+  {
+    "name": "c0-17",
+    "input": "\u0017=1+1",
+    "expected": "'\u0017=1+1"
+  },
+  {
+    "name": "c0-18",
+    "input": "\u0018=1+1",
+    "expected": "'\u0018=1+1"
+  },
+  {
+    "name": "c0-19",
+    "input": "\u0019=1+1",
+    "expected": "'\u0019=1+1"
+  },
+  {
+    "name": "c0-1a",
+    "input": "\u001a=1+1",
+    "expected": "'\u001a=1+1"
+  },
+  {
+    "name": "c0-1b",
+    "input": "\u001b=1+1",
+    "expected": "'\u001b=1+1"
+  },
+  {
+    "name": "c0-1c",
+    "input": "\u001c=1+1",
+    "expected": "'\u001c=1+1"
+  },
+  {
+    "name": "c0-1d",
+    "input": "\u001d=1+1",
+    "expected": "'\u001d=1+1"
+  },
+  {
+    "name": "c0-1e",
+    "input": "\u001e=1+1",
+    "expected": "'\u001e=1+1"
+  },
+  {
+    "name": "c0-1f",
+    "input": "\u001f=1+1",
+    "expected": "'\u001f=1+1"
+  },
+  {
+    "name": "tab",
+    "input": "\t\ubcf8\ubb38",
+    "expected": "'\t\ubcf8\ubb38"
+  },
+  {
+    "name": "cr",
+    "input": "\r\ubcf8\ubb38",
+    "expected": "'\r\ubcf8\ubb38"
+  },
+  {
+    "name": "lf",
+    "input": "\n\ubcf8\ubb38",
+    "expected": "'\n\ubcf8\ubb38"
+  },
+  {
+    "name": "js-space-0020",
+    "input": " =1+1",
+    "expected": "' =1+1"
+  },
+  {
+    "name": "js-space-00a0",
+    "input": "\u00a0=1+1",
+    "expected": "'\u00a0=1+1"
+  },
+  {
+    "name": "js-space-1680",
+    "input": "\u1680=1+1",
+    "expected": "'\u1680=1+1"
+  },
+  {
+    "name": "js-space-2000",
+    "input": "\u2000=1+1",
+    "expected": "'\u2000=1+1"
+  },
+  {
+    "name": "js-space-2001",
+    "input": "\u2001=1+1",
+    "expected": "'\u2001=1+1"
+  },
+  {
+    "name": "js-space-2002",
+    "input": "\u2002=1+1",
+    "expected": "'\u2002=1+1"
+  },
+  {
+    "name": "js-space-2003",
+    "input": "\u2003=1+1",
+    "expected": "'\u2003=1+1"
+  },
+  {
+    "name": "js-space-2004",
+    "input": "\u2004=1+1",
+    "expected": "'\u2004=1+1"
+  },
+  {
+    "name": "js-space-2005",
+    "input": "\u2005=1+1",
+    "expected": "'\u2005=1+1"
+  },
+  {
+    "name": "js-space-2006",
+    "input": "\u2006=1+1",
+    "expected": "'\u2006=1+1"
+  },
+  {
+    "name": "js-space-2007",
+    "input": "\u2007=1+1",
+    "expected": "'\u2007=1+1"
+  },
+  {
+    "name": "js-space-2008",
+    "input": "\u2008=1+1",
+    "expected": "'\u2008=1+1"
+  },
+  {
+    "name": "js-space-2009",
+    "input": "\u2009=1+1",
+    "expected": "'\u2009=1+1"
+  },
+  {
+    "name": "js-space-200a",
+    "input": "\u200a=1+1",
+    "expected": "'\u200a=1+1"
+  },
+  {
+    "name": "js-space-2028",
+    "input": "\u2028=1+1",
+    "expected": "'\u2028=1+1"
+  },
+  {
+    "name": "js-space-2029",
+    "input": "\u2029=1+1",
+    "expected": "'\u2029=1+1"
+  },
+  {
+    "name": "js-space-202f",
+    "input": "\u202f=1+1",
+    "expected": "'\u202f=1+1"
+  },
+  {
+    "name": "js-space-205f",
+    "input": "\u205f=1+1",
+    "expected": "'\u205f=1+1"
+  },
+  {
+    "name": "js-space-3000",
+    "input": "\u3000=1+1",
+    "expected": "'\u3000=1+1"
+  },
+  {
+    "name": "js-space-feff",
+    "input": "\ufeff=1+1",
+    "expected": "'\ufeff=1+1"
+  },
+  {
+    "name": "non-js-space-007f",
+    "input": "\u007f=1+1",
+    "expected": "\u007f=1+1"
+  },
+  {
+    "name": "non-js-space-0085",
+    "input": "\u0085=1+1",
+    "expected": "\u0085=1+1"
+  },
+  {
+    "name": "non-js-space-180e",
+    "input": "\u180e=1+1",
+    "expected": "\u180e=1+1"
+  },
+  {
+    "name": "non-js-space-200b",
+    "input": "\u200b=1+1",
+    "expected": "\u200b=1+1"
+  }
+]

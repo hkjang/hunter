@@ -847,7 +847,17 @@ func (a *App) exportReport(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 200, map[string]any{"generated_at": time.Now().UTC(), "version": a.Version, "findings": findings})
 }
 func csvSafe(s string) string {
-	if s != "" && strings.ContainsAny(s[:1], "=+-@\t\r\n") {
+	if s != "" && strings.ContainsAny(s[:1], "\t\r\n") {
+		return "'" + s
+	}
+	// Match list-export.ts: ECMAScript \s plus C0 controls. In particular,
+	// FEFF is whitespace here, while 0085 is not (unlike unicode.IsSpace).
+	prefix := strings.TrimLeftFunc(s, func(r rune) bool {
+		return r <= 0x20 || r == 0x00a0 || r == 0x1680 ||
+			(r >= 0x2000 && r <= 0x200a) || r == 0x2028 || r == 0x2029 ||
+			r == 0x202f || r == 0x205f || r == 0x3000 || r == 0xfeff
+	})
+	if prefix != "" && strings.ContainsAny(prefix[:1], "=+-@") {
 		return "'" + s
 	}
 	return s

@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { csvCell, listCSV, listSharePath } from "../src/list-export.ts";
 import { findingBulkPatch } from "../src/finding-bulk-state.ts";
@@ -103,4 +104,30 @@ test("bulk patches distinguish unchanged fields from intentional clearing and di
     }),
     { status: "in_progress", due_date: "2026-10-02T03:00:00.000Z" },
   );
+});
+
+// csvCell always emits one quoted field; decode CSV doubled quotes without
+// trimming whitespace or changing embedded line breaks.
+test("CSV cells and list downloads match the server shared safety vectors", () => {
+  const vectors = JSON.parse(
+    readFileSync(
+      new URL("../../internal/app/testdata/csv-safety.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.ok(vectors.length > 0);
+  const decodeCell = (cell) => {
+    assert.match(cell, /^"(?:[^"]|"")*"$/u);
+    return cell.slice(1, -1).replaceAll('""', '"');
+  };
+  for (const { name, input, expected } of vectors) {
+    assert.equal(decodeCell(csvCell(input)), expected, name);
+    const csv = listCSV([{ title: input }], [
+      { key: "title", label: "제목", value: (row) => row.title },
+    ]);
+    const prefix = '\uFEFF"제목"\r\n';
+    assert.ok(csv.startsWith(prefix), name);
+    assert.ok(csv.endsWith("\r\n"), name);
+    assert.equal(decodeCell(csv.slice(prefix.length, -2)), expected, name);
+  }
 });
