@@ -24,10 +24,14 @@ import (
 //	POST /api/v1/handoff/claims          issue a claim (signed in)
 //	GET  /api/v1/handoff/claims/{claim}  collect the document (the claim is the credential)
 const (
-	handoffFormat     = "markdown"
-	handoffClaimTTL   = 5 * time.Minute
-	maxHandoffTargets = 20
-	handoffClaimRoute = "/api/v1/handoff/claims/"
+	handoffFormat   = "markdown"
+	handoffClaimTTL = 5 * time.Minute
+	// handoffClaimsPerUser bounds the unspent claims one person may hold: a click
+	// makes one claim that is collected at once, so a repeated call is a mistake or
+	// a script, and each claim carries a whole encrypted report.
+	handoffClaimsPerUser = 20
+	maxHandoffTargets    = 20
+	handoffClaimRoute    = "/api/v1/handoff/claims/"
 )
 
 // handoffFormats is the standard's whole vocabulary so an administrator can record
@@ -256,9 +260,23 @@ func (a *App) issueHandoffClaim(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 	// Expired rows leave with the next claim; only the digest of a claim is stored.
-	if _, e = tx.Exec(ctx, `DELETE FROM handoff_claims WHERE expires_at<=now()`); e == nil {
-		_, e = tx.Exec(ctx, `INSERT INTO handoff_claims(claim_hash,run_id,user_id,filename,content_type,body_encrypted,bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, digest(claim), v.ID, u.ID, filename, contentType, cipher, len(body), expires)
+	if _, e = tx.Exec(ctx, `DELETE FROM handoff_claims WHERE expires_at<=now()`); e != nil {
+		fail(w, 503, "표를 발급하지 못했습니다")
+		return
 	}
+	// An approximate per-person bound on unspent claims, counted after the sweep so
+	// spending or expiry frees a slot. Two concurrent calls may both pass; the point
+	// is that a repeated call cannot fill the table, not that the count is exact.
+	var live int
+	if e = tx.QueryRow(ctx, `SELECT count(*) FROM handoff_claims WHERE user_id=$1 AND expires_at>now()`, u.ID).Scan(&live); e != nil {
+		fail(w, 503, "표를 발급하지 못했습니다")
+		return
+	}
+	if live >= handoffClaimsPerUser {
+		fail(w, 429, "발급했지만 아직 쓰지 않은 표가 너무 많습니다. 잠시 후 다시 시도하세요")
+		return
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO handoff_claims(claim_hash,run_id,user_id,filename,content_type,body_encrypted,bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, digest(claim), v.ID, u.ID, filename, contentType, cipher, len(body), expires)
 	if e != nil || tx.Commit(ctx) != nil {
 		fail(w, 503, "표를 발급하지 못했습니다")
 		return

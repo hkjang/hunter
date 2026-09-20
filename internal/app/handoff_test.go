@@ -163,3 +163,70 @@ func TestHandoffClaimsAreSingleUseBoundAndOffByDefault(t *testing.T) {
 	mustRequest(t, base, "POST", "/api/v1/handoff/claims", map[string]any{"resource": id, "format": "markdown"}, viewer, 403)
 	mustRequest(t, base, "GET", "/api/handoff/targets", nil, viewer, 403)
 }
+
+func TestHandoffClaimsPerUserCap(t *testing.T) {
+	a, base := testApp(t)
+	admin := loginTest(t, base, "admin", "test-password-1234")
+	id, _ := reportFixture(t, a, base, admin, "completed")
+	mustRequest(t, base, "PUT", "/api/settings/handoff", map[string]any{"targets": []any{map[string]any{"name": "Ptium", "origin": "https://ptium.intra", "formats": []any{"markdown"}}}}, admin, 200)
+	issue := func(session string, want int) map[string]any {
+		t.Helper()
+		return mustRequest(t, base, "POST", "/api/v1/handoff/claims", map[string]any{"resource": id, "format": "markdown"}, session, want)
+	}
+	liveRows := func(user string) int {
+		t.Helper()
+		var n int
+		if e := a.DB.QueryRow(context.Background(), `SELECT count(*) FROM handoff_claims c JOIN users u ON u.id=c.user_id WHERE u.username=$1 AND c.expires_at>now()`, user).Scan(&n); e != nil {
+			t.Fatal(e)
+		}
+		return n
+	}
+	claims := make([]string, 0, handoffClaimsPerUser)
+	for i := 0; i < handoffClaimsPerUser; i++ {
+		claims = append(claims, str(issue(admin, 201), "claim"))
+	}
+	// The cap refuses the next claim without a row or an audit event.
+	audited := func() int {
+		t.Helper()
+		var n int
+		if e := a.DB.QueryRow(context.Background(), `SELECT count(*) FROM audit_logs WHERE action='agent.handoff' AND target=$1`, id).Scan(&n); e != nil {
+			t.Fatal(e)
+		}
+		return n
+	}
+	if got := audited(); got != handoffClaimsPerUser {
+		t.Fatalf("audit rows before cap %d", got)
+	}
+	over := issue(admin, 429)
+	if msg := str(over, "error"); !strings.Contains(msg, "아직 쓰지 않은 표") {
+		t.Fatalf("cap message %+v", over)
+	}
+	if got := liveRows("admin"); got != handoffClaimsPerUser {
+		t.Fatalf("rows after refusal %d", got)
+	}
+	if got := audited(); got != handoffClaimsPerUser {
+		t.Fatalf("refusal audited: %d", got)
+	}
+	// The cap is per user: someone else who can read the run still gets a claim.
+	mustRequest(t, base, "POST", "/api/users", map[string]any{"username": "handoff-other", "name": "Other", "role": "lead", "team": "red", "password": "test-password-1234"}, admin, 201)
+	other := loginTest(t, base, "handoff-other", "test-password-1234")
+	issue(other, 201)
+	issue(admin, 429)
+	// Spending one claim frees a slot; so does expiry, which the sweep clears in the same transaction.
+	if code, _, _ := request(t, base, "GET", "/api/v1/handoff/claims/"+claims[0], nil, "", false); code != 200 {
+		t.Fatalf("redeem %d", code)
+	}
+	issue(admin, 201)
+	issue(admin, 429)
+	if _, e := a.DB.Exec(context.Background(), `UPDATE handoff_claims SET expires_at=now()-interval '1 second' WHERE claim_hash=$1`, digest(claims[1])); e != nil {
+		t.Fatal(e)
+	}
+	issue(admin, 201)
+	issue(admin, 429)
+	if got := liveRows("admin"); got != handoffClaimsPerUser {
+		t.Fatalf("rows at cap %d", got)
+	}
+	if got := liveRows("handoff-other"); got != 1 {
+		t.Fatalf("other user's rows %d", got)
+	}
+}

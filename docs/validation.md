@@ -21,7 +21,7 @@
 | 검증 | 결과 |
 | --- | --- |
 | 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -timeout 35m ./...`로 `internal/app` 580.289초·`internal/pentagicore` 1.737초 통과. 실패·race 보고0개. `go vet ./...`·`go build ./cmd/hunter` 통과 |
-| 다른 서비스로 보내기 | `handoff_test.go`: 설정 검증 10가지 거절·정규화, 파일명·RFC 5987·로그 마스킹, 통합 테스트(허용 목록 비어 있음 404·형식 표 필터·CSRF·남의 실행 404·표 1회·만료 404·감사에 표 없음·만료 행 정리·열람자 403) 통과 |
+| 다른 서비스로 보내기 | `handoff_test.go`: 설정 검증 10가지 거절·정규화, 파일명·RFC 5987·로그 마스킹, 통합 테스트(허용 목록 비어 있음 404·형식 표 필터·CSRF·남의 실행 404·표 1회·만료 404·감사에 표 없음·만료 행 정리·열람자 403), 사용자별 미사용 표 상한(20개 발급 201 → 21번째 429 에 행·감사 없음 → 다른 사용자 201 → 수령·만료 뒤 다시 201, 실제 DB 행 수 검증) 통과 |
 | 차단 출처 신고 | `tracking_violations_test.go`: 신고 정규화(경로·쿼리·inline·eval·data:·blob: 제외), 100개 고리 버퍼, 추적 꺼짐 시 비관리자 거절, 관리자 조회·삭제 통과 |
 | 프런트엔드 | `npm test` 90개 통과(넘기기 URL 조립·페이로드 정리·위반 이벤트 파서 포함). `npm run build`(tsc 포함) 통과 |
 | 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF·화면87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
