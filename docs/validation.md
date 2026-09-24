@@ -1,5 +1,19 @@
 # Hunter 검증 기록
 
+## v1.13.0 다른 서비스로 보내기 표 사용자당 상한
+
+2026년 9월 24일, `POST /api/v1/handoff/claims` 에 사용자당 미사용 표 20개 상한(`handoffClaimsPerUser`, 만료 정리와 같은 트랜잭션에서 계수)을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -count=1 ./...`로 `internal/app` 637.096초·`internal/pentagicore` 1.948초 통과. 실패·race 보고·건너뜀 0개. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 표 사용자당 상한 | `handoff_test.go`의 `TestHandoffClaimsPerUserCap`: 20개 발급 201 → 21번째 429("아직 쓰지 않은 표" 메시지, `handoff_claims` 행·`agent.handoff` 감사 기록 증가 없음) → 다른 사용자 201 → 표 1개 수령 뒤 201 → 만료 처리 뒤 201, 각 단계의 실제 DB 행 수 확인 |
+| 프런트엔드 | `npm test` 92개 통과. `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.13.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.13.0)에 실제 완료 후 기록합니다.
+
 ## v1.12.0 MCP · SSO 연결
 
 2026년 9월 18일, `/mcp` 를 OAuth 2.1 리소스 서버로 만들어 개인 키와 함께 Keycloak 액세스 토큰도 받는 MCP · SSO 연결(`mcp.oauth.*`, 기본 꺼짐)을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.

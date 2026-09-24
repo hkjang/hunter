@@ -53,6 +53,8 @@ v1.11.0은 에이전트 실행 보고서를 관리자가 허용한 사내 서비
 
 v1.12.0은 `/mcp` 를 **OAuth 2.1 리소스 서버**로 만드는 **MCP · SSO 연결**을 추가합니다. 관리자가 켜면 MCP 클라이언트(Claude, Cursor 등)에 MCP 주소 하나만 넣어도 클라이언트가 스스로 Keycloak 로그인을 거쳐 액세스 토큰을 받아 오고, Hunter 는 그 토큰을 서명·발급자·만료·대상까지 검사해 **이미 웹 로그인한 활성 계정**만 통과시킵니다. 개인 키 체계는 그대로이며 기본값은 꺼짐입니다. [릴리즈 노트](docs/release-v1.12.0.md)를 참고하세요.
 
+v1.13.0은 **다른 서비스로 보내기**의 표 발급에 **사용자당 미사용 표 20개 상한**을 둡니다. 표 하나가 암호화한 실행 보고서 전체를 함께 보관하므로, 같은 호출이 반복되어도 `handoff_claims` 가 끝없이 늘지 않도록 만료 정리 직후 같은 트랜잭션에서 내 미사용 표를 세고 20개를 넘으면 `POST /api/v1/handoff/claims` 를 `429` 로 거절합니다. 거절에는 행도 감사 기록도 남지 않고, 표를 받아 가거나 5분이 지나면 자리가 다시 생깁니다. [릴리즈 노트](docs/release-v1.13.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -60,7 +62,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.12.0.tar.gz
+docker load -i hunter-v1.13.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -178,13 +180,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.12.0 예시 |
+| 항목 | 형식 | v1.13.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.12.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.12.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.13.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.13.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.12.0
+bash scripts/release.sh 1.13.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

@@ -17,7 +17,22 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 12, 0):
+if version >= (1, 13, 0):
+    features = """### 다른 서비스로 보내기 — 사용자당 미사용 표 20개 상한
+
+- **표 테이블 무한 증가 차단**: `POST /api/v1/handoff/claims` 는 표 하나마다 암호화한 실행 보고서 전체를 함께 저장하는데 지금까지는 만료 행만 정리했습니다. 이제 만료 정리 직후 **같은 트랜잭션에서** 그 사용자의 아직 쓰지 않은(만료 전·미수령) 표를 세고, 20개 이상이면 표를 만들지 않습니다.
+- **거절의 모양**: 한도를 넘은 호출은 `429` 와 "발급했지만 아직 쓰지 않은 표가 너무 많습니다. 잠시 후 다시 시도하세요" 로 답하며 `handoff_claims` 행도 감사 기록(`agent.handoff`)도 남기지 않습니다.
+- **자리가 다시 생기는 조건**: 상한은 사용자별이므로 다른 사람의 발급에는 영향이 없고, 받는 쪽이 표를 받아 가거나 5분 TTL 이 지나면 곧바로 한 자리가 비웁니다.
+- **화면은 그대로**: 실행 상세의 **실행 보고서 → 다른 서비스로 보내기**는 한 번 누를 때 표 하나를 만들어 바로 넘기므로 평소 사용에서는 상한에 닿지 않습니다. 허용 목록·기본 꺼짐·표의 1회·5분·SHA-256 다이제스트 저장과 MCP · SSO 연결은 v1.12.0과 같습니다.
+
+상한은 근사값입니다. 동시에 들어온 두 호출이 같은 수를 읽어 둘 다 통과할 수 있으며, 목적은 정확한 개수 제한이 아니라 반복 호출이 표 테이블을 채우지 못하게 하는 것입니다. 관리자 설정 항목은 추가하지 않았고 값은 코드의 20으로 고정입니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[다른 서비스로 보내기 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.13.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 12, 0):
     features = """### MCP · SSO 연결 — /mcp 를 OAuth 2.1 리소스 서버로
 
 - **키 없이 SSO 로 연결**: 관리자가 **서비스 설정 → MCP · SSO 연결**(`mcp.oauth.enabled/resource/audience/scopes`, 기본 꺼짐)을 켜면 MCP 클라이언트(Claude, Cursor 등)에 `/mcp` 주소 하나만 넣어도 클라이언트가 스스로 Keycloak 로그인을 거쳐 액세스 토큰을 받아 옵니다. 개인 키 페이지의 MCP 카드에 "키 없이 SSO 로 연결하기" 안내가 보이며 개인 키 체계는 그대로입니다.
