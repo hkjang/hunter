@@ -9338,7 +9338,7 @@
         "tags": [
           "다른 서비스로 보내기"
         ],
-        "description": "사내 문서 넘기기 표준(HANDOFF-STANDARD.md)의 보내는 쪽입니다. resource 는 에이전트 실행 ID, format 은 markdown 만 가능합니다. 실행 보고서 다운로드와 같은 권한 검사(에이전트·서비스·발견 건·진단 조회 권한과 현재 서비스 접근)를 거쳐 그 순간의 Markdown 보고서를 만들고 5분 동안 한 번만 쓸 수 있는 256비트 난수 표에 묶습니다. 표를 만든다고 권한이 넓어지지 않으며 읽을 수 없는 실행은 404 입니다. 보낼 곳이 하나도 설정되지 않았으면 404 로 거절합니다. 표는 SHA-256 다이제스트로만 저장하고 감사 기록(agent.handoff)에는 실행 ID·바이트 수만 남습니다. 브라우저 세션 요청에는 X-Hunter-CSRF 가 필요합니다.",
+        "description": "사내 문서 넘기기 표준(HANDOFF-STANDARD.md)의 보내는 쪽입니다. resource 는 에이전트 실행 ID, format 은 markdown 만 가능합니다. 실행 보고서 다운로드와 같은 권한 검사(에이전트·서비스·발견 건·진단 조회 권한과 현재 서비스 접근)를 거쳐 그 순간의 Markdown 보고서를 만들고 5분 동안 한 번만 쓸 수 있는 256비트 난수 표에 묶습니다. 표를 만든다고 권한이 넓어지지 않으며 읽을 수 없는 실행은 404 입니다. 보낼 곳이 하나도 설정되지 않았으면 404 로 거절합니다. 사용자당 아직 쓰지 않은(만료 전·미수령) 표는 20개까지이며 초과하면 429 로 거절하고 행·감사 기록을 남기지 않습니다(근사 상한). 표는 SHA-256 다이제스트로만 저장하고 감사 기록(agent.handoff)에는 실행 ID·바이트 수만 남습니다. 브라우저 세션 요청에는 X-Hunter-CSRF 가 필요합니다.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9356,6 +9356,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HandoffClaim"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "사용자당 아직 쓰지 않은 표 한도(20개) 초과",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }

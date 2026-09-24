@@ -323,7 +323,7 @@ window.addEventListener('hunter:pageview', (event) => {
 3. 브라우저가 새 창에서 받는 서비스의 `https://<서비스>/handoff?source=<Hunter 주소>&claim=<표>` 를 엽니다. 새 창은 opener 가 끊긴 상태로 열립니다.
 4. 받는 서비스가 `GET <Hunter 주소>/api/v1/handoff/claims/<표>` 로 문서를 받아 갑니다. 로그인은 없습니다 — 표가 곧 자격입니다. 받아 가는 순간 표는 지워지고, 두 번째 요청·만료된 표·발급된 적 없는 표는 모두 같은 `404` 로 답하며 이유를 구별해 주지 않습니다.
 
-문서는 표를 발급하는 순간 만들어 암호화해 표와 함께 저장하므로(`handoff_claims`, 표는 SHA-256 다이제스트로만 저장) 받는 쪽이 가져가는 바이트는 표가 알린 `bytes` 그대로입니다. 만료된 행은 다음 표를 발급할 때 정리됩니다. 감사 기록(`agent.handoff`)에는 실행 ID·바이트 수만 남고 표는 남지 않으며, 오류 로그도 이 경로를 `/api/v1/handoff/claims/{claim}` 으로만 적습니다.
+문서는 표를 발급하는 순간 만들어 암호화해 표와 함께 저장하므로(`handoff_claims`, 표는 SHA-256 다이제스트로만 저장) 받는 쪽이 가져가는 바이트는 표가 알린 `bytes` 그대로입니다. 만료된 행은 다음 표를 발급할 때 정리됩니다. 사용자당 아직 쓰지 않은(만료 전·미수령) 표는 **20개**까지이며, 초과하면 `POST /api/v1/handoff/claims` 가 `429` 로 거절하고 행·감사 기록을 남기지 않습니다 — 표 하나를 받아 가거나 만료되면 다시 발급됩니다. 감사 기록(`agent.handoff`)에는 실행 ID·바이트 수만 남고 표는 남지 않으며, 오류 로그도 이 경로를 `/api/v1/handoff/claims/{claim}` 으로만 적습니다.
 
 `source` 는 **기본 정보 → 서비스 외부 접근 주소**의 오리진입니다. 받는 쪽은 이 값을 자기 허용 목록과 대조하므로 그쪽 목록의 표기와 스킴·호스트·포트가 정확히 같아야 합니다.
 
@@ -362,7 +362,7 @@ API 로는 `PUT /api/settings/handoff` 에 아래 모양을 보냅니다(관리�
 | 경로 | 역할 |
 | --- | --- |
 | `GET /api/handoff/targets` | `markdown` 을 받는 보낼 곳 목록과 `source`, 에이전트 조회 권한 |
-| `POST /api/v1/handoff/claims` | `{"resource": "<실행 ID>", "format": "markdown"}` → `201` 표 발급, 보낼 곳 미설정·접근 불가 실행 `404` |
+| `POST /api/v1/handoff/claims` | `{"resource": "<실행 ID>", "format": "markdown"}` → `201` 표 발급, 보낼 곳 미설정·접근 불가 실행 `404`, 사용자당 미사용 표 20개 초과 `429` |
 | `GET /api/v1/handoff/claims/{claim}` | 로그인 없이 표로 한 번 받아 가기, 그 외 모두 `404` |
 | `PUT /api/settings/handoff` | 허용 목록 저장, 관리자 권한 |
 
