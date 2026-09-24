@@ -1,6 +1,6 @@
 # Hunter 관리자 가이드
 
-**버전 1.13.0 · 한국어 · 최종 갱신 2026-09-24**
+**버전 1.14.0 · 한국어 · 최종 갱신 2026-09-24**
 
 이 문서는 사내 폐쇄망에서 Hunter를 설치하고 인증, 권한, 연동, 진단 정책, AI와 운영 데이터를 관리하는 절차를 설명합니다.
 
@@ -15,7 +15,7 @@
 Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 UI 자산과 내장 제한 진단 워커가 포함됩니다. PostgreSQL은 조직이 별도 운영합니다. 앱 서버는 8080 포트에서 API와 정적 화면을 함께 제공합니다.
 
 ~~~
-사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.13.0 → 사내 PostgreSQL
+사용자 브라우저 → 사내 TLS 프록시 → hunter:v1.14.0 → 사내 PostgreSQL
                                       ├→ 사내 Keycloak (선택)
                                       ├→ 사내 OpenAI 호환 AI (선택)
                                       ├→ 승인된 HTTP 진단 대상
@@ -74,7 +74,7 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 | 사용자 접속 | 사내 DNS 이름과 HTTPS 종단 프록시 권장 |
 | 관리자 정보 | 초기 관리자 ID, 고유한 12~72바이트 비밀번호 |
 | 암호화 키 | 무작위 32바이트의 base64 인코딩 값 |
-| 반입 파일 | 릴리즈의 `hunter-v1.13.0.tar.gz`, compose.yaml, .env.example |
+| 반입 파일 | 릴리즈의 `hunter-v1.14.0.tar.gz`, compose.yaml, .env.example |
 | 백업 | DB 백업과 암호화 키를 분리하여 안전하게 보관할 위치 |
 
 서비스 자원은 사용량에 따라 산정합니다. 시작점으로 2 vCPU와 2~4 GiB 메모리를 두고 실제 응답 지연, 연결 수, 진단량에 따라 조정할 수 있으나, 이는 성능 검증 수치나 용량 보장이 아닙니다. 연결한 AI 모델의 메모리·가속기 자원은 Hunter 서버와 별개입니다.
@@ -88,8 +88,8 @@ Hunter 서비스 이미지에는 Go API 서버, React + Mantine 화면, 로컬 U
 인터넷이 허용된 구간에서 GitHub 릴리즈의 서비스 이미지 압축 파일을 내려받습니다. 릴리즈 본문에 표시된 SHA-256과 비교한 뒤 조직의 반입 절차를 따릅니다.
 
 ~~~sh
-sha256sum hunter-v1.13.0.tar.gz
-gzip --test hunter-v1.13.0.tar.gz
+sha256sum hunter-v1.14.0.tar.gz
+gzip --test hunter-v1.14.0.tar.gz
 ~~~
 
 첨부 자산은 `hunter-v버전.tar.gz` 한 개이며 내부 이미지 이름은 `hunter:v버전`입니다. PostgreSQL 이미지나 문서 PDF는 릴리즈 첨부 자산에 포함하지 않습니다. GitHub가 자동 표시하는 소스 코드 ZIP·TAR 다운로드는 사용자 첨부 자산과 별개입니다.
@@ -127,8 +127,8 @@ ENCRYPTION_KEY=BASE64_ENCODED_32_RANDOM_BYTES
 ### 3.3 이미지 불러오기와 실행
 
 ~~~sh
-docker load -i hunter-v1.13.0.tar.gz
-docker image inspect hunter:v1.13.0
+docker load -i hunter-v1.14.0.tar.gz
+docker image inspect hunter:v1.14.0
 docker compose up -d
 docker compose ps
 curl --fail http://localhost:8080/api/health
@@ -646,7 +646,7 @@ docker run -d --name hunter-worker-dmz \
   --env-file .env \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  hunter:v1.13.0 --worker-only --worker-id worker-dmz
+  hunter:v1.14.0 --worker-only --worker-id worker-dmz
 ~~~
 
 워커 ID는 안정적이고 고유한 값을 사용합니다. 새 외부 워커는 자동 등록되지만 기본 비활성 상태이므로 관리자가 담당 망을 지정하고 활성화해야 합니다. 망 이름은 서비스의 망 값과 **정확히 일치**해야 합니다. 별표 와일드카드는 지원하지 않습니다. 기본 워커의 빈 망 값은 분류되지 않은 서비스만 대상으로 합니다.
@@ -1506,7 +1506,7 @@ docker compose up -d
 
 ~~~sh
 pg_restore --dbname="$RESTORE_POSTGRES_DSN" --no-owner hunter-backup.dump
-docker load -i hunter-v1.13.0.tar.gz
+docker load -i hunter-v1.14.0.tar.gz
 docker compose up -d
 ~~~
 
@@ -1617,10 +1617,10 @@ node scripts/check-docs.mjs
 ### 20.3 릴리즈 규칙
 
 ~~~sh
-bash scripts/release.sh 1.13.0
+bash scripts/release.sh 1.14.0
 ~~~
 
-스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.13.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.13.0` 서비스 이미지 하나만 들어갑니다.
+스크립트는 `VERSION` 일치 여부를 확인하고 Docker 이미지를 만든 뒤 `docker image save | gzip`으로 `dist/hunter-v1.14.0.tar.gz`를 생성합니다. 파일에는 `hunter:v1.14.0` 서비스 이미지 하나만 들어갑니다.
 
 GitHub Actions는 main에서 빌드·테스트를 수행하고 버전 태그에서 서비스 이미지 릴리즈를 생성합니다. 문서는 별도 GitHub Pages workflow에서 `docs`를 배포합니다. GitHub 저장소의 Pages 배포 소스는 **GitHub Actions**로 설정합니다.
 

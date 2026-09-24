@@ -55,6 +55,8 @@ v1.12.0은 `/mcp` 를 **OAuth 2.1 리소스 서버**로 만드는 **MCP · SSO �
 
 v1.13.0은 **다른 서비스로 보내기**의 표 발급에 **사용자당 미사용 표 20개 상한**을 둡니다. 표 하나가 암호화한 실행 보고서 전체를 함께 보관하므로, 같은 호출이 반복되어도 `handoff_claims` 가 끝없이 늘지 않도록 만료 정리 직후 같은 트랜잭션에서 내 미사용 표를 세고 20개를 넘으면 `POST /api/v1/handoff/claims` 를 `429` 로 거절합니다. 거절에는 행도 감사 기록도 남지 않고, 표를 받아 가거나 5분이 지나면 자리가 다시 생깁니다. [릴리즈 노트](docs/release-v1.13.0.md)를 참고하세요.
 
+v1.14.0은 **보고서 내보내기 CSV**의 수식 방지 판정을 화면의 목록 CSV 내려받기와 같게 맞춥니다. `GET /api/reports/export?format=csv` 는 지금까지 값의 첫 글자만 검사해 ` =1+1` 처럼 공백이 앞에 붙은 값을 `'` 없이 내보냈습니다. 이제 앞쪽 공백류를 건너뛴 뒤 `=`·`+`·`-`·`@` 를 찾아 `'` 를 붙이며, 서버와 화면이 `internal/app/testdata/csv-safety.json` 의 공유 벡터로 같은 판정을 검증합니다. 저장된 값과 `format=json` 내보내기는 달라지지 않습니다. [릴리즈 노트](docs/release-v1.14.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -62,7 +64,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.13.0.tar.gz
+docker load -i hunter-v1.14.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -180,13 +182,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.13.0 예시 |
+| 항목 | 형식 | v1.14.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.13.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.13.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.14.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.14.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.13.0
+bash scripts/release.sh 1.14.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

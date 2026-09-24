@@ -1,5 +1,19 @@
 # Hunter 검증 기록
 
+## v1.14.0 보고서 내보내기 CSV 수식 방지 정렬
+
+2026년 9월 24일, `GET /api/reports/export?format=csv` 의 `csvSafe` 가 앞쪽 공백류를 건너뛴 뒤 `=`·`+`·`-`·`@` 를 검사하도록 바꿔 화면의 목록 CSV(`web/src/list-export.ts`)와 판정을 맞췄습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -count=1 -timeout 45m ./...`로 `internal/app` 619.834초·`internal/pentagicore` 1.746초 통과. 실패·race 보고 없음. 기본 패키지 한도 10분으로는 `internal/app` 이 끝나지 않아 `-timeout 45m` 을 지정했습니다. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| CSV 수식 방지 | `report_csv_test.go`의 `TestCSVSafeSharedVectors` 가 `testdata/csv-safety.json` 공유 벡터 83개를 모두 통과. `TestReportCSVFormulaSafety` 는 실제 발견 건을 등록한 뒤 `format=csv` 응답을 CSV 로 다시 파싱해 BOM·헤더·행 수와 각 값의 `'` 부착 여부를 확인하고, 다른 팀 서비스의 발견 건이 섞이지 않는 것과 `format=json` 이 원래 값을 그대로 돌려주는 것까지 확인 |
+| 프런트엔드 | `npm test` 93개 통과(같은 `csv-safety.json` 을 읽는 `convenience.test.mjs` 포함). `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.14.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.14.0)에 실제 완료 후 기록합니다.
+
 ## v1.13.0 다른 서비스로 보내기 표 사용자당 상한
 
 2026년 9월 24일, `POST /api/v1/handoff/claims` 에 사용자당 미사용 표 20개 상한(`handoffClaimsPerUser`, 만료 정리와 같은 트랜잭션에서 계수)을 추가했습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
