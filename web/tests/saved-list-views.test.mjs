@@ -113,3 +113,19 @@ test("unknown and oversized controls cannot override accepted list configuration
   assert.equal(restored.get("q").length, 500);
   assert.equal(restored.get("f_status").length, 500);
 });
+
+test("clipping a long search or filter never splits a surrogate pair into replacement characters", () => {
+  const long = "가".repeat(499) + "🚀" + "나";
+  const params = new URLSearchParams();
+  params.set("q", long);
+  params.set("f_status", long);
+  const restored = new URLSearchParams(
+    savedListQuery(params, ["title"], ["status"]),
+  );
+  for (const key of ["q", "f_status"]) {
+    const value = restored.get(key);
+    assert.ok(!value.includes("�"), `${key} kept a replacement character`);
+    assert.ok(long.startsWith(value), `${key} is not a prefix of the original`);
+    assert.equal(value.length, 499);
+  }
+});

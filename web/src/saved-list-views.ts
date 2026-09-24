@@ -50,6 +50,18 @@ export function readListPreferences(raw: string | null): ListPreferences {
   }
 }
 
+// The limit stays in UTF-16 code units, so only the cut position moves: a boundary
+// that falls between a surrogate pair would leave a lone surrogate that URL
+// serialization replaces with U+FFFD, changing the restored search text.
+function clip(value: string, limit = 500) {
+  if (value.length <= limit) return value;
+  const lead = value.charCodeAt(limit - 1);
+  const trail = value.charCodeAt(limit);
+  const split =
+    lead >= 0xd800 && lead <= 0xdbff && trail >= 0xdc00 && trail <= 0xdfff;
+  return value.slice(0, split ? limit - 1 : limit);
+}
+
 // Saved views may only change list controls, never navigation, selected records,
 // approval actions, secret values in arbitrary query params, or authorization.
 export function savedListQuery(
@@ -59,7 +71,7 @@ export function savedListQuery(
 ) {
   const next = new URLSearchParams();
   const query = params.get("q");
-  if (query) next.set("q", query.slice(0, 500));
+  if (query) next.set("q", clip(query));
   const sort = params.get("sort");
   if (sort && columns.includes(sort)) {
     next.set("sort", sort);
@@ -69,7 +81,7 @@ export function savedListQuery(
   if (size && ["10", "50", "100"].includes(size)) next.set("size", size);
   for (const key of [...filters].sort()) {
     const value = params.get(`f_${key}`);
-    if (value) next.set(`f_${key}`, value.slice(0, 500));
+    if (value) next.set(`f_${key}`, clip(value));
   }
   return next.toString();
 }
