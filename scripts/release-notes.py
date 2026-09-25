@@ -16,8 +16,14 @@ with path.open("rb") as stream:
 tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
+# Each branch below describes one minor series and links to that series' note in
+# docs/, so it is selected by the series rather than by an open-ended comparison:
+# an unreleased version above the newest branch used to republish that branch's
+# features and its link under the new tag. A tag without a branch of its own gets
+# no feature section, and scripts/check-release-notes.mjs fails CI on it.
+series = version[:2]
 features = ""
-if version >= (1, 15, 0):
+if series == (1, 15):
     features = """### 방문 추적 허용 원점 — 화면 제안과 서버 계약의 일치
 
 - **제안한 원점이 저장에서 거절되던 차이**: **보안 정책에서 차단된 출처** 패널의 "허용 목록에 추가" 와 설정 화면의 사전 검사는 지금까지 브라우저 URL 파서로 원점을 읽었습니다. 파서는 `http://0177.0.0.1`·`http://0x7f.1`·`http://2130706433` 같은 옛 IPv4 별칭을 정식 주소로 접어 버리고, 숫자 최상위 라벨·퍼센트 인코딩 호스트·라벨 63바이트·호스트 253바이트·포트 1~65535 범위를 검사하지 않았습니다. 서버의 `trackingOrigin` 은 별칭이 앱 원점 거부를 우회하지 못하도록 이를 거절하므로 버튼이 제안한 원점이 `PUT` 에서 거절될 수 있었습니다.
@@ -32,7 +38,7 @@ if version >= (1, 15, 0):
 [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.15.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 14, 0):
+elif series == (1, 14):
     features = """### 보고서 내보내기 CSV — 목록 CSV와 같은 수식 방지 판정
 
 - **앞 공백에 가려진 수식**: `GET /api/reports/export?format=csv` 는 지금까지 값의 **첫 글자만** 검사했기 때문에 ` =1+1` 처럼 공백·제어문자가 앞에 붙은 제목·출처·CVE 를 그대로 내보냈습니다. 화면의 목록 CSV 내려받기는 이미 앞 공백을 건너뛰고 검사하고 있어 같은 값의 결과가 서버와 화면에서 달랐습니다.
@@ -47,7 +53,7 @@ elif version >= (1, 14, 0):
 [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.14.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 13, 0):
+elif series == (1, 13):
     features = """### 다른 서비스로 보내기 — 사용자당 미사용 표 20개 상한
 
 - **표 테이블 무한 증가 차단**: `POST /api/v1/handoff/claims` 는 표 하나마다 암호화한 실행 보고서 전체를 함께 저장하는데 지금까지는 만료 행만 정리했습니다. 이제 만료 정리 직후 **같은 트랜잭션에서** 그 사용자의 아직 쓰지 않은(만료 전·미수령) 표를 세고, 20개 이상이면 표를 만들지 않습니다.
@@ -62,7 +68,7 @@ elif version >= (1, 13, 0):
 [다른 서비스로 보내기 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.13.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 12, 0):
+elif series == (1, 12):
     features = """### MCP · SSO 연결 — /mcp 를 OAuth 2.1 리소스 서버로
 
 - **키 없이 SSO 로 연결**: 관리자가 **서비스 설정 → MCP · SSO 연결**(`mcp.oauth.enabled/resource/audience/scopes`, 기본 꺼짐)을 켜면 MCP 클라이언트(Claude, Cursor 등)에 `/mcp` 주소 하나만 넣어도 클라이언트가 스스로 Keycloak 로그인을 거쳐 액세스 토큰을 받아 옵니다. 개인 키 페이지의 MCP 카드에 "키 없이 SSO 로 연결하기" 안내가 보이며 개인 키 체계는 그대로입니다.
@@ -78,7 +84,7 @@ Hunter 는 introspection 을 하지 않으므로 Keycloak 로그아웃·사용�
 [MCP·SSO 연결 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 키 없이 연결하기 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.12.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 11, 0):
+elif series == (1, 11):
     features = """### 실행 보고서 다른 서비스로 보내기와 추적 프레임 CSP 차단 출처 허용
 
 - **다른 서비스로 보내기**: 실행 상세의 실행 보고서 메뉴에서 관리자가 허용한 사내 서비스 이름을 고르면 파일을 내려받지 않고 새 창에서 그 서비스가 Markdown 보고서를 직접 받아 갑니다. 사내 문서 넘기기 표준(HANDOFF-STANDARD)의 보내는 쪽 `markdown` 규격을 따르며 받는 쪽은 만들지 않았습니다.
@@ -94,7 +100,7 @@ elif version >= (1, 11, 0):
 [보내기 허용 목록·추적 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 보고서 보내기 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.11.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 10, 0):
+elif series == (1, 10):
     features = """### 자동 SSO 진입의 명시적 사용 설정과 저장소 차단 시 억제
 
 - **자동 진입 기본 꺼짐**: OIDC `auto_login`의 기본값이 꺼짐입니다. 설정 키가 없거나 불리언이 아니면 꺼진 것으로 취급해 기본 설치에서는 prompt=none 요청을 보내지 않습니다. 서버 기본 설정·관리자 설정 화면·OpenAPI 계약이 같은 기본값을 사용합니다.
@@ -109,7 +115,7 @@ v1.9.0에서 자동 진입을 사용하던 조직은 업그레이드 후 **관�
 [SSO 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 로그인·복구 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [공식 근거와 적용 범위](https://github.com/hkjang/hunter/blob/main/docs/research-sso-tracking.md) · [릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.10.0.md)
 
 """
-elif version >= (1, 9, 0):
+elif series == (1, 9):
     features = """### 기존 SSO 세션 자동 진입과 관리자 방문 추적
 
 - **로그인 화면을 거치지 않는 업무 복귀**: 유효한 Hunter 세션은 바로 내부 목적지로 이동하고, OIDC 자동 진입을 켜면 prompt=none으로 사내 인증 세션을 확인합니다. 원래 메뉴·검색 조건·해시를 안전한 내부 주소로 보존합니다.
@@ -126,7 +132,7 @@ elif version >= (1, 9, 0):
 [SSO·방문 추적 운영 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 로그인·복구 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [공식 근거와 적용 범위](https://github.com/hkjang/hunter/blob/main/docs/research-sso-tracking.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 8, 0):
+elif series == (1, 8):
     features = """### 에이전트 선택 연동·복구와 실행 보고서
 
 - **모델 네이티브 연결**: OpenAI 호환·Anthropic Messages·Gemini·Ollama의 실제 스트리밍 규격을 사용하고 역할별 순서·우선순위·컨텍스트·출력·연속 실패 보호를 설정합니다. 실패한 응답 조각은 사용자 출력과 도구 실행 전에 폐기합니다.
@@ -143,7 +149,7 @@ elif version >= (1, 8, 0):
 [관리자 선택 연동 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html) · [사용자 재개·보고서 가이드](https://hkjang.github.io/hunter/guides/user-guide.html) · [공식 규격과 적용 범위](https://github.com/hkjang/hunter/blob/main/docs/research-agent-platform.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 7, 0):
+elif series == (1, 7):
     features = """### 담당자와 외부 업무를 연결하는 자동화
 
 - **담당자·조직·당직 수신자**: 관리자 확인 연락처와 현재 사용자·서비스 접근 권한을 대조해 수신자를 계산합니다. 고정 수신자와 함께 사용할 수 있으며 개인에게 연결된 알림은 **내 업무 알림**에서 확인합니다.
@@ -166,7 +172,7 @@ Hunter HMAC 콜백은 사내 게이트웨이 계약이며 Git·문자·알림톡
 [자동화 설정·복구 가이드](https://hkjang.github.io/hunter/guides/admin-guide.html#13-10-자동화-관리-시작하기) · [내 업무 알림](https://hkjang.github.io/hunter/guides/user-guide.html#12-6-내-업무-알림과-확인) · [공식 설계 근거](https://github.com/hkjang/hunter/blob/main/docs/research-automation.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
 
 """
-elif version >= (1, 6, 0):
+elif series == (1, 6):
     features = """### 사내 알림 연동과 발송 관리
 
 - **관리자 알림 센터**: SMTP 메일, 문자, 카카오톡, 일반 HTTP 채널을 여러 개 등록하고 이벤트·심각도·서비스·조직별 규칙과 수신자를 설정합니다. 채널과 규칙은 사용 설정 후 자동 발송을 시작합니다.
@@ -182,7 +188,7 @@ API 성공·SMTP 접수는 단말 도달이나 읽음 확인을 뜻하지 않습
 네 환경변수, PostgreSQL, 오프라인 UI 자산 및 서비스 Docker 이미지 하나로 운영합니다. 실제 수신자 대상의 임의 시험 발송은 수행하지 않았으며 연결 검증은 로컬 모의 SMTP·API를 사용합니다.
 
 """
-elif version >= (1, 5, 0):
+elif series == (1, 5):
     features = """### 반복 업무 편의와 입력·자료 보호
 
 - **발견 건 일괄 변경**: 현재 페이지에서 최대 100개를 선택해 담당자·수동 기한·허용된 진행 상태를 함께 변경합니다. 현재 권한과 조회 버전을 재확인하며 한 항목이라도 충돌하면 전체 취소합니다. 해결·오탐·위험 수용은 개별 검토를 유지합니다.
@@ -196,7 +202,7 @@ elif version >= (1, 5, 0):
 기존 SLA·KEV/EPSS·SBOM·캠페인, PentAGI 원본 312파일과 일곱 에이전트 도구의 통제, 네 환경변수·단일 서비스 이미지 구성을 유지합니다. CSV·공유·일괄 변경은 현재 권한이나 진단 승인 범위를 확대하지 않습니다.
 
 """
-elif version >= (1, 4, 0):
+elif series == (1, 4):
     features = """### 보안 조치와 소프트웨어 구성 관리
 
 - **조치함·SLA**: 접근 가능한 전체 미조치 발견 건을 서버에서 검색·집계·페이지 처리합니다. 기한 초과·임박·담당자 미지정을 찾고 우선순위 산정 근거를 확인합니다. 관리자가 SLA를 켜면 생성일과 심각도별 기한을 적용하며 개별 기한이 우선합니다.
@@ -211,7 +217,7 @@ elif version >= (1, 4, 0):
 새 기능은 Hunter 자체 구현입니다. PentAGI 원본 312파일과 기존 일곱 에이전트 도구의 실행 통제, 네 환경변수·단일 서비스 이미지·오프라인 자산 구성을 유지합니다. SBOM 반입은 취약점 DB 조회나 진단 자동 실행을 뜻하지 않으며 라이선스 표시는 법적 판정이 아닙니다.
 
 """
-elif version >= (1, 3, 0):
+elif series == (1, 3):
     features = """### 일상 업무를 위한 화면 사용성 개선
 
 - 목록 위에서 검색 결과 수와 적용 조건을 확인하고 검색어·필터를 하나씩 해제합니다. 자주 쓰는 검색·필터·정렬·표시 수는 사용자·메뉴별로 이 브라우저에 최대 8개 저장하고 첫 페이지부터 다시 불러옵니다.
@@ -222,7 +228,7 @@ elif version >= (1, 3, 0):
 [UX 조사 근거와 검증 범위](https://github.com/hkjang/hunter/blob/main/docs/ux-research.md)를 공개합니다. 브라우저에 저장한 보기는 다른 기기와 동기화되지 않으며, 검색·정렬은 현재 API 조회 범위 안에서 동작합니다. 기존 네 환경변수·단일 서비스 이미지·오프라인 자산 구성을 유지합니다.
 
 """
-elif version >= (1, 2, 0):
+elif series == (1, 2):
     features = """### 목록 탐색과 빠른 이동 개선
 
 - 서비스·발견 건·진단·관리 목록에 열 정렬, 한국어·여러 단어 검색, 구분별 필터, 페이지당 10/25/50/100개 표시와 페이지 이동을 제공합니다.
@@ -234,7 +240,7 @@ elif version >= (1, 2, 0):
 목록 검색·정렬은 API가 반환한 자료에 적용합니다. 조회 상한에 도달한 경우 화면 하단에 검색 범위를 표시합니다. 기존 네 환경변수·단일 서비스 이미지·오프라인 자산 구성을 유지합니다.
 
 """
-elif version >= (1, 1, 0):
+elif series == (1, 1):
     features = """### 에이전트 진단
 
 - 서비스별 목표를 입력하면 내장한 PentAGI 원본 코어가 작업을 나누고 역할 위임·실행·재시도·결과 검토를 진행합니다.

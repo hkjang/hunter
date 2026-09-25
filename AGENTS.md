@@ -47,7 +47,7 @@
 | `web/tests` | 프런트엔드 권한·이벤트 회귀 테스트 |
 | `internal/webassets/dist` | Go 실행 파일에 포함하는 프런트엔드 빌드 결과 |
 | `docs` | GitHub Pages, 화면 캡처, 사용자·관리자 가이드 |
-| `scripts` | 릴리즈·문서 생성·원본 검증·라이선스 수집 |
+| `scripts` | 릴리즈·릴리즈 본문 검사·문서 생성·원본 검증·라이선스 수집 |
 | `.github/workflows` | CI, 단일 이미지 릴리즈, GitHub Pages 배포 |
 ## 3. 유지해야 하는 배포 조건
 
@@ -170,6 +170,7 @@ go run ./scripts/license-notices -out dist/licenses
 node scripts/collect-web-licenses.mjs dist/npm-licenses
 bash -n scripts/release.sh
 python3 -m py_compile scripts/release-notes.py
+node scripts/check-release-notes.mjs
 ```
 
 - Go·코어·폰트 출처는 이미지의 `/usr/share/licenses/hunter/dependencies.json`에 보존합니다.
@@ -207,6 +208,7 @@ git diff --check
 - `VERSION`, 웹·문서 패키지 버전, 가이드·홍보·배포 예시를 함께 맞춥니다.
 - 이미지 태그는 `hunter:v버전`, 유일한 릴리즈 첨부는 `hunter-v버전.tar.gz`입니다.
 - `scripts/release.sh`는 `VERSION`을 검사하고 `linux/amd64` 서비스 이미지만 save·gzip 합니다.
+- `VERSION`의 새 마이너에는 `scripts/release-notes.py`에 그 마이너 전용 분기를 추가합니다. 분기는 마이너 단위로 선택되므로 없으면 본문에 기능 안내가 비고, `node scripts/check-release-notes.mjs`가 태그 푸시 전에 CI를 실패시킵니다. 이전 마이너의 안내를 새 태그에 다시 쓰지 않습니다.
 - PostgreSQL·별도 실행 이미지·PDF·체크섬 파일을 추가 릴리즈 자산으로 첨부하지 않습니다.
 - 체크섬은 릴리즈 본문에 기록하고 GitHub 자동 소스 다운로드와 첨부 자산을 구분합니다.
 - 검증된 변경만 선별해 커밋하고 push 후 CI, 버전 태그 릴리즈와 Pages 배포 결과를 확인합니다.
