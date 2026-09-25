@@ -57,6 +57,8 @@ v1.13.0은 **다른 서비스로 보내기**의 표 발급에 **사용자당 미
 
 v1.14.0은 **보고서 내보내기 CSV**의 수식 방지 판정을 화면의 목록 CSV 내려받기와 같게 맞춥니다. `GET /api/reports/export?format=csv` 는 지금까지 값의 첫 글자만 검사해 ` =1+1` 처럼 공백이 앞에 붙은 값을 `'` 없이 내보냈습니다. 이제 앞쪽 공백류를 건너뛴 뒤 `=`·`+`·`-`·`@` 를 찾아 `'` 를 붙이며, 서버와 화면이 `internal/app/testdata/csv-safety.json` 의 공유 벡터로 같은 판정을 검증합니다. 저장된 값과 `format=json` 내보내기는 달라지지 않습니다. [릴리즈 노트](docs/release-v1.14.0.md)를 참고하세요.
 
+v1.15.0은 **방문 추적**의 허용 원점 판정을 서버 계약과 같게 맞춥니다. **보안 정책에서 차단된 출처** 패널의 "허용 목록에 추가" 제안과 설정 화면의 사전 검사는 지금까지 브라우저 URL 파서에 의존했는데, 파서는 `http://0177.0.0.1` 같은 옛 IPv4 별칭을 정식 주소로 접고 숫자 최상위 라벨·퍼센트 인코딩·라벨·호스트 길이·포트 범위를 검사하지 않았습니다. 그래서 버튼이 제안한 원점이 저장 시 `PUT` 에서 거절될 수 있었습니다. 이제 화면도 `trackingOrigin` 규칙을 원문에 직접 적용하고 `xn--` 라벨을 RFC 3492 로 직접 해독하며 전체 길이도 서버처럼 중복 제거 후 원점마다 `len+1` 로 셉니다. 서버 파서와 저장된 설정은 달라지지 않고, `internal/app/testdata/tracking-origins.json` 의 공유 벡터 105개를 화면과 서버가 함께 읽습니다. [릴리즈 노트](docs/release-v1.15.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -64,7 +66,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.14.0.tar.gz
+docker load -i hunter-v1.15.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -182,13 +184,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.14.0 예시 |
+| 항목 | 형식 | v1.15.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.14.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.14.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.15.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.15.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.14.0
+bash scripts/release.sh 1.15.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

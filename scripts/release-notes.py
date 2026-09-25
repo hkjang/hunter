@@ -17,7 +17,22 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 14, 0):
+if version >= (1, 15, 0):
+    features = """### 방문 추적 허용 원점 — 화면 제안과 서버 계약의 일치
+
+- **제안한 원점이 저장에서 거절되던 차이**: **보안 정책에서 차단된 출처** 패널의 "허용 목록에 추가" 와 설정 화면의 사전 검사는 지금까지 브라우저 URL 파서로 원점을 읽었습니다. 파서는 `http://0177.0.0.1`·`http://0x7f.1`·`http://2130706433` 같은 옛 IPv4 별칭을 정식 주소로 접어 버리고, 숫자 최상위 라벨·퍼센트 인코딩 호스트·라벨 63바이트·호스트 253바이트·포트 1~65535 범위를 검사하지 않았습니다. 서버의 `trackingOrigin` 은 별칭이 앱 원점 거부를 우회하지 못하도록 이를 거절하므로 버튼이 제안한 원점이 `PUT` 에서 거절될 수 있었습니다.
+- **같은 규칙을 원문에 적용**: 이제 `normalizeTrackingOrigin` 이 서버 규칙을 원문 텍스트에 직접 적용하고, 차단 출처 제안과 초안 검사가 모두 이 함수를 거칩니다. 허용 주소의 1,536바이트 합계도 서버처럼 **중복 제거 후 원점마다 `len+1`** 로 셉니다.
+- **`xn--` 라벨을 화면에서 직접 해독**: 이미 ASCII 인 ACE 라벨은 URL 파서마다 처리가 달라 화면과 서버의 판정이 갈렸습니다. 이제 서버가 `idna.Lookup.ToASCII` 로 하는 것과 같게 RFC 3492 해독을 화면에서 수행하고 그 결과만 파서로 다시 인코딩하며, 해독할 수 없거나 평범한 ASCII 로 풀리는 라벨은 런타임과 무관하게 거절합니다.
+- **한 파일로 두 구현을 고정**: `internal/app/testdata/tracking-origins.json` 의 공유 벡터 105개(원점 78·차단 출처 22·초안 5)를 Go 의 `TestTrackingOriginVectors` 와 프런트엔드의 `tracking-state.test.mjs` 가 함께 읽습니다.
+
+서버 파서, 이미 저장된 허용 목록, 추적 revision·미리보기 5분 1회·격리 iframe 과 고정 path·title 수집 범위는 달라지지 않습니다. 방문 추적은 기본 꺼짐이며 관리자 설정 항목·API 계약·권한은 추가하거나 바꾸지 않았습니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.15.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 14, 0):
     features = """### 보고서 내보내기 CSV — 목록 CSV와 같은 수식 방지 판정
 
 - **앞 공백에 가려진 수식**: `GET /api/reports/export?format=csv` 는 지금까지 값의 **첫 글자만** 검사했기 때문에 ` =1+1` 처럼 공백·제어문자가 앞에 붙은 제목·출처·CVE 를 그대로 내보냈습니다. 화면의 목록 CSV 내려받기는 이미 앞 공백을 건너뛰고 검사하고 있어 같은 값의 결과가 서버와 화면에서 달랐습니다.

@@ -1,5 +1,21 @@
 # Hunter 검증 기록
 
+## v1.15.0 방문 추적 허용 원점 판정 정렬
+
+2026년 9월 25일, 관리자 화면의 `normalizeTrackingOrigin`(`web/src/tracking-state.ts`)이 브라우저 URL 파서 대신 서버 `trackingOrigin`(`internal/app/tracking.go`)의 규칙을 원문에 직접 적용하도록 바꿨습니다. 차단 출처 제안·초안 검사·전체 길이 계수가 모두 이 경로를 거치며 `xn--` 라벨은 RFC 3492 로 화면에서 해독합니다. 서버 파서는 바꾸지 않았습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 전체 기본 회귀 | 임시 PostgreSQL 17 컨테이너에서 `go test -race -count=1 -timeout 45m ./...`로 `internal/app` 692.733초·`internal/pentagicore` 2.028초 통과. 실패·race 보고 없음. 기본 패키지 한도 10분으로는 `internal/app` 이 끝나지 않아 `-timeout 45m` 을 지정했습니다. `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 추적 허용 원점 | `tracking_test.go` 의 `TestTrackingOriginVectors` 가 `testdata/tracking-origins.json` 의 원점 78개·차단 출처 22개·초안 5개, 하위 테스트 105개를 모두 통과. 프런트엔드 `tracking-state.test.mjs` 가 같은 파일을 읽어 동일한 기대값을 확인 |
+| 프런트엔드 | `npm test` 95개 통과(같은 `tracking-origins.json` 을 읽는 `tracking-state.test.mjs` 포함), 실패·건너뜀 0개. `npm run build`(tsc 포함) 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 실제 관리자 화면의 차단 출처 제안·저장 흐름을 다시 조작해 확인하지는 않았습니다. 화면과 서버의 일치는 공유 벡터 105개의 양쪽 실행으로 검증했습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했습니다. `xn--` 해독을 URL 파서에 위임하지 않으므로 런타임별 ACE 처리 차이는 이 판정에 영향을 주지 않지만, 조직이 사용하는 브라우저 엔진별 확인은 별도입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.15.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.15.0)에 실제 완료 후 기록합니다.
+
 ## v1.14.0 보고서 내보내기 CSV 수식 방지 정렬
 
 2026년 9월 24일, `GET /api/reports/export?format=csv` 의 `csvSafe` 가 앞쪽 공백류를 건너뛴 뒤 `=`·`+`·`-`·`@` 를 검사하도록 바꿔 화면의 목록 CSV(`web/src/list-export.ts`)와 판정을 맞췄습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
