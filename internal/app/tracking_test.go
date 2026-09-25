@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -165,5 +167,88 @@ func TestTrackingOriginHeaderBudget(t *testing.T) {
 	}
 	if _, e := validateTracking(&c, nil); e == nil {
 		t.Fatal("excessive combined origin header accepted")
+	}
+}
+
+type trackingOriginVector struct {
+	Name     string  `json:"name"`
+	Input    string  `json:"input"`
+	Expected *string `json:"expected"`
+}
+type trackingViolationVector struct {
+	Name       string  `json:"name"`
+	BlockedURI string  `json:"blocked_uri"`
+	Expected   *string `json:"expected"`
+}
+type trackingDraftVector struct {
+	Name     string    `json:"name"`
+	Origins  []string  `json:"origins"`
+	Expected *[]string `json:"expected"`
+}
+
+// The administration screen proposes and pre-validates allowed origins with
+// web/src/tracking-state.ts. Both readers run these vectors so the screen never
+// offers an origin this server would refuse.
+func TestTrackingOriginVectors(t *testing.T) {
+	b, err := os.ReadFile("testdata/tracking-origins.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors struct {
+		Origins    []trackingOriginVector    `json:"origins"`
+		Violations []trackingViolationVector `json:"violations"`
+		Drafts     []trackingDraftVector     `json:"drafts"`
+	}
+	if err := json.Unmarshal(b, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	if len(vectors.Origins) == 0 || len(vectors.Violations) == 0 || len(vectors.Drafts) == 0 {
+		t.Fatal("empty tracking origin fixture")
+	}
+	for _, v := range vectors.Origins {
+		t.Run(v.Name, func(t *testing.T) {
+			got, err := trackingOrigin(v.Input)
+			if v.Expected == nil {
+				if err == nil {
+					t.Fatalf("trackingOrigin(%q) = %q, want refusal", v.Input, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("trackingOrigin(%q) = %v, want %q", v.Input, err, *v.Expected)
+			}
+			if got != *v.Expected {
+				t.Fatalf("trackingOrigin(%q) = %q, want %q", v.Input, got, *v.Expected)
+			}
+		})
+	}
+	for _, v := range vectors.Violations {
+		t.Run("violation/"+v.Name, func(t *testing.T) {
+			want := ""
+			if v.Expected != nil {
+				want = *v.Expected
+			}
+			if got := trackingViolationOrigin(v.BlockedURI); got != want {
+				t.Fatalf("trackingViolationOrigin(%q) = %q, want %q", v.BlockedURI, got, want)
+			}
+		})
+	}
+	for _, v := range vectors.Drafts {
+		t.Run("draft/"+v.Name, func(t *testing.T) {
+			c := trackingConfig{Name: "방문", AllowedOrigins: v.Origins}
+			_, err := validateTracking(&c, nil)
+			if v.Expected == nil {
+				if err == nil {
+					t.Fatalf("validateTracking(%d origins) = %q, want refusal", len(v.Origins), c.AllowedOrigins)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateTracking(%d origins) = %v, want %d origins", len(v.Origins), err, len(*v.Expected))
+			}
+			if !reflect.DeepEqual(c.AllowedOrigins, *v.Expected) {
+				t.Fatalf("validateTracking normalised %q, want %q", c.AllowedOrigins, *v.Expected)
+			}
+		})
 	}
 }
