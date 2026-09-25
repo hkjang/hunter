@@ -361,6 +361,21 @@
       "expected": null
     },
     {
+      "name": "undecodable-punycode",
+      "input": "http://xn--0.internal",
+      "expected": null
+    },
+    {
+      "name": "empty-punycode",
+      "input": "http://xn--.internal",
+      "expected": null
+    },
+    {
+      "name": "ascii-only-punycode",
+      "input": "http://xn--a-.internal",
+      "expected": null
+    },
+    {
       "name": "malformed-ipv6",
       "input": "http://[2001:db8:::1]",
       "expected": null

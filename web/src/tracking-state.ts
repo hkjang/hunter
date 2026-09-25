@@ -146,12 +146,75 @@ const trackingOriginIPv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 const trackingOriginLabel = /^[a-z0-9-]+$/;
 const trackingOriginUint64 = 18446744073709551615n;
 
+// RFC 3492 decoding of one xn-- label body, mirroring the decoder in
+// golang.org/x/net/idna that the server reaches through idna.Lookup.ToASCII.
+// URL parsers disagree on already-ASCII xn-- labels — Node 26 hands
+// "xn--a.internal" back untouched while ICU builds reject it — so the decode is
+// done here instead of being delegated, and only the Unicode direction, where
+// the parsers agree, is left to the parser.
+function trackingPunycodeDecode(encoded: string): string | null {
+  if (encoded === "") return "";
+  const pos0 = encoded.lastIndexOf("-") + 1;
+  if (pos0 === 1) return null;
+  if (pos0 === encoded.length) return encoded.slice(0, -1);
+  const output = pos0 === 0 ? [] : [...encoded.slice(0, pos0 - 1)];
+  let pos = pos0;
+  let i = 0;
+  let n = 128;
+  let bias = 72;
+  while (pos < encoded.length) {
+    const oldI = i;
+    let w = 1;
+    for (let k = 36; ; k += 36) {
+      if (pos === encoded.length) return null;
+      const digit = trackingPunycodeDigit(encoded[pos]);
+      if (digit === null) return null;
+      pos += 1;
+      i += digit * w;
+      if (i > 0x7fffffff) return null;
+      const t = Math.min(Math.max(k - bias, 1), 26);
+      if (digit < t) break;
+      w *= 36 - t;
+      if (w > 0x7fffffff) return null;
+    }
+    const x = output.length + 1;
+    bias = trackingPunycodeAdapt(i - oldI, x, oldI === 0);
+    n += Math.floor(i / x);
+    i %= x;
+    if (n > 0x10ffff) return null;
+    output.splice(i, 0, String.fromCodePoint(n));
+    i += 1;
+  }
+  return output.join("");
+}
+
+function trackingPunycodeDigit(c: string): number | null {
+  const n = c.charCodeAt(0);
+  if (n >= 0x30 && n <= 0x39) return n - 0x30 + 26;
+  if (n >= 0x61 && n <= 0x7a) return n - 0x61;
+  return null;
+}
+
+function trackingPunycodeAdapt(
+  delta: number,
+  points: number,
+  first: boolean,
+): number {
+  let d = first ? Math.floor(delta / 700) : Math.floor(delta / 2);
+  d += Math.floor(d / points);
+  let k = 0;
+  for (; d > 455; k += 36) d = Math.floor(d / 35);
+  return k + Math.floor((36 * d) / (d + 38));
+}
+
 // Canonical host, or null when the server would refuse it. Bracketed IPv6 and
-// non-ASCII hosts are canonicalised by the URL parser, which also rejects
-// invalid punycode; ASCII names are checked directly so numeric hosts never
-// reach the parser's legacy IPv4 handling. IPv4-mapped IPv6 literals normalise
-// to the compressed form here and to the dotted form on the server, and both
-// forms are accepted by the server.
+// non-ASCII hosts are canonicalised by the URL parser; xn-- labels are decoded
+// above and re-encoded through that same parser, the way idna.Lookup.ToASCII
+// does on the server, so an undecodable or disallowed label is refused whatever
+// the runtime would have made of its ASCII form. Plain ASCII names are checked
+// directly so numeric hosts never reach the parser's legacy IPv4 handling.
+// IPv4-mapped IPv6 literals normalise to the compressed form here and to the
+// dotted form on the server, and both forms are accepted by the server.
 function trackingOriginHost(host: string): string | null {
   if (host.startsWith("[")) {
     try {
@@ -168,10 +231,31 @@ function trackingOriginHost(host: string): string | null {
       .every((part) => part === String(Number(part)) && Number(part) < 256)
       ? host
       : null;
-  let ascii = host;
-  if (/[^\x21-\x7e]/.test(host) || /(^|\.)xn--/.test(host)) {
+  let unicode = host;
+  if (/(^|\.)xn--/.test(host)) {
+    const labels = host.split(".");
+    for (let i = 0; i < labels.length; i += 1) {
+      if (!labels[i].startsWith("xn--")) continue;
+      // An ACE label is ASCII by definition, and every URL parser this screen
+      // has relied on refuses a mixed spelling. idna decodes a few of them into
+      // a name that is not the one on screen, so they stay refused here rather
+      // than being shown as an origin the administrator did not write.
+      if (/[^\x00-\x7f]/.test(labels[i])) return null;
+      const decoded = trackingPunycodeDecode(labels[i].slice(4));
+      // x/net/idna also refuses a non-empty xn-- label that decodes to plain
+      // ASCII, because such a label is a second spelling of a name that is
+      // already representable. An empty decode leaves an empty label, which the
+      // label checks below refuse the way the server's DNS length check does.
+      if (decoded === null || (decoded !== "" && !/[^\x00-\x7f]/.test(decoded)))
+        return null;
+      labels[i] = decoded;
+    }
+    unicode = labels.join(".");
+  }
+  let ascii = unicode;
+  if (/[^\x21-\x7e]/.test(unicode)) {
     try {
-      ascii = new URL("http://" + host + "/").hostname;
+      ascii = new URL("http://" + unicode + "/").hostname;
     } catch {
       return null;
     }
