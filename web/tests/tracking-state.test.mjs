@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   emptyTracking,
   trackingFrameURL,
   trackingPage,
   trackingStatus,
+  normalizeTrackingOrigin,
   trackingViolation,
   trackingViolationOrigin,
   validateTrackingDraft,
@@ -195,11 +197,69 @@ test("script bytes, Unicode name length and exact permitted origins match the ad
         ...config,
         allowed_origins: Array.from(
           { length: 10 },
-          (_, i) => `https://${"a".repeat(155)}${i}.internal`,
+          (_, i) =>
+            `https://${"a".repeat(60)}.${"a".repeat(60)}.${"a".repeat(30)}${i}.internal`,
         ),
       },
       "https://hunter.internal",
     ).join(" "),
     /1,536바이트/,
   );
+});
+
+// The administration screen proposes allowed origins for relayed policy
+// violations and pre-validates the draft, but the server decides. Both readers
+// run internal/app/testdata/tracking-origins.json (Go: TestTrackingOriginVectors)
+// so the screen never offers or accepts an origin the PUT would refuse.
+test("proposed and drafted origins follow the shared server origin vectors", () => {
+  const vectors = JSON.parse(
+    readFileSync(
+      new URL(
+        "../../internal/app/testdata/tracking-origins.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.ok(vectors.origins.length > 0);
+  assert.ok(vectors.violations.length > 0);
+  assert.ok(vectors.drafts.length > 0);
+  const config = {
+    ...emptyTracking,
+    enabled: true,
+    script: "window.example = true",
+  };
+  const draftErrors = (origins) =>
+    validateTrackingDraft(
+      { ...config, allowed_origins: origins },
+      "https://hunter.internal",
+    );
+  const mismatches = [];
+  const check = (name, got, want) => {
+    if (got !== want) mismatches.push(`${name}: ${got} !== ${want}`);
+  };
+  for (const { name, input, expected } of vectors.origins) {
+    check("origin/" + name, normalizeTrackingOrigin(input), expected);
+    check(
+      "draft/" + name,
+      draftErrors([input]).length === 0,
+      expected !== null,
+    );
+  }
+  for (const { name, blocked_uri, expected } of vectors.violations)
+    check("violation/" + name, trackingViolationOrigin(blocked_uri), expected);
+  for (const { name, origins, expected } of vectors.drafts) {
+    check(
+      "drafts/" + name,
+      draftErrors(origins).length === 0,
+      expected !== null,
+    );
+    if (expected)
+      assert.deepEqual(
+        [...new Set(origins.map((origin) => normalizeTrackingOrigin(origin)))],
+        expected,
+        name,
+      );
+  }
+  assert.deepEqual(mismatches, []);
 });

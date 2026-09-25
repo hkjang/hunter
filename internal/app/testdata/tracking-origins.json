@@ -1,0 +1,577 @@
+{
+  "origins": [
+    {
+      "name": "plain-host",
+      "input": "http://collector.internal",
+      "expected": "http://collector.internal"
+    },
+    {
+      "name": "default-port-http",
+      "input": "http://collector.internal:80",
+      "expected": "http://collector.internal"
+    },
+    {
+      "name": "default-port-https",
+      "input": "https://stats.internal:443",
+      "expected": "https://stats.internal"
+    },
+    {
+      "name": "default-port-trailing-slash",
+      "input": "https://stats.internal:443/",
+      "expected": "https://stats.internal"
+    },
+    {
+      "name": "non-default-port",
+      "input": "http://collector.internal:8443",
+      "expected": "http://collector.internal:8443"
+    },
+    {
+      "name": "cross-scheme-default-port",
+      "input": "https://analytics.internal:080",
+      "expected": "https://analytics.internal:80"
+    },
+    {
+      "name": "uppercase-scheme-and-host",
+      "input": "HTTP://Collector.Internal",
+      "expected": "http://collector.internal"
+    },
+    {
+      "name": "uppercase-with-port",
+      "input": "https://Stats.Internal:8443",
+      "expected": "https://stats.internal:8443"
+    },
+    {
+      "name": "trailing-slash",
+      "input": "http://collector.internal/",
+      "expected": "http://collector.internal"
+    },
+    {
+      "name": "empty-port",
+      "input": "https://analytics.internal:",
+      "expected": "https://analytics.internal"
+    },
+    {
+      "name": "empty-fragment",
+      "input": "https://analytics.internal#",
+      "expected": "https://analytics.internal"
+    },
+    {
+      "name": "slash-empty-fragment",
+      "input": "https://analytics.internal/#",
+      "expected": "https://analytics.internal"
+    },
+    {
+      "name": "idn-korean",
+      "input": "https://통계.example",
+      "expected": "https://xn--989an41e.example"
+    },
+    {
+      "name": "idn-korean-default-port",
+      "input": "https://통계.example:443",
+      "expected": "https://xn--989an41e.example"
+    },
+    {
+      "name": "punycode",
+      "input": "http://xn--989an41e.example",
+      "expected": "http://xn--989an41e.example"
+    },
+    {
+      "name": "ipv4",
+      "input": "http://127.0.0.1",
+      "expected": "http://127.0.0.1"
+    },
+    {
+      "name": "ipv4-broadcast",
+      "input": "http://255.255.255.255",
+      "expected": "http://255.255.255.255"
+    },
+    {
+      "name": "ipv6",
+      "input": "http://[2001:db8::1]",
+      "expected": "http://[2001:db8::1]"
+    },
+    {
+      "name": "ipv6-loopback",
+      "input": "http://[::1]",
+      "expected": "http://[::1]"
+    },
+    {
+      "name": "ipv6-expanded-with-port",
+      "input": "http://[2001:0db8:0000:0000:0000:0000:0000:0001]:8080",
+      "expected": "http://[2001:db8::1]:8080"
+    },
+    {
+      "name": "ipv6-uppercase-default-port",
+      "input": "http://[2001:DB8::1]:80",
+      "expected": "http://[2001:db8::1]"
+    },
+    {
+      "name": "numeric-first-label",
+      "input": "http://123.internal",
+      "expected": "http://123.internal"
+    },
+    {
+      "name": "hex-prefix-not-last-label",
+      "input": "http://0xg.internal",
+      "expected": "http://0xg.internal"
+    },
+    {
+      "name": "single-label",
+      "input": "http://internal",
+      "expected": "http://internal"
+    },
+    {
+      "name": "hyphen-inside-label",
+      "input": "http://a-b.internal",
+      "expected": "http://a-b.internal"
+    },
+    {
+      "name": "label-63-bytes",
+      "input": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.internal",
+      "expected": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.internal"
+    },
+    {
+      "name": "digit-label-above-uint64",
+      "input": "http://a.1234567890123456789012345678901234",
+      "expected": "http://a.1234567890123456789012345678901234"
+    },
+    {
+      "name": "legacy-octal-ipv4",
+      "input": "http://0177.0.0.1",
+      "expected": null
+    },
+    {
+      "name": "legacy-hex-ipv4",
+      "input": "http://0x7f.1",
+      "expected": null
+    },
+    {
+      "name": "legacy-decimal-ipv4",
+      "input": "http://2130706433",
+      "expected": null
+    },
+    {
+      "name": "ipv4-octal-octet",
+      "input": "http://25.0300.0.1",
+      "expected": null
+    },
+    {
+      "name": "ipv4-leading-zero-octet",
+      "input": "http://12.34.56.078",
+      "expected": null
+    },
+    {
+      "name": "ipv4-octet-out-of-range",
+      "input": "http://256.1.1.1",
+      "expected": null
+    },
+    {
+      "name": "ipv4-five-parts",
+      "input": "http://1.2.3.4.5",
+      "expected": null
+    },
+    {
+      "name": "numeric-last-label",
+      "input": "http://collector.123",
+      "expected": null
+    },
+    {
+      "name": "hex-last-label",
+      "input": "http://collector.0x1f",
+      "expected": null
+    },
+    {
+      "name": "hex-last-label-uppercase",
+      "input": "http://a.b.0X1f",
+      "expected": null
+    },
+    {
+      "name": "percent-in-host",
+      "input": "http://ho%2dst.internal",
+      "expected": null
+    },
+    {
+      "name": "credentials",
+      "input": "https://user@analytics.internal",
+      "expected": null
+    },
+    {
+      "name": "credentials-with-password",
+      "input": "https://user:pass@analytics.internal",
+      "expected": null
+    },
+    {
+      "name": "path",
+      "input": "https://analytics.internal/path",
+      "expected": null
+    },
+    {
+      "name": "forced-query",
+      "input": "https://analytics.internal?",
+      "expected": null
+    },
+    {
+      "name": "query",
+      "input": "https://analytics.internal?id=1",
+      "expected": null
+    },
+    {
+      "name": "fragment",
+      "input": "https://analytics.internal#frag",
+      "expected": null
+    },
+    {
+      "name": "fragment-slash",
+      "input": "https://analytics.internal#/",
+      "expected": null
+    },
+    {
+      "name": "wildcard",
+      "input": "https://*.internal",
+      "expected": null
+    },
+    {
+      "name": "space",
+      "input": "https://a b.internal",
+      "expected": null
+    },
+    {
+      "name": "tab",
+      "input": "https://a\t.internal",
+      "expected": null
+    },
+    {
+      "name": "carriage-return",
+      "input": "https://a\r.internal",
+      "expected": null
+    },
+    {
+      "name": "line-feed",
+      "input": "https://a\n.internal",
+      "expected": null
+    },
+    {
+      "name": "semicolon",
+      "input": "https://analytics.internal;",
+      "expected": null
+    },
+    {
+      "name": "comma",
+      "input": "https://a,b.internal",
+      "expected": null
+    },
+    {
+      "name": "single-quote",
+      "input": "https://a'.internal",
+      "expected": null
+    },
+    {
+      "name": "double-quote",
+      "input": "https://a\".internal",
+      "expected": null
+    },
+    {
+      "name": "backslash",
+      "input": "https://a\\.internal",
+      "expected": null
+    },
+    {
+      "name": "non-http-scheme",
+      "input": "javascript:alert(1)",
+      "expected": null
+    },
+    {
+      "name": "scheme-relative",
+      "input": "//analytics.internal",
+      "expected": null
+    },
+    {
+      "name": "missing-host",
+      "input": "https://",
+      "expected": null
+    },
+    {
+      "name": "empty",
+      "input": "",
+      "expected": null
+    },
+    {
+      "name": "port-zero",
+      "input": "https://analytics.internal:0",
+      "expected": null
+    },
+    {
+      "name": "port-above-range",
+      "input": "https://analytics.internal:65536",
+      "expected": null
+    },
+    {
+      "name": "port-overflow",
+      "input": "http://a.internal:99999999999999999999",
+      "expected": null
+    },
+    {
+      "name": "port-not-numeric",
+      "input": "http://a.internal:80a",
+      "expected": null
+    },
+    {
+      "name": "underscore-in-host",
+      "input": "http://a_b.internal",
+      "expected": null
+    },
+    {
+      "name": "empty-label",
+      "input": "http://a..b.internal",
+      "expected": null
+    },
+    {
+      "name": "trailing-dot",
+      "input": "http://collector.internal.",
+      "expected": null
+    },
+    {
+      "name": "leading-hyphen-label",
+      "input": "http://-lead.internal",
+      "expected": null
+    },
+    {
+      "name": "trailing-hyphen-label",
+      "input": "http://trail-.internal",
+      "expected": null
+    },
+    {
+      "name": "label-64-bytes",
+      "input": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.internal",
+      "expected": null
+    },
+    {
+      "name": "host-above-253-bytes",
+      "input": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.internal",
+      "expected": null
+    },
+    {
+      "name": "above-300-bytes",
+      "input": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": null
+    },
+    {
+      "name": "invalid-punycode",
+      "input": "http://xn--a.internal",
+      "expected": null
+    },
+    {
+      "name": "undecodable-punycode",
+      "input": "http://xn--0.internal",
+      "expected": null
+    },
+    {
+      "name": "empty-punycode",
+      "input": "http://xn--.internal",
+      "expected": null
+    },
+    {
+      "name": "ascii-only-punycode",
+      "input": "http://xn--a-.internal",
+      "expected": null
+    },
+    {
+      "name": "malformed-ipv6",
+      "input": "http://[2001:db8:::1]",
+      "expected": null
+    },
+    {
+      "name": "bracketed-non-ipv6",
+      "input": "http://[not-ipv6]",
+      "expected": null
+    },
+    {
+      "name": "ipv6-zone-identifier",
+      "input": "http://[fe80::1%25eth0]",
+      "expected": null
+    }
+  ],
+  "violations": [
+    {
+      "name": "query-path",
+      "blocked_uri": "https://stats.internal/collect?x=1",
+      "expected": "https://stats.internal"
+    },
+    {
+      "name": "uppercase-default-port-query-fragment",
+      "blocked_uri": "HTTPS://Stats.Internal:443/collect?id=1#frag",
+      "expected": "https://stats.internal"
+    },
+    {
+      "name": "non-default-port-path",
+      "blocked_uri": "http://collector.internal:8443/pixel.gif",
+      "expected": "http://collector.internal:8443"
+    },
+    {
+      "name": "credentials-are-dropped",
+      "blocked_uri": "https://user@stats.internal/p",
+      "expected": "https://stats.internal"
+    },
+    {
+      "name": "idn-korean",
+      "blocked_uri": "https://통계.example/p",
+      "expected": "https://xn--989an41e.example"
+    },
+    {
+      "name": "ipv6-expanded-with-port",
+      "blocked_uri": "http://[2001:0db8::0001]:8080/p",
+      "expected": "http://[2001:db8::1]:8080"
+    },
+    {
+      "name": "legacy-octal-ipv4",
+      "blocked_uri": "http://0177.0.0.1/collect.gif",
+      "expected": null
+    },
+    {
+      "name": "legacy-hex-ipv4",
+      "blocked_uri": "http://0x7f.1/p",
+      "expected": null
+    },
+    {
+      "name": "legacy-decimal-ipv4",
+      "blocked_uri": "http://2130706433/p",
+      "expected": null
+    },
+    {
+      "name": "numeric-last-label",
+      "blocked_uri": "http://collector.123/p",
+      "expected": null
+    },
+    {
+      "name": "percent-in-host",
+      "blocked_uri": "http://ho%2dst.internal/p",
+      "expected": null
+    },
+    {
+      "name": "port-zero",
+      "blocked_uri": "http://a.internal:0/p",
+      "expected": null
+    },
+    {
+      "name": "host-above-253-bytes",
+      "blocked_uri": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.internal/p",
+      "expected": null
+    },
+    {
+      "name": "underscore-in-host",
+      "blocked_uri": "http://a_b.internal/p",
+      "expected": null
+    },
+    {
+      "name": "inline",
+      "blocked_uri": "inline",
+      "expected": null
+    },
+    {
+      "name": "eval",
+      "blocked_uri": "eval",
+      "expected": null
+    },
+    {
+      "name": "data-url",
+      "blocked_uri": "data:text/plain,a",
+      "expected": null
+    },
+    {
+      "name": "blob-url",
+      "blocked_uri": "blob:https://x/1",
+      "expected": null
+    },
+    {
+      "name": "about-blank",
+      "blocked_uri": "about:blank",
+      "expected": null
+    },
+    {
+      "name": "extension-scheme",
+      "blocked_uri": "chrome-extension://abcdefghijklmnop/x.js",
+      "expected": null
+    },
+    {
+      "name": "websocket-scheme",
+      "blocked_uri": "wss://stats.internal/ws",
+      "expected": null
+    },
+    {
+      "name": "missing-host",
+      "blocked_uri": "https://",
+      "expected": null
+    }
+  ],
+  "drafts": [
+    {
+      "name": "duplicates-collapse",
+      "origins": [
+        "https://stats.internal:443",
+        "https://Stats.Internal/",
+        "https://stats.internal"
+      ],
+      "expected": ["https://stats.internal"]
+    },
+    {
+      "name": "duplicates-are-counted-once",
+      "origins": [
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "expected": [
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    {
+      "name": "total-bytes-at-limit",
+      "origins": [
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7.internal"
+      ],
+      "expected": [
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7.internal"
+      ]
+    },
+    {
+      "name": "total-bytes-above-limit",
+      "origins": [
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6.internal",
+        "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7.internal"
+      ],
+      "expected": null
+    },
+    {
+      "name": "rejected-origin-fails-the-draft",
+      "origins": ["http://0177.0.0.1"],
+      "expected": null
+    }
+  ]
+}
