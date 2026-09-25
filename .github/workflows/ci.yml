@@ -51,6 +51,7 @@ jobs:
         run: |
           bash -n scripts/release.sh
           python3 -m py_compile scripts/release-notes.py
+          node scripts/check-release-notes.mjs
           node scripts/check-docs.mjs
       - name: Build runtime image
         run: docker build --build-arg VERSION="$(cat VERSION)" --tag hunter:ci .
