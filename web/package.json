@@ -1,6 +1,6 @@
 {
   "name": "hunter-web",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Hunter Korean security validation workspace",
   "scripts": {
     "dev": "vite",

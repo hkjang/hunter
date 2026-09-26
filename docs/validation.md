@@ -1,5 +1,22 @@
 # Hunter 검증 기록
 
+## v1.16.0 목록 주소 복사의 전체 길이 보존
+
+2026년 9월 26일, `listSharePath`(`web/src/list-export.ts`)가 저장한 보기의 500 코드 단위 자르기를 쓰지 않도록 `savedListQuery`(`web/src/saved-list-views.ts`)에 명시적인 `clip` 옵션을 추가했습니다. 기본값은 기존 저장소 한도이며 주소 복사 경로만 이를 끕니다. 서버 API·권한·감사 기록은 바꾸지 않았습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm test` 96개 통과, 실패·건너뜀 0개. `npm run build`(tsc 포함) 통과 |
+| 목록 주소 복사 | `convenience.test.mjs` 의 "a shared address keeps the whole search and filter text that a saved view clips" 가 499자 + `🚀` + 100자 입력으로 `q`·`f_service_id` 의 길이·값이 원문과 같고 대체 문자(`�`)가 없는 것을, 같은 입력의 `savedListQuery` 기본 경로는 여전히 499자인 것을 확인. `saved-list-views.test.mjs` 는 저장과 복원이 같은 조건 문자열을 만드는 것을 추가로 고정 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 `go test ./...` 를 실행하지 않았습니다. 변경은 프런트엔드 두 파일에 한정되고 서버 경로를 건드리지 않으므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 17 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 실제 목록의 **목록 주소 복사** 버튼을 다시 눌러 확인하지는 않았습니다. 주소 생성은 공유 함수의 단위 검사로 검증했습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했습니다. 주소 전체 길이는 브라우저·프록시의 URL 한도를 따르므로 조직 환경별 상한 확인은 별도입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.16.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.16.0)에 실제 완료 후 기록합니다.
+
 ## v1.15.0 방문 추적 허용 원점 판정 정렬
 
 2026년 9월 25일, 관리자 화면의 `normalizeTrackingOrigin`(`web/src/tracking-state.ts`)이 브라우저 URL 파서 대신 서버 `trackingOrigin`(`internal/app/tracking.go`)의 규칙을 원문에 직접 적용하도록 바꿨습니다. 차단 출처 제안·초안 검사·전체 길이 계수가 모두 이 경로를 거치며 `xn--` 라벨은 RFC 3492 로 화면에서 해독합니다. 서버 파서는 바꾸지 않았습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
