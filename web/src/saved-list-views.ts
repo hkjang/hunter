@@ -64,14 +64,18 @@ function clip(value: string, limit = 500) {
 
 // Saved views may only change list controls, never navigation, selected records,
 // approval actions, secret values in arbitrary query params, or authorization.
+// The length limit belongs to browser storage, so a caller that builds an
+// address to share passes clip: false and keeps the text the address bar holds.
 export function savedListQuery(
   params: URLSearchParams,
   columns: string[],
   filters: string[],
+  options: { clip?: boolean } = {},
 ) {
+  const keep = options.clip === false ? (value: string) => value : clip;
   const next = new URLSearchParams();
   const query = params.get("q");
-  if (query) next.set("q", clip(query));
+  if (query) next.set("q", keep(query));
   const sort = params.get("sort");
   if (sort && columns.includes(sort)) {
     next.set("sort", sort);
@@ -81,7 +85,7 @@ export function savedListQuery(
   if (size && ["10", "50", "100"].includes(size)) next.set("size", size);
   for (const key of [...filters].sort()) {
     const value = params.get(`f_${key}`);
-    if (value) next.set(`f_${key}`, clip(value));
+    if (value) next.set(`f_${key}`, keep(value));
   }
   return next.toString();
 }

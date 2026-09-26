@@ -2,6 +2,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { csvCell, listCSV, listSharePath } from "../src/list-export.ts";
+import { savedListQuery } from "../src/saved-list-views.ts";
 import { findingBulkPatch } from "../src/finding-bulk-state.ts";
 
 test("CSV exports only declared display fields and preserves Korean, quotes and multiline values", () => {
@@ -59,6 +60,29 @@ test("list sharing preserves the active query and comparison but strips arbitrar
     ),
     "/findings",
   );
+});
+
+test("a shared address keeps the whole search and filter text that a saved view clips", () => {
+  const long = "가".repeat(499) + "🚀" + "a".repeat(100);
+  const params = new URLSearchParams();
+  params.set("q", long);
+  params.set("f_service_id", long);
+  const shared = new URL(
+    listSharePath("/findings", params, ["name"], ["service_id"], 1),
+    "http://hunter.invalid",
+  );
+  for (const key of ["q", "f_service_id"]) {
+    const value = shared.searchParams.get(key);
+    assert.ok(!value.includes("�"), `${key} kept a replacement character`);
+    assert.equal(value.length, long.length);
+    assert.equal(value, long);
+  }
+  // The same input still meets the browser storage limit on the saved-view path.
+  const stored = new URLSearchParams(
+    savedListQuery(params, ["name"], ["service_id"]),
+  );
+  for (const key of ["q", "f_service_id"])
+    assert.equal(stored.get(key).length, 499);
 });
 
 test("bulk patches distinguish unchanged fields from intentional clearing and disallow resolution", () => {
