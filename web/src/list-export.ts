@@ -72,7 +72,11 @@ export function listSharePath(
   filters: string[],
   page: number,
 ) {
-  const query = new URLSearchParams(savedListQuery(params, columns, filters));
+  // A copied address must open the list the sender is looking at, so the search
+  // and filter text keeps its full length instead of the saved-view limit.
+  const query = new URLSearchParams(
+    savedListQuery(params, columns, filters, { clip: false }),
+  );
   if (Number.isSafeInteger(page) && page > 1) query.set("page", String(page));
   // Tab names are product navigation, never arbitrary parameters or form data.
   const tab = params.get("tab");

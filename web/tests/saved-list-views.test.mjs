@@ -112,6 +112,12 @@ test("unknown and oversized controls cannot override accepted list configuration
   assert.equal(restored.get("f_unknown"), null);
   assert.equal(restored.get("q").length, 500);
   assert.equal(restored.get("f_status").length, 500);
+  // Saving and restoring compare the same snapshot string, so the default keeps
+  // the storage limit even though sharing an address opts out of it.
+  assert.equal(
+    savedListQuery(params, ["title"], ["status"]),
+    restored.toString(),
+  );
 });
 
 test("clipping a long search or filter never splits a surrogate pair into replacement characters", () => {
