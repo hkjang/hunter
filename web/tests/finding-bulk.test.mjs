@@ -4,10 +4,11 @@ import assert from "node:assert/strict";
 import { findingBulkPatch } from "../src/finding-bulk-state.ts";
 
 // The bulk change form pre-validates the assignee, but POST /api/findings/bulk
-// decides. Both readers run internal/app/testdata/finding-bulk-assignee.json
-// (Go: TestFindingBulkAssigneeSharedVectors) so the form never submits a name
-// validateFindingBulk would answer with 400 — the operator sees the Korean
-// message beside the field instead of a round trip.
+// decides. The form submits the trimmed name, so the fixture carries both the
+// typed string and that request body, and Go runs the request body through
+// validateFindingBulk (TestFindingBulkAssigneeSharedVectors). The form must not
+// reject a name the server would store and must not submit one it answers with
+// 400 — either way the operator loses a round trip or a usable name.
 const fixture = JSON.parse(
   readFileSync(
     new URL(
@@ -28,7 +29,9 @@ test("assignee verdicts follow the shared server bulk change vectors", () => {
     changeStatus: false,
     status: "",
   };
-  for (const { name, assignee, accepted, reason } of fixture.cases) {
+  for (const { name, assignee, wire, accepted, reason } of fixture.cases) {
+    // Keeps the column the Go side measures equal to this form's request body.
+    assert.equal(assignee.trim(), wire, name);
     if (!accepted) {
       assert.throws(
         () => findingBulkPatch({ ...base, assignee }),
@@ -38,11 +41,9 @@ test("assignee verdicts follow the shared server bulk change vectors", () => {
       continue;
     }
     assert.equal(reason, "ok", name);
-    // The byte limit is counted on the raw string, but the submitted value stays
-    // the trimmed one the server would store.
     assert.deepEqual(
       findingBulkPatch({ ...base, assignee }),
-      { assignee: assignee.trim() },
+      { assignee: wire },
       name,
     );
   }
