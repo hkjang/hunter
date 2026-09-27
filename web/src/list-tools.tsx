@@ -29,6 +29,7 @@ import {
   listPreferenceKey,
   readListPreferences,
   savedListQuery,
+  savedViewSaveError,
   type ListPreferences,
 } from "./saved-list-views";
 
@@ -125,27 +126,16 @@ export function ListTools<T>({
   function save(event: React.FormEvent) {
     event.preventDefault();
     const title = name.trim();
-    if (!title) {
-      setError("보기 이름을 입력해 주세요.");
-      input.current?.focus();
-      return;
-    }
-    if (prefs.views.length >= 8) {
-      setError(
-        "보기를 최대 8개까지 저장할 수 있습니다. 사용하지 않는 보기를 삭제해 주세요.",
-      );
-      return;
-    }
-    if (prefs.views.some((item) => item.name === title)) {
-      setError("같은 이름의 보기가 있습니다. 다른 이름을 입력해 주세요.");
-      input.current?.focus();
-      return;
-    }
-    if (
-      (params.get("q") || "").length > 500 ||
-      Object.values(view.filters).some((value) => value.length > 500)
-    ) {
-      setError("검색어나 필터 값이 너무 깁니다. 500자 이하로 줄여 주세요.");
+    const failure = savedViewSaveError(
+      prefs,
+      title,
+      params,
+      Object.keys(view.filters),
+      snapshot,
+    );
+    if (failure) {
+      setError(failure.message);
+      if (failure.focusName) input.current?.focus();
       return;
     }
     view.setPreferences({
