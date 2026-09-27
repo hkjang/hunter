@@ -4,6 +4,8 @@ import {
   listPreferenceKey,
   readListPreferences,
   savedListQuery,
+  savedListQueryLimit,
+  savedListQueryTooLong,
   applySavedListQuery,
 } from "../src/saved-list-views.ts";
 
@@ -117,6 +119,44 @@ test("unknown and oversized controls cannot override accepted list configuration
   assert.equal(
     savedListQuery(params, ["title"], ["status"]),
     restored.toString(),
+  );
+});
+
+test("a snapshot browser storage would silently discard is rejected before it is saved", () => {
+  // Each Hangul character costs nine characters once the snapshot is URL
+  // encoded, so a search and one filter at the 500 character limit already pass
+  // the storage limit that readListPreferences enforces when reading.
+  const params = new URLSearchParams();
+  params.set("q", "가".repeat(500));
+  params.set("f_service_id", "가".repeat(500));
+  const snapshot = savedListQuery(params, ["title"], ["service_id"]);
+  assert.ok(
+    snapshot.length > savedListQueryLimit,
+    `snapshot is only ${snapshot.length} characters`,
+  );
+  // Saving this snapshot reports success, but the next visit reads nothing.
+  assert.deepEqual(
+    readListPreferences(
+      JSON.stringify({
+        views: [{ id: "one", name: "긴 조건", query: snapshot }],
+      }),
+    ).views,
+    [],
+  );
+  assert.equal(savedListQueryTooLong(snapshot), true);
+
+  const short = new URLSearchParams();
+  short.set("q", "가".repeat(300));
+  short.set("f_service_id", "결제");
+  const kept = savedListQuery(short, ["title"], ["service_id"]);
+  assert.equal(savedListQueryTooLong(kept), false);
+  assert.deepEqual(
+    readListPreferences(
+      JSON.stringify({
+        views: [{ id: "one", name: "짧은 조건", query: kept }],
+      }),
+    ).views,
+    [{ id: "one", name: "짧은 조건", query: kept }],
   );
 });
 

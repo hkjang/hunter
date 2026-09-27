@@ -29,6 +29,7 @@ import {
   listPreferenceKey,
   readListPreferences,
   savedListQuery,
+  savedListQueryTooLong,
   type ListPreferences,
 } from "./saved-list-views";
 
@@ -146,6 +147,15 @@ export function ListTools<T>({
       Object.values(view.filters).some((value) => value.length > 500)
     ) {
       setError("검색어나 필터 값이 너무 깁니다. 500자 이하로 줄여 주세요.");
+      return;
+    }
+    // Each value stays under 500 characters, but URL encoding expands Korean
+    // text, so the whole snapshot can still pass the browser storage limit that
+    // reading enforces. Refusing here keeps the success message truthful.
+    if (savedListQueryTooLong(snapshot)) {
+      setError(
+        "검색어와 필터가 너무 길어 이 보기를 저장할 수 없습니다. 조건을 줄여 주세요.",
+      );
       return;
     }
     view.setPreferences({

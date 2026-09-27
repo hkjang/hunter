@@ -14,6 +14,15 @@ export function listPreferenceKey(userId: string, path: string) {
   return `hunter.lists.v1:${encodeURIComponent(userId)}:${encodeURIComponent(path)}`;
 }
 
+// Browser storage keeps one saved view under this many characters. Reading
+// discards anything longer, so saving checks the same limit with the same
+// value instead of reporting success for a view the next visit cannot read.
+export const savedListQueryLimit = 8192;
+
+export function savedListQueryTooLong(query: string) {
+  return query.length > savedListQueryLimit;
+}
+
 export function readListPreferences(raw: string | null): ListPreferences {
   try {
     const value = JSON.parse(raw || "null");
@@ -33,7 +42,7 @@ export function readListPreferences(raw: string | null): ListPreferences {
           !item.name.trim() ||
           item.name.length > 60 ||
           typeof item.query !== "string" ||
-          item.query.length > 8192
+          savedListQueryTooLong(item.query)
         )
           continue;
         ids.add(item.id);
