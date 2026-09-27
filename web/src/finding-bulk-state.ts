@@ -23,7 +23,9 @@ export function findingBulkPatch(input: {
   if (input.changeAssignee) {
     if (/[\u0000-\u001f\u007f-\u009f]/u.test(input.assignee))
       throw new Error("담당자에는 줄바꿈이나 제어 문자를 입력할 수 없습니다.");
-    if (new TextEncoder().encode(input.assignee.trim()).length > 200)
+    // Counted on the raw string because the server (internal/app/finding_bulk.go
+    // validateFindingBulk) measures len(name) before it trims the stored value.
+    if (new TextEncoder().encode(input.assignee).length > 200)
       throw new Error("담당자는 UTF-8 기준 200바이트까지 입력할 수 있습니다.");
     patch.assignee = input.assignee.trim();
   }

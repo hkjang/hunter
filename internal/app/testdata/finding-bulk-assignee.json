@@ -1,0 +1,107 @@
+{
+  "note": "Shared by Go validateFindingBulk (internal/app/finding_bulk_validate_test.go) and TS findingBulkPatch (web/tests/finding-bulk.test.mjs). Both readers must reach the same accepted verdict. The server counts the 200-byte limit and scans control characters on the raw submitted string and only then trims it for storage, so the web form must count the raw string too. Only the accept/reject verdict is shared: the trimmed value is NOT compared across readers because Go strings.TrimSpace and JavaScript String.prototype.trim disagree on U+FEFF, so no case here carries U+FEFF, U+2000-U+200A or U+3000.",
+  "cases": [
+    {
+      "name": "empty",
+      "assignee": "",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "short-korean",
+      "assignee": "\uae40\ubcf4\uc548",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "whitespace-only-clears-assignee",
+      "assignee": "   ",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "exactly-200-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "exactly-200-bytes-padded-with-spaces",
+      "assignee": " \uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab ",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "201-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "short-name-padded-past-200-bytes",
+      "assignee": "\uae40\ubcf4\uc548                                                                                                                                                                                                        ",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "emoji-boundary-exactly-200-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80x",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "emoji-boundary-201-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80xy",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "newline",
+      "assignee": "\uae40\ubcf4\uc548\n\ubc15\uc810\uac80",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "tab-c0",
+      "assignee": "\uae40\ubcf4\uc548\t\ubc15\uc810\uac80",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "nul-c0",
+      "assignee": "\uae40\ubcf4\uc548\u0000",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "unit-separator-c0-upper",
+      "assignee": "\uae40\ubcf4\uc548\u001f",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "delete-u007f",
+      "assignee": "\uae40\ubcf4\uc548",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "c1-u0080",
+      "assignee": "\uae40\ubcf4\uc548\u0080",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "c1-u009f",
+      "assignee": "\uae40\ubcf4\uc548\u009f",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "just-outside-control-u00a0",
+      "assignee": "\uae40\ubcf4\uc548\u00a0",
+      "accepted": true,
+      "reason": "ok"
+    }
+  ]
+}
