@@ -59,9 +59,15 @@ func TestFindingBulkAssigneeSharedVectors(t *testing.T) {
 			if v.Reason != "ok" {
 				t.Fatalf("accepted vector reason = %q, want ok", v.Reason)
 			}
-			// The form already trimmed, so the server's own trim must be a no-op
-			// here; otherwise the two readers trim differently and "wire" is not
-			// the value this request stores.
+			// Pins the fixture, not a disagreement between the two trims: "wire"
+			// is what the form submits, so the server's trim is a no-op on it and
+			// the stored value is "wire" verbatim. Go cannot observe the
+			// disagreement from this side — the only codepoint Go trims and
+			// JavaScript keeps is U+0085, and the control scan above rejects that
+			// first (vector nel-u0085-control-before-go-only-trim). The other
+			// direction, U+FEFF trimmed by JavaScript only, is what the
+			// bom-u-feff-* vectors carry, and web/tests/finding-bulk.test.mjs
+			// asserts assignee.trim() === wire on them.
 			if in.Patch["assignee"] != v.Wire {
 				t.Errorf("stored assignee = %q, want unchanged %q", in.Patch["assignee"], v.Wire)
 			}
