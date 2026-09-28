@@ -1,0 +1,152 @@
+{
+  "note": "Shared by Go validateFindingBulk (internal/app/finding_bulk_validate_test.go) and TS findingBulkPatch (web/tests/finding-bulk.test.mjs). The two readers do NOT see the same string: \"assignee\" is what an operator types into the bulk change form, and \"wire\" is what that form submits and therefore what the server measures, because findingBulkPatch stores input.assignee.trim() into the POST body. So the TS test feeds \"assignee\" and the Go test feeds \"wire\", and \"accepted\" is the single verdict both must reach: the form must not reject a name the server would store, and must not submit one the server answers with 400. The TS test also asserts wire === assignee.trim() so this column stays the real request body. The two trims agree on every ordinary space codepoint, including U+00A0, U+1680, U+2000-U+200A, U+202F, U+205F and U+3000 (both trim them) and U+200B (neither does). They disagree on exactly two, and both are covered here: U+FEFF is trimmed by JavaScript only, so its cases are the ones where \"wire\" loses a codepoint the server would have kept and stored; U+0085 is trimmed by Go only, and \"nel-u0085-control-before-go-only-trim\" pins that this never becomes reachable, because both readers reject U+0085 as a control character before any trim runs.",
+  "cases": [
+    {
+      "name": "empty",
+      "assignee": "",
+      "wire": "",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "short-korean",
+      "assignee": "\uae40\ubcf4\uc548",
+      "wire": "\uae40\ubcf4\uc548",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "whitespace-only-clears-assignee",
+      "assignee": "   ",
+      "wire": "",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "exactly-200-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "exactly-200-bytes-padded-with-spaces",
+      "assignee": " \uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab ",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00ab",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "201-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "short-name-padded-past-200-bytes",
+      "assignee": "\uae40\ubcf4\uc548                                                                                                                                                                                                        ",
+      "wire": "\uae40\ubcf4\uc548",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "emoji-boundary-exactly-200-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80x",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80x",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "emoji-boundary-201-bytes",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80xy",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ud83d\ude80xy",
+      "accepted": false,
+      "reason": "length"
+    },
+    {
+      "name": "newline",
+      "assignee": "\uae40\ubcf4\uc548\n\ubc15\uc810\uac80",
+      "wire": "\uae40\ubcf4\uc548\n\ubc15\uc810\uac80",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "tab-c0",
+      "assignee": "\uae40\ubcf4\uc548\t\ubc15\uc810\uac80",
+      "wire": "\uae40\ubcf4\uc548\t\ubc15\uc810\uac80",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "nul-c0",
+      "assignee": "\uae40\ubcf4\uc548\u0000",
+      "wire": "\uae40\ubcf4\uc548\u0000",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "unit-separator-c0-upper",
+      "assignee": "\uae40\ubcf4\uc548\u001f",
+      "wire": "\uae40\ubcf4\uc548\u001f",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "delete-u007f",
+      "assignee": "\uae40\ubcf4\uc548\u007f",
+      "wire": "\uae40\ubcf4\uc548\u007f",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "c1-u0080",
+      "assignee": "\uae40\ubcf4\uc548\u0080",
+      "wire": "\uae40\ubcf4\uc548\u0080",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "c1-u009f",
+      "assignee": "\uae40\ubcf4\uc548\u009f",
+      "wire": "\uae40\ubcf4\uc548\u009f",
+      "accepted": false,
+      "reason": "control"
+    },
+    {
+      "name": "just-outside-control-u00a0",
+      "assignee": "\uae40\ubcf4\uc548\u00a0\ubc15\uc810\uac80",
+      "wire": "\uae40\ubcf4\uc548\u00a0\ubc15\uc810\uac80",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "bom-u-feff-trimmed-by-js-only",
+      "assignee": "\ufeff\uae40\ubcf4\uc548\ufeff",
+      "wire": "\uae40\ubcf4\uc548",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "bom-u-feff-inside-name-kept-by-both",
+      "assignee": "\uae40\ubcf4\uc548\ufeff\ubc15\uc810\uac80",
+      "wire": "\uae40\ubcf4\uc548\ufeff\ubc15\uc810\uac80",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "bom-u-feff-tail-only-over-200-bytes-untrimmed",
+      "assignee": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\ufeff",
+      "wire": "\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00\uac00",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "nel-u0085-control-before-go-only-trim",
+      "assignee": "\uae40\ubcf4\uc548\u0085",
+      "wire": "\uae40\ubcf4\uc548\u0085",
+      "accepted": false,
+      "reason": "control"
+    }
+  ]
+}
