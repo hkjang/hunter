@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var version = "1.17.0"
+var version = "1.18.0"
 
 func main() {
 	workerOnly := flag.Bool("worker-only", false, "run the network worker without the web control server")

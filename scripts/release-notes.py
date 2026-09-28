@@ -17,7 +17,22 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 17, 0):
+if version >= (1, 18, 0):
+    features = """### 발견 건 일괄 변경 — 화면과 서버가 같은 문자열로 담당자 한도를 셉니다
+
+- **사용자 동작은 그대로**: 저장되는 값, 오류 문구, 서버 API·권한·감사 기록은 달라지지 않습니다. 이미 맞는 판정이 다음 변경에서 어긋나지 않도록 고정하는 회귀 검사 릴리즈입니다.
+- **같은 문자열을 셉니다**: 일괄 변경 폼의 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)는 앞뒤 공백을 제거한 이름을 보내고 200바이트 한도도 그 값에서 셉니다. 서버 `validateFindingBulk`(`internal/app/finding_bulk.go`)도 받은 그 문자열을 셉니다. 표에서 복사해 공백이 붙은 이름을 화면이 미리 거절하지도, 화면이 통과시킨 이름을 서버가 `400` 으로 돌려보내지도 않습니다.
+- **공유 벡터 21개**: `internal/app/testdata/finding-bulk-assignee.json` 의 허용 11개·거절 10개를 Go `TestFindingBulkAssigneeSharedVectors` 와 `web/tests/finding-bulk.test.mjs` 가 함께 읽고 같은 판정에 이르는지 확인합니다. 그 서버 검증 함수가 데이터베이스 없이 도는 첫 단위 검사이기도 합니다.
+- **경계를 직접 짚습니다**: 한글 200바이트·201바이트, 이모지가 걸친 경계, 공백만 입력한 담당자 비우기, C0·DEL·C1 제어 문자와 바로 바깥의 `U+00A0` 이 들어 있습니다. Go 와 JavaScript 의 트림이 실제로 갈리는 부호 위치는 두 가지뿐이며(JavaScript 만 버리는 `U+FEFF`, Go 만 버리는 `U+0085`) 둘 다 벡터로 고정했습니다.
+
+담당자 200바이트 한도, 제어 문자 거절, 한 번에 최대 100개, 각 항목의 현재 권한과 `updated_at` 재검사, 한 항목만 충돌해도 전체 롤백하는 규칙은 달라지지 않습니다. 벡터는 담당자 필드 하나를 다루며 조치 기한·상태 검증은 포함하지 않았습니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.18.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 17, 0):
     features = """### 저장한 목록 보기 — 읽기가 버릴 조건은 저장하지 않습니다
 
 - **저장 성공이 다음 방문까지 이어지던 차이**: 저장한 보기를 읽는 `readListPreferences` 는 조건 문자열이 8192자를 넘는 항목을 버리는데, 저장은 검색어와 각 필터 값이 500자 이하인지만 확인했습니다. 한글은 URL 인코딩에서 한 글자가 9자로 늘어나므로 검색어 500자와 필터 500자는 값 한도를 통과하고도 조건 문자열이 한도를 넘어, 저장 성공 안내를 본 사용자가 다음 방문에 그 보기를 잃었습니다.

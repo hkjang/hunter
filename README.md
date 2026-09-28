@@ -63,6 +63,8 @@ v1.16.0은 **목록 주소 복사**가 저장한 보기의 보관 한도에 잘�
 
 v1.17.0은 **저장한 목록 보기**가 다음 방문에 사라질 조건을 저장하는 순간 거절합니다. 읽기 검사 `readListPreferences` 는 조건 문자열이 8192자를 넘는 보기를 버리는데, 저장은 검색어와 필터 값이 각각 500자 이하인지만 확인했습니다. 한글은 URL 인코딩에서 한 글자가 9자로 늘어나므로 검색어와 필터가 각각 500자인 보기는 값 한도를 통과하고도 조건 문자열이 8192자를 넘어, "저장했습니다"를 본 사용자가 다음 방문에 그 보기를 잃었습니다. 이제 다섯 가지 저장 조건을 순수 함수 `savedViewSaveError`(`web/src/saved-list-views.ts`)에 모으고 `ListTools.save()` 는 그 함수만 호출하므로, 이름·개수·중복·값 길이·조건 길이를 폼 순서대로 검사하고 이름 칸이 고칠 수 있는 오류에만 초점을 되돌립니다. 8192가 브라우저 저장소 용량 한도가 아니라 읽기 검사 한도라는 점도 주석에서 바로잡았습니다. [릴리즈 노트](docs/release-v1.17.0.md)를 참고하세요.
 
+v1.18.0은 **발견 건 일괄 변경**의 담당자 200바이트 한도를 화면과 서버가 같은 문자열로 재는지 검사로 고정합니다. 화면 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)는 실제로 보내는 값, 즉 앞뒤 공백을 제거한 이름을 세고 서버 `validateFindingBulk`(`internal/app/finding_bulk.go`)도 받은 그 문자열을 세므로 두 판정은 일치합니다. 지금까지 이 일치를 지키는 검사는 없었고 서버 검증 함수에는 DB 없이 도는 단위 검사도 없었습니다. 이제 `internal/app/testdata/finding-bulk-assignee.json` 의 공유 벡터 21개를 Go와 화면이 함께 읽어 같은 허용·거절 판정에 이르는지 확인합니다. 벡터에는 200바이트 경계, 이모지 경계, C0·C1·DEL 제어 문자와 Go·JavaScript 의 트림이 실제로 갈리는 두 부호 위치(JavaScript 만 버리는 `U+FEFF`, Go 만 버리는 `U+0085`)가 들어 있습니다. 저장되는 값, 오류 문구, 서버 API·권한·감사 기록은 달라지지 않습니다. [릴리즈 노트](docs/release-v1.18.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -70,7 +72,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.17.0.tar.gz
+docker load -i hunter-v1.18.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -188,13 +190,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.17.0 예시 |
+| 항목 | 형식 | v1.18.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.17.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.17.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.18.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.18.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.17.0
+bash scripts/release.sh 1.18.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

@@ -1,5 +1,22 @@
 # Hunter 검증 기록
 
+## v1.18.0 발견 건 일괄 변경 담당자 한도의 화면·서버 공유 벡터
+
+2026년 9월 28일, 발견 건 일괄 변경의 담당자 200바이트 한도를 화면 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)와 서버 `validateFindingBulk`(`internal/app/finding_bulk.go`)가 같은 문자열, 즉 폼이 실제로 보내는 트림된 이름에서 재는지 공유 벡터로 고정했습니다. 사용자가 보는 동작·저장되는 값·오류 문구와 서버 API·권한·감사 기록은 바꾸지 않았고, 화면 코드 변경은 이 계산 근거를 적은 주석뿐입니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm test` 104개 통과, 실패·건너뜀 0개. `npm run build`(tsc 포함) 통과 |
+| 공유 벡터 | `internal/app/testdata/finding-bulk-assignee.json` 의 벡터 21개(허용 11·거절 10)를 Go `TestFindingBulkAssigneeSharedVectors` 와 `web/tests/finding-bulk.test.mjs` 가 함께 읽어 같은 `accepted` 판정 확인. 화면 검사는 `assignee.trim() === wire` 로 Go 가 재는 열이 실제 요청 본문과 같음을 먼저 고정하고, 거절 벡터는 `제어 문자`·`200바이트` 중 사유에 맞는 문구까지 확인. 한글 200·201바이트, 이모지 경계, 공백만 입력, C0·DEL·C1 과 `U+00A0`, JavaScript 만 트림하는 `U+FEFF` 와 Go 만 트림하지만 그 전에 제어 문자로 거절되는 `U+0085` 포함 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과. DB 없이 도는 `go test ./internal/app -run TestFindingBulkAssigneeSharedVectors` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 통과. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이며 변경은 시험 파일·고정 자료와 주석 한 곳에 한정되므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 실제 일괄 변경 폼에 담당자 이름을 입력해 확인하지는 않았습니다. 화면 판정은 폼이 호출하는 같은 함수를 직접 부르는 단위 검사로 검증했습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다. 공유 벡터는 담당자 필드 하나를 다루며 조치 기한·상태의 검증은 포함하지 않았습니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.18.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.18.0)에 실제 완료 후 기록합니다.
+
 ## v1.17.0 저장한 목록 보기의 저장·읽기 한도 일치
 
 2026년 9월 27일, 저장한 보기의 저장 조건을 순수 함수 `savedViewSaveError`(`web/src/saved-list-views.ts`)로 모으고 `ListTools.save()`(`web/src/list-tools.tsx`)가 그 함수만 호출하도록 바꿨습니다. 저장이 읽기와 같은 상수 `savedListQueryLimit`(8192)을 검사하므로 읽기가 버릴 조건은 저장 단계에서 거절됩니다. 서버 API·권한·감사 기록과 저장한 보기의 보관 규칙은 바꾸지 않았고 이미 저장된 보기를 다시 해석하지 않습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
