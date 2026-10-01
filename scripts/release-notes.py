@@ -17,7 +17,22 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 18, 0):
+if version >= (1, 19, 0):
+    features = """### 프런트엔드 회귀 검사 — npm 을 실행한 그 Node 에서 돌립니다
+
+- **사용자 동작은 그대로**: 화면과 서버 동작, 저장되는 값, API·권한·감사 기록은 달라지지 않습니다. 검사가 조용히 0건 실행되는 일을 막는 검증 경로 수정입니다.
+- **0건 실행이 성공처럼 보이던 경로**: `web/package.json` 의 `test` 스크립트가 맨 `node` 를 불렀습니다. npm 은 상위 모든 `node_modules/.bin` 을 스크립트 PATH 앞에 붙이므로 상위 디렉터리의 `node` 패키지가 `npm test` 에서만 실제 해석기를 가리고, 가려진 Node 20에서는 `node: bad option: --experimental-strip-types` 로 19개 파일이 0건 실행된 채 끝났습니다.
+- **해석기를 고정합니다**: 이제 `${npm_node_execpath:-node}` 로 npm 자신의 Node 를 호출하므로 PATH 가 어떻게 바뀌어도 `npm --prefix web test` 는 `npm --prefix web ci` 를 돌린 그 해석기에서 실행됩니다.
+- **플래그 제거만으로는 부족**: Node 22.18부터 불필요한 `--experimental-strip-types` 를 함께 뗐습니다. 플래그만 떼고 PATH 가 고른 Node 20으로 돌리면 그 줄에 `.ts` 타입 스트리핑이 없어 19개 파일이 모두 실패합니다.
+
+검사 파일 목록과 단정, 서비스 코드·화면·API 필드·권한·관리자 설정은 바꾸지 않았습니다. `npm_node_execpath` 가 없는 실행기에서는 기존처럼 PATH 의 `node` 로 돌아갑니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.19.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 18, 0):
     features = """### 발견 건 일괄 변경 — 화면과 서버가 같은 문자열로 담당자 한도를 셉니다
 
 - **사용자 동작은 그대로**: 저장되는 값, 오류 문구, 서버 API·권한·감사 기록은 달라지지 않습니다. 이미 맞는 판정이 다음 변경에서 어긋나지 않도록 고정하는 회귀 검사 릴리즈입니다.

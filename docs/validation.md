@@ -1,5 +1,22 @@
 # Hunter 검증 기록
 
+## v1.19.0 프런트엔드 회귀 검사의 해석기 고정
+
+2026년 10월 2일, `web/package.json` 의 `test` 스크립트를 `${npm_node_execpath:-node}` 로 바꿔 `npm --prefix web test` 가 npm 을 실행한 그 Node 해석기에서 돌도록 고정했습니다. Node 22.18부터 불필요한 `--experimental-strip-types` 는 함께 뗐습니다. 검사 파일 목록과 단정, 서비스 코드·화면·API 필드·권한·감사 기록은 바꾸지 않았습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm --prefix web test` 가 `web/tests` 의 19개 파일에서 104개 검사를 실행해 모두 통과, 실패·건너뜀 0개. `npm --prefix web run build`(tsc 포함) 통과 |
+| 해석기 고정 | 이 환경의 `npm test` 는 `node_modules/.bin` 에 `node` 패키지가 없어 `npm_node_execpath` 와 PATH 의 `node` 가 같은 Node.js 22.23.1 을 가리킵니다. 상위 디렉터리에 `node` 패키지가 설치된 환경을 따로 만들어 가려진 Node 20에서 0건 실행이 재발하지 않음을 재현하지는 않았습니다 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이며 변경은 프런트엔드 검사 스크립트 한 줄과 문서·버전 표기에 한정되므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 화면을 다시 조작해 확인하지는 않았습니다. 이번 변경은 검사 실행 해석기만 고정하며 검사 내용과 제품 코드를 건드리지 않습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다. `npm run build`·`npm run typecheck` 처럼 `node_modules/.bin` 의 도구를 직접 부르는 스크립트의 해석기 선택은 npm 의 기존 동작을 그대로 따릅니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.19.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.19.0)에 실제 완료 후 기록합니다.
+
 ## v1.18.0 발견 건 일괄 변경 담당자 한도의 화면·서버 공유 벡터
 
 2026년 9월 28일, 발견 건 일괄 변경의 담당자 200바이트 한도를 화면 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)와 서버 `validateFindingBulk`(`internal/app/finding_bulk.go`)가 같은 문자열, 즉 폼이 실제로 보내는 트림된 이름에서 재는지 공유 벡터로 고정했습니다. 사용자가 보는 동작·저장되는 값·오류 문구와 서버 API·권한·감사 기록은 바꾸지 않았고, 화면 코드 변경은 이 계산 근거를 적은 주석뿐입니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.

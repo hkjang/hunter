@@ -65,6 +65,8 @@ v1.17.0은 **저장한 목록 보기**가 다음 방문에 사라질 조건을 �
 
 v1.18.0은 **발견 건 일괄 변경**의 담당자 200바이트 한도를 화면과 서버가 같은 문자열로 재는지 검사로 고정합니다. 화면 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)는 실제로 보내는 값, 즉 앞뒤 공백을 제거한 이름을 세고 서버 `validateFindingBulk`(`internal/app/finding_bulk.go`)도 받은 그 문자열을 세므로 두 판정은 일치합니다. 지금까지 이 일치를 지키는 검사는 없었고 서버 검증 함수에는 DB 없이 도는 단위 검사도 없었습니다. 이제 `internal/app/testdata/finding-bulk-assignee.json` 의 공유 벡터 21개를 Go와 화면이 함께 읽어 같은 허용·거절 판정에 이르는지 확인합니다. 벡터에는 200바이트 경계, 이모지 경계, C0·C1·DEL 제어 문자와 Go·JavaScript 의 트림이 실제로 갈리는 두 부호 위치(JavaScript 만 버리는 `U+FEFF`, Go 만 버리는 `U+0085`)가 들어 있습니다. 저장되는 값, 오류 문구, 서버 API·권한·감사 기록은 달라지지 않습니다. [릴리즈 노트](docs/release-v1.18.0.md)를 참고하세요.
 
+v1.19.0은 **프런트엔드 회귀 검사**가 npm 을 실행한 그 Node 에서 돌도록 고정합니다. `web/package.json` 의 `test` 스크립트는 맨 `node` 를 불렀는데, npm 은 상위 모든 `node_modules/.bin` 을 스크립트 PATH 앞에 붙이므로 상위 디렉터리에 `node` 패키지가 설치돼 있으면 `npm test` 만 그 구버전 해석기로 바뀝니다. 가려진 Node 20에서는 `--experimental-strip-types` 가 `bad option` 으로 죽어 시험 19개 파일이 0건 실행됐고, 플래그만 떼도 `.ts` 타입 스트리핑이 없어 19개 파일이 모두 실패했습니다. 이제 `${npm_node_execpath:-node}` 로 npm 자신의 해석기를 그대로 쓰고 Node 22.18부터 불필요한 `--experimental-strip-types` 를 뗍니다. 검사 목록·단정·서비스 코드는 그대로이며 화면 동작, 서버 API·권한·감사 기록과 네 환경변수·서비스 이미지 하나의 배포 조건도 달라지지 않습니다. [릴리즈 노트](docs/release-v1.19.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -72,7 +74,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.18.0.tar.gz
+docker load -i hunter-v1.19.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -190,13 +192,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.18.0 예시 |
+| 항목 | 형식 | v1.19.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.18.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.18.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.19.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.19.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.18.0
+bash scripts/release.sh 1.19.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.
