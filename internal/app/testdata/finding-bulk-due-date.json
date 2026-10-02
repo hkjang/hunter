@@ -1,0 +1,88 @@
+{
+  "note": "Shared by Go validateFindingBulk (internal/app/finding_bulk_due_test.go) and TS findingBulkPatch (web/tests/finding-bulk.test.mjs). The two readers do NOT see the same string: \"form.due\" is the browser-local value a datetime-local control holds, and \"wire\" is the string findingBulkPatch puts into patch.due_date and therefore the only string the server ever judges, because the form submits new Date(due).toISOString(). The conversion is browser-time-zone dependent, so \"form.tz\" is part of the input: the same typed value 9999-12-31T23:59 stays a four digit year east of UTC and overflows into the extended year +010000 west of it. \"accepted\" is the single verdict both sides must reach, decided by validateFindingOpsResource (internal/app/finding_ops.go), which parses with time.Parse(time.RFC3339, s) and so takes exactly four year digits with no sign. ECMA-262 Date.prototype.toISOString emits the expanded year form (+YYYYYY / -YYYYYY) outside 0000-9999, which that layout cannot read, and internal/app/finding_bulk.go turns the error into findingBulkError{400} that rolls back the whole request including the assignee and status in the same patch. So the form must throw instead of submitting any wire string marked accepted:false. Year 0000 is accepted on both sides: the server cares about the four digit shape, not about the year being at least 1. A datetime-local control cannot produce the year-0000 inputs below (HTML requires a year greater than zero), so those rows pin the function contract rather than a proven browser path; the year-9999 rows are an ordinary typeable value and are the reachable failure.",
+  "cases": [
+    {
+      "name": "ordinary-due-date-east-of-utc",
+      "form": { "tz": "Asia/Seoul", "due": "2026-10-03T12:00" },
+      "wire": "2026-10-03T03:00:00.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-east-of-utc-stays-a-four-digit-year",
+      "form": { "tz": "Asia/Seoul", "due": "9999-12-31T23:59" },
+      "wire": "9999-12-31T14:59:00.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-at-utc-is-the-last-wire-string-the-server-accepts",
+      "form": { "tz": "UTC", "due": "9999-12-31T23:59" },
+      "wire": "9999-12-31T23:59:00.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-west-of-utc-below-the-overflow-still-accepted",
+      "form": { "tz": "America/New_York", "due": "9999-12-31T18:59" },
+      "wire": "9999-12-31T23:59:00.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-0001-east-of-utc-crosses-into-four-digit-year-zero",
+      "form": { "tz": "Asia/Seoul", "due": "0001-01-01T00:00" },
+      "wire": "0000-12-31T15:32:08.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-0001-at-utc-is-the-first-wire-string-the-server-accepts",
+      "form": { "tz": "UTC", "due": "0001-01-01T00:00" },
+      "wire": "0001-01-01T00:00:00.000Z",
+      "accepted": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-west-of-utc-overflows-into-the-expanded-year",
+      "form": { "tz": "America/New_York", "due": "9999-12-31T23:59" },
+      "wire": "+010000-01-01T04:59:00.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "year-9999-far-west-of-utc-overflows-further-into-the-expanded-year",
+      "form": { "tz": "Pacific/Honolulu", "due": "9999-12-31T23:59" },
+      "wire": "+010000-01-01T09:59:00.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "year-0000-east-of-utc-underflows-into-the-negative-expanded-year",
+      "form": { "tz": "Asia/Seoul", "due": "0000-01-01T00:00" },
+      "wire": "-000001-12-31T15:32:08.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    }
+  ],
+  "wireOnly": [
+    {
+      "name": "expanded-year-at-the-start-of-year-10000",
+      "wire": "+010000-01-01T00:00:00.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "negative-expanded-year-one-before-year-zero",
+      "wire": "-000001-01-01T00:00:00.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "six-digit-expanded-year-inside-the-four-digit-range",
+      "wire": "+002026-10-03T03:00:00.000Z",
+      "accepted": false,
+      "reason": "expanded-year"
+    }
+  ]
+}
