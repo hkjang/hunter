@@ -67,6 +67,8 @@ v1.18.0은 **발견 건 일괄 변경**의 담당자 200바이트 한도를 화�
 
 v1.19.0은 **프런트엔드 회귀 검사**가 npm 을 실행한 그 Node 에서 돌도록 고정합니다. `web/package.json` 의 `test` 스크립트는 맨 `node` 를 불렀는데, npm 은 상위 모든 `node_modules/.bin` 을 스크립트 PATH 앞에 붙이므로 상위 디렉터리에 `node` 패키지가 설치돼 있으면 `npm test` 만 그 구버전 해석기로 바뀝니다. 가려진 Node 20에서는 `--experimental-strip-types` 가 `bad option` 으로 죽어 시험 19개 파일이 0건 실행됐고, 플래그만 떼도 `.ts` 타입 스트리핑이 없어 19개 파일이 모두 실패했습니다. 이제 `${npm_node_execpath:-node}` 로 npm 자신의 해석기를 그대로 쓰고 Node 22.18부터 불필요한 `--experimental-strip-types` 를 뗍니다. 검사 목록·단정·서비스 코드는 그대로이며 화면 동작, 서버 API·권한·감사 기록과 네 환경변수·서비스 이미지 하나의 배포 조건도 달라지지 않습니다. [릴리즈 노트](docs/release-v1.19.0.md)를 참고하세요.
 
+v1.20.0은 **발견 건 일괄 변경**의 조치 기한 폼이 서버가 읽을 수 없는 연도를 보내지 않도록 제출 값에서 막습니다. 화면 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)는 `new Date(...).toISOString()` 결과를 검사 없이 `due_date` 로 보냈습니다. ECMA-262 는 UTC 순간이 0000~9999 를 벗어나면 확장 연도(`+YYYYYY`/`-YYYYYY`)를 내놓는데 서버 `validateFindingOpsResource`(`internal/app/finding_ops.go`)는 `time.Parse(time.RFC3339, s)`, 즉 부호 없는 네 자리 연도만 읽습니다. 그래서 그 요청은 `400` 이 되고 같은 변경에 담긴 담당자·진행 상태까지 함께 되돌려졌습니다. 어느 쪽으로 넘어가는지는 브라우저 시간대가 정합니다. 타이핑할 수 있는 평범한 `datetime-local` 값 `9999-12-31T23:59` 은 UTC 동쪽에서는 범위 안이지만 서쪽에서는 `+010000-01-01T04:59:00.000Z` 로 직렬화됩니다. 이제 `input.due` 가 아니라 **실제로 보내는 문자열**을 네 자리 연도로 검사해 기한 칸 옆에서 한국어로 안내하며, 유효한 입력이 보내는 문자열은 한 글자도 달라지지 않습니다. 새 공유 벡터 `internal/app/testdata/finding-bulk-due-date.json` 은 (시간대, 입력) 쌍마다 보내는 문자열과 서버 판정을 적어 Go 와 화면이 함께 읽습니다. 서버 API·권한·감사 기록과 네 환경변수·서비스 이미지 하나의 배포 조건은 달라지지 않습니다. [릴리즈 노트](docs/release-v1.20.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -74,7 +76,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.19.0.tar.gz
+docker load -i hunter-v1.20.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -192,13 +194,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.19.0 예시 |
+| 항목 | 형식 | v1.20.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.19.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.19.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.20.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.20.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.19.0
+bash scripts/release.sh 1.20.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.
