@@ -1,6 +1,6 @@
 services:
   hunter:
-    image: hunter:v1.20.0
+    image: hunter:v1.21.0
     pull_policy: never
     restart: unless-stopped
     ports:

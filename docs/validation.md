@@ -1,5 +1,23 @@
 # Hunter 검증 기록
 
+## v1.21.0 공통 자원 폼 일시 칸의 제출 값 검사
+
+2026년 10월 4일, 공통 자원 폼이 서버가 읽을 수 없는 연도의 일시를 제출하지 않도록 제출 본문을 만드는 함수를 `web/src/resources.tsx` 의 `formBody` 에서 `web/src/resource-form-state.ts` 의 `resourceSubmitBody` 로 옮기고, 타이핑한 값이 아니라 실제로 보내는 `toISOString()` 문자열을 네 자리 연도로 검사하게 했습니다. 서버 계약과 네 일시 필드의 형식, API 필드·권한 검사·감사 기록은 바꾸지 않았고 범위 안의 일시가 만드는 요청 본문도 달라지지 않습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm --prefix web test` 가 `web/tests` 의 19개 파일에서 108개 검사를 실행해 모두 통과, 실패·건너뜀 0개. `npm --prefix web run build`(tsc 포함) 통과 |
+| 실패 경로 | 수정 전 동작(`resourceDateTimeWire` 를 `new Date(value).toISOString()` 로 되돌림)에서는 새 화면 시험 하나(`the common resource form only submits a datetime the server accepts, in every browser time zone`)만 실패해 107통과/1실패였습니다. 같은 벡터를 수정 전에도 Go 쪽에서는 전부 통과시켜 `accepted` 열이 서버의 실제 판정임을 먼저 확정했습니다 |
+| Go 회귀 | `go test -run '^TestResourceDateTime' -count=1 ./internal/app` 통과(새 `TestResourceDateTimeSharedVectors` 는 벡터 14개를 `validateFindingOpsResource`·`validateSchedule`·`validateScope` 에 직접 넣어 PostgreSQL 없이 실행). 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 87개 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과. `scripts/release-notes.py` 를 `v1.21.0` 으로 실제 실행해 새 본문 블록이, `v1.20.0` 으로 실행해 이전 블록이 그대로 나오는지 확인 |
+| 라이선스 고지 | 새 빈 디렉터리에 `go run ./scripts/license-notices`(모듈·구성요소 149개)와 `node scripts/collect-web-licenses.mjs`(구성요소 45개, 출력 파일 53개) 수집 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이며 Go 프로덕션 변경이 없으므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 일시 칸을 직접 조작해 확인하지는 않았습니다. 시간대별 판정은 `process.env.TZ` 를 바꾼 Node 실행으로 확인했으며 실제 브라우저의 `datetime-local` 입력기 동작은 재현하지 않았습니다. 발견 건 위험 수용 만료 일시를 읽는 `validateResource`(`internal/app/domain.go`)는 서비스 조회가 필요해 DSN 없이 부를 수 없으므로 직접 단언하지 않았고, 같은 `time.Parse(time.RFC3339, s)` + 미래 시각 쌍을 적용하는 `validateScope` 쪽에서 같은 문자열로 확인했습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.21.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.21.0)에 실제 완료 후 기록합니다.
+
 ## v1.20.0 발견 건 일괄 변경 조치 기한의 제출 값 검사
 
 2026년 10월 3일, 발견 건 일괄 변경 폼이 서버가 읽을 수 없는 연도의 조치 기한을 제출하지 않도록 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)가 `input.due` 가 아니라 실제로 보내는 `toISOString()` 문자열을 네 자리 연도로 검사하게 했습니다. 서버 계약과 `due_date` 형식, API 필드·권한 검사·감사 기록은 바꾸지 않았고 범위 안의 기한이 만드는 요청 본문도 달라지지 않습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.

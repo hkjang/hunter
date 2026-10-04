@@ -17,7 +17,23 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 20, 0):
+if version >= (1, 21, 0):
+    features = """### 공통 자원 폼 — 일시 칸이 서버가 받을 수 있는 값만 제출합니다
+
+- **입력한 일시가 서버 오류로 사라졌습니다**: 공통 자원 폼의 `formBody`(`web/src/resources.tsx`)는 `new Date(value).toISOString()` 결과를 검사 없이 요청 본문에 넣었습니다. ECMA-262 는 UTC 순간이 0000~9999 를 벗어나면 확장 연도(`+YYYYYY`/`-YYYYYY`)를 내놓지만, 발견 건 조치 기한·위험 수용 만료 일시, 예약 첫 실행 일시, 범위 만료 일시를 읽는 서버 경로는 모두 `time.Parse(time.RFC3339, s)` 로만 읽어 부호 없는 네 자리 연도만 받으므로 네 칸 모두 `400` 으로 거절했습니다.
+- **브라우저 시간대가 수락·거절을 갈랐습니다**: 타이핑할 수 있고 사양상 유효한 `datetime-local` 값 `9999-12-31T23:59` 은 UTC 동쪽에서는 범위 안이지만 서쪽 시간대에서는 유한한 값인 채로 `+010000-01-01T04:59:00.000Z` 로 직렬화됩니다. 같은 입력이 사용자의 시간대에 따라 저장되거나 거절됐습니다.
+- **번역되지 않은 브라우저 문구가 보였습니다**: ECMAScript 시간 값 범위를 벗어나는 입력에서는 `toISOString` 의 `RangeError` 가 폼을 빠져나가 영어 "Invalid time value" 로 표시됐습니다.
+- **보내는 문자열을 검사합니다**: 이제 타이핑한 값이 아니라 실제로 제출하는 문자열이 네 자리 연도로 시작하는지 확인하고, 아니면 요청을 만들지 않고 해당 칸 이름과 함께 한국어로 안내합니다. 범위 안의 일시가 만드는 요청 본문은 한 글자도 달라지지 않습니다.
+- **공유 벡터로 고정합니다**: `internal/app/testdata/resource-datetime.json` 이 (시간대, 입력) 쌍마다 보내는 문자열과 하나의 판정을 적고, Go 는 `validateFindingOpsResource`·`validateSchedule`·`validateScope` 로 PostgreSQL 없이 확인하며 화면 시험은 `TZ` 를 바꿔 `resourceSubmitBody` 가 `accepted` 로 표시된 문자열만 제출하는지 단언합니다.
+
+서버 계약은 바꾸지 않았습니다. 네 필드는 그대로 네 자리 연도 RFC3339 만 받고 API 필드·권한 검사·감사 기록, 일반 자원 수정의 `expected_updated_at` 비교와 409 입력 보존 규칙도 그대로입니다. 프로덕션 변경은 화면 파일 두 개입니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.21.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 20, 0):
     features = """### 발견 건 일괄 변경 — 조치 기한 폼이 서버가 받을 수 있는 값만 제출합니다
 
 - **같은 변경의 담당자·상태까지 되돌려졌습니다**: 일괄 변경 폼의 `findingBulkPatch`(`web/src/finding-bulk-state.ts`)는 `new Date(...).toISOString()` 결과를 검사 없이 `due_date` 로 보냈습니다. ECMA-262 는 UTC 순간이 0000~9999 를 벗어나면 확장 연도(`+YYYYYY`/`-YYYYYY`)를 내놓지만 서버 `validateFindingOpsResource`(`internal/app/finding_ops.go`)는 `time.Parse(time.RFC3339, s)` 로만 읽어 부호 없는 네 자리 연도만 받으므로, 요청 전체가 `400` 이 되어 같은 변경에 담은 담당자·진행 상태까지 취소됐습니다.
