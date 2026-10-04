@@ -78,6 +78,7 @@ import { changed, requiredIssues, invalidFields } from "./form-state";
 import { copyText } from "./list-export";
 import {
   changeResourceField,
+  resourceSubmitBody,
   withEditRevision,
   resourceDetailPath,
 } from "./resource-form-state";
@@ -1096,29 +1097,6 @@ export function FieldForm({
     </SimpleGrid>
   );
 }
-function formBody(fields: Field[], values: Row) {
-  const out = { ...values };
-  for (const f of fields) {
-    if (f.type === "json") {
-      try {
-        out[f.key] = JSON.parse(values[f.key] || "{}");
-      } catch {
-        throw new Error(`${f.label}: 올바른 JSON 형식을 입력해 주세요.`);
-      }
-    }
-    if (f.type === "datetime") {
-      out[f.key] = values[f.key] ? new Date(values[f.key]).toISOString() : "";
-    }
-    if (
-      f.required &&
-      (out[f.key] === "" ||
-        out[f.key] == null ||
-        (Array.isArray(out[f.key]) && !out[f.key].length))
-    )
-      throw new Error(`${f.label} 항목을 입력해 주세요.`);
-  }
-  return out;
-}
 export function ResourcePage({ kind }: { kind: string }) {
   const cfg = configs[kind];
   const can = useCan();
@@ -1474,7 +1452,10 @@ export function ResourcePage({ kind }: { kind: string }) {
     if (issues.length) return;
     setBusy(true);
     try {
-      const body = withEditRevision(formBody(cfg.fields, values), edit);
+      const body = withEditRevision(
+        resourceSubmitBody(cfg.fields, values),
+        edit,
+      );
       await api(`/api/${kind}${edit ? `/${edit.id}` : ""}`, {
         method: edit ? "PUT" : "POST",
         body: JSON.stringify(body),
