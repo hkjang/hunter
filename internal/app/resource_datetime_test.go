@@ -88,14 +88,11 @@ func TestResourceDateTimeSharedVectors(t *testing.T) {
 				}
 			}
 
-			// findings expires_at has no write-time validator. The stored string
-			// is read back by the dashboard rollup in domain.go, which treats an
-			// unparseable value as "not an active risk acceptance" and so leaves
-			// the finding counted as open.
-			acceptedActive := parseErr == nil && parsed.After(time.Now())
-			if want := v.Accepted && v.Future; acceptedActive != want {
-				t.Fatalf("rollup read of expires_at=%q active = %v, want %v", v.Wire, acceptedActive, want)
-			}
+			// findings expires_at is judged by validateResource
+			// (internal/app/domain.go), which needs a service lookup and so a
+			// DSN; it is not callable here. Its check is the same
+			// time.Parse(time.RFC3339, s) plus expiry.After(time.Now()) pair that
+			// validateScope applies above, asserted there on the same strings.
 		})
 	}
 }

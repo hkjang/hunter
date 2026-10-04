@@ -89,9 +89,7 @@ test("canonical detail links contain only selected ID and the valid finding acti
 // server with time.Parse(time.RFC3339, s). The fixture's "accepted" column is
 // asserted against those real validators in
 // internal/app/resource_datetime_test.go, so anything it marks accepted:false is
-// a string the server cannot read - a 400 for three of the fields and, for
-// findings expires_at, a stored value that reads back as an inactive risk
-// acceptance and leaves the finding counted as open.
+// a string no server validator can read and the submission is lost to a 400.
 test("the common resource form only submits a datetime the server accepts, in every browser time zone", () => {
   assert.ok(dateFixture.cases.length > 0);
   const accepted = new Map(

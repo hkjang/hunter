@@ -55,14 +55,16 @@ export function changeResourceField(
  * fields parses with time.Parse(time.RFC3339, s), whose layout takes exactly
  * four year digits and no sign. The browser time zone decides which side of the
  * boundary a typed value lands on, so an ordinary 9999-12-31T23:59 is in range
- * east of UTC and overflows west of it. schedules next_run_at
- * (internal/app/domain_schedules.go), scopes expires_at (internal/app/policy.go)
- * and findings due_date (internal/app/finding_ops.go) answer the overflow with a
- * 400, but findings expires_at has no write-time validator at all: the
- * unreadable string is stored and then read back as an inactive risk acceptance
- * by internal/app/domain.go, leaving the finding counted as open. toISOString
- * also throws RangeError outside the ECMAScript time value range, which used to
- * surface as the untranslated "Invalid time value".
+ * east of UTC and overflows west of it. Every one of the four fields answers the
+ * overflow with a 400 - schedules next_run_at in validateSchedule
+ * (internal/app/domain_schedules.go), scopes expires_at in validateScope
+ * (internal/app/policy.go), findings due_date in validateFindingOpsResource
+ * (internal/app/finding_ops.go) and findings expires_at in validateResource
+ * (internal/app/domain.go), which requires RFC3339 and a future instant on every
+ * write of status "accepted" - so the typed value is lost to a server error the
+ * operator cannot act on. toISOString also throws RangeError outside the
+ * ECMAScript time value range, which used to surface as the untranslated
+ * "Invalid time value".
  */
 function resourceDateTimeWire(value: any, label: string): string {
   const date = new Date(value);
