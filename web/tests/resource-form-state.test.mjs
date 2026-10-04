@@ -1,10 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   changeResourceField,
+  resourceSubmitBody,
   withEditRevision,
   resourceDetailPath,
 } from "../src/resource-form-state.ts";
+const dateFixture = JSON.parse(
+  readFileSync(
+    new URL(
+      "../../internal/app/testdata/resource-datetime.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+);
 test("changing service clears declared child IDs while preserving unrelated draft fields", () => {
   const source = {
     service_id: "A",
@@ -72,4 +83,94 @@ test("canonical detail links contain only selected ID and the valid finding acti
     "/admin/scopes?item=scope-one",
   );
   assert.equal(resourceDetailPath("scans", "scan-one"), "/scans?item=scan-one");
+});
+// The four datetime fields of the common resource form (findings due_date and
+// expires_at, schedules next_run_at, scopes expires_at) are all read on the
+// server with time.Parse(time.RFC3339, s). The fixture's "accepted" column is
+// asserted against those real validators in
+// internal/app/resource_datetime_test.go, so anything it marks accepted:false is
+// a string the server cannot read - a 400 for three of the fields and, for
+// findings expires_at, a stored value that reads back as an inactive risk
+// acceptance and leaves the finding counted as open.
+test("the common resource form only submits a datetime the server accepts, in every browser time zone", () => {
+  assert.ok(dateFixture.cases.length > 0);
+  const accepted = new Map(
+    [...dateFixture.cases, ...dateFixture.wireOnly].map((v) => [
+      v.wire,
+      v.accepted,
+    ]),
+  );
+  const fields = [
+    { key: "title", label: "제목", required: true },
+    { key: "expires_at", label: "위험 수용 만료 일시", type: "datetime" },
+  ];
+  const original = process.env.TZ;
+  try {
+    for (const { name, form, wire, accepted: ok } of dateFixture.cases) {
+      // Node re-reads process.env.TZ for each new Date, so this is the browser
+      // zone the operator's machine is set to.
+      process.env.TZ = form.tz;
+      let body;
+      try {
+        body = resourceSubmitBody(fields, {
+          title: "검증 대상",
+          expires_at: form.value,
+        });
+      } catch (error) {
+        assert.match(error.message, /위험 수용 만료 일시/u, name);
+        assert.equal(ok, false, `${name} must not be rejected by the form`);
+        continue;
+      }
+      // Whatever it did submit has to be a string the server takes, and it has
+      // to be the instant the fixture pins rather than some other encoding.
+      assert.equal(body.expires_at, wire, name);
+      assert.equal(
+        accepted.get(body.expires_at),
+        true,
+        `${name} submitted ${body.expires_at}, which the server cannot read`,
+      );
+      assert.equal(body.title, "검증 대상", name);
+    }
+    for (const { name, form } of dateFixture.unsendable) {
+      // toISOString throws RangeError on these, which reached the operator as
+      // the untranslated browser text "Invalid time value".
+      process.env.TZ = form.tz;
+      assert.throws(
+        () =>
+          resourceSubmitBody(fields, {
+            title: "검증 대상",
+            expires_at: form.value,
+          }),
+        /위험 수용 만료 일시/u,
+        name,
+      );
+    }
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+});
+test("an empty datetime stays empty and a required empty datetime is reported by label", () => {
+  assert.equal(
+    resourceSubmitBody(
+      [{ key: "due_date", label: "조치 기한", type: "datetime" }],
+      { due_date: "" },
+    ).due_date,
+    "",
+  );
+  assert.throws(
+    () =>
+      resourceSubmitBody(
+        [
+          {
+            key: "next_run_at",
+            label: "첫 실행 일시",
+            type: "datetime",
+            required: true,
+          },
+        ],
+        { next_run_at: "" },
+      ),
+    /첫 실행 일시 항목을 입력해 주세요/u,
+  );
 });

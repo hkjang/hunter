@@ -1,0 +1,130 @@
+{
+  "note": "Shared by Go (internal/app/resource_datetime_test.go) and TS (web/tests/resource-form-state.test.mjs) for the four datetime fields of the common resource form in web/src/resources.tsx: findings due_date (269), findings expires_at (276), schedules next_run_at (436) and scopes expires_at (470). The two readers do NOT see the same string: \"form.value\" is the browser-local value a TextInput type=datetime-local holds, and \"wire\" is the string the form puts into the POST/PUT body, because formBody submits new Date(value).toISOString(). The conversion is browser-time-zone dependent, so \"form.tz\" is part of the input: the same typed value 9999-12-31T23:59 stays a four digit year east of UTC and overflows into the extended year +010000 west of it. \"accepted\" is the single verdict both sides must reach. Every server reader of these fields goes through time.Parse(time.RFC3339, s), which takes exactly four year digits and no sign, while ECMA-262 Date.prototype.toISOString emits the expanded year form (+YYYYYY / -YYYYYY) outside 0000-9999. The consequence differs per field and the expires_at one is the quiet one: schedules next_run_at is rejected by validateSchedule (internal/app/domain_schedules.go:35), scopes expires_at by validateScope (internal/app/policy.go:67) and findings due_date by validateFindingOpsResource (internal/app/finding_ops.go:74), all as a 400, but findings expires_at has no write-time validator at all, so the unreadable string is stored and then fails to parse in the dashboard rollup (internal/app/domain.go:704) and in hunter_finding_timestamp (internal/app/finding_ops.go:145) - a risk acceptance the operator dated far in the future reads back as not active, and the finding keeps counting as open. So the form must throw instead of submitting any wire string marked accepted:false.",
+  "futureNote": "\"future\" says whether the instant is after now. validateScope additionally requires expires.After(time.Now()), so rows with future:false are rejected by it for that reason rather than for their format and the Go test only asserts validateScope on future:true rows. Format is the only thing validateFindingOpsResource and validateSchedule judge, so those two are asserted on every row.",
+  "reachabilityNote": "The year-9999 rows are an ordinary typeable datetime-local value and are the proven reachable failure. A datetime-local control cannot produce the year-0000 input below (HTML requires a year greater than zero), so that row pins the function contract. The \"unsendable\" rows have no wire string at all because toISOString throws RangeError on them; before the fix that RangeError escaped formBody and reached the operator as the untranslated browser text \"Invalid time value\" in the form error banner, so the form must answer them with the same Korean message it uses for the expanded year.",
+  "cases": [
+    {
+      "name": "ordinary-value-east-of-utc",
+      "form": { "tz": "Asia/Seoul", "value": "2099-10-04T12:00" },
+      "wire": "2099-10-04T03:00:00.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "ordinary-value-at-utc",
+      "form": { "tz": "UTC", "value": "2099-10-04T12:00" },
+      "wire": "2099-10-04T12:00:00.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "seconds-typed-into-the-value-reach-the-server",
+      "form": { "tz": "UTC", "value": "2099-10-04T12:00:30" },
+      "wire": "2099-10-04T12:00:30.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "milliseconds-typed-into-the-value-reach-the-server",
+      "form": { "tz": "Asia/Seoul", "value": "2099-10-04T12:00:30.250" },
+      "wire": "2099-10-04T03:00:30.250Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-east-of-utc-stays-a-four-digit-year",
+      "form": { "tz": "Asia/Seoul", "value": "9999-12-31T23:59" },
+      "wire": "9999-12-31T14:59:00.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-at-utc-is-the-last-value-the-server-can-read",
+      "form": { "tz": "UTC", "value": "9999-12-31T23:59" },
+      "wire": "9999-12-31T23:59:00.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-west-of-utc-below-the-overflow-still-accepted",
+      "form": { "tz": "America/New_York", "value": "9999-12-31T18:59" },
+      "wire": "9999-12-31T23:59:00.000Z",
+      "accepted": true,
+      "future": true,
+      "reason": "ok"
+    },
+    {
+      "name": "year-0001-east-of-utc-crosses-into-four-digit-year-zero",
+      "form": { "tz": "Asia/Seoul", "value": "0001-01-01T00:00" },
+      "wire": "0000-12-31T15:32:08.000Z",
+      "accepted": true,
+      "future": false,
+      "reason": "ok"
+    },
+    {
+      "name": "year-9999-west-of-utc-overflows-into-the-expanded-year",
+      "form": { "tz": "America/New_York", "value": "9999-12-31T23:59" },
+      "wire": "+010000-01-01T04:59:00.000Z",
+      "accepted": false,
+      "future": true,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "year-9999-far-west-of-utc-overflows-further-into-the-expanded-year",
+      "form": { "tz": "Pacific/Honolulu", "value": "9999-12-31T23:59" },
+      "wire": "+010000-01-01T09:59:00.000Z",
+      "accepted": false,
+      "future": true,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "year-0000-east-of-utc-underflows-into-the-negative-expanded-year",
+      "form": { "tz": "Asia/Seoul", "value": "0000-01-01T00:00" },
+      "wire": "-000001-12-31T15:32:08.000Z",
+      "accepted": false,
+      "future": false,
+      "reason": "expanded-year"
+    }
+  ],
+  "wireOnly": [
+    {
+      "name": "expanded-year-at-the-start-of-year-10000",
+      "wire": "+010000-01-01T00:00:00.000Z",
+      "accepted": false,
+      "future": true,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "six-digit-expanded-year-inside-the-four-digit-range",
+      "wire": "+002099-10-04T03:00:00.000Z",
+      "accepted": false,
+      "future": true,
+      "reason": "expanded-year"
+    },
+    {
+      "name": "negative-expanded-year-one-before-year-zero",
+      "wire": "-000001-01-01T00:00:00.000Z",
+      "accepted": false,
+      "future": false,
+      "reason": "expanded-year"
+    }
+  ],
+  "unsendable": [
+    {
+      "name": "year-275760-is-outside-the-ecmascript-time-value-range",
+      "form": { "tz": "UTC", "value": "275760-09-13T00:00" },
+      "reason": "range-error"
+    },
+    {
+      "name": "year-400000-is-outside-the-ecmascript-time-value-range",
+      "form": { "tz": "Asia/Seoul", "value": "400000-01-01T00:00" },
+      "reason": "range-error"
+    }
+  ]
+}
