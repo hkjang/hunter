@@ -172,3 +172,64 @@ test("an empty datetime stays empty and a required empty datetime is reported by
     /첫 실행 일시 항목을 입력해 주세요/u,
   );
 });
+// The two JSON fields of the common resource form declare the container the
+// server reads them back as: services "targets" declares [] and is asserted to
+// be []any in internal/app/domain.go, integrations "config" declares {}. The
+// field pairs below are the real declarations from web/src/resources.tsx.
+const targetsField = {
+  key: "targets",
+  label: "추가 공격 표면",
+  type: "json",
+  default: [],
+};
+const configField = {
+  key: "config",
+  label: "연동 세부 설정 (JSON)",
+  type: "json",
+  default: {},
+};
+test("clearing a JSON field submits the container its declaration promised", () => {
+  // An operator who selects everything in the JsonInput and deletes it used to
+  // submit {} for an array field, which the asset graph reads with
+  // s["targets"].([]any) and drops without a word.
+  for (const blank of ["", "   ", "\n\t "])
+    assert.deepEqual(
+      resourceSubmitBody([targetsField], { targets: blank }).targets,
+      [],
+      JSON.stringify(blank),
+    );
+  assert.deepEqual(
+    resourceSubmitBody([configField], { config: "" }).config,
+    {},
+  );
+});
+test("a JSON field whose container differs from its declaration is reported by label", () => {
+  for (const wrong of ["{}", '{"type":"api"}', "5", "null", '"api"', "true"])
+    assert.throws(
+      () => resourceSubmitBody([targetsField], { targets: wrong }),
+      /추가 공격 표면: .*배열/u,
+      wrong,
+    );
+  for (const wrong of ["[]", '[{"type":"api"}]', "0"])
+    assert.throws(
+      () => resourceSubmitBody([configField], { config: wrong }),
+      /연동 세부 설정 \(JSON\): .*객체/u,
+      wrong,
+    );
+  // The existing malformed-JSON wording stays the answer for text that is not
+  // JSON at all, so the operator is told which of the two problems they have.
+  assert.throws(
+    () => resourceSubmitBody([targetsField], { targets: "[{type:" }),
+    /추가 공격 표면: 올바른 JSON 형식을 입력해 주세요\./u,
+  );
+  // Valid input of the declared container reaches the server byte for byte.
+  const valid = '[{"type":"api","value":"https://service.internal/api"}]';
+  assert.deepEqual(
+    resourceSubmitBody([targetsField], { targets: valid }).targets,
+    JSON.parse(valid),
+  );
+  assert.deepEqual(
+    resourceSubmitBody([configField], { config: '{"path":"/a"}' }).config,
+    { path: "/a" },
+  );
+});
