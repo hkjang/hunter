@@ -9,6 +9,39 @@ type SubmitField = {
   default?: unknown;
 };
 
+/**
+ * The min, max and integer lock of every number field the common resource form
+ * declares under "scopes" and "policies" - the range internal/app/policy.go
+ * accepts, kept here rather than beside each declaration in resources.tsx so
+ * internal/app/testdata/resource-number-bounds.json can assert both halves.
+ * validateScope and validatePolicy range-check these with
+ * `n := number(m, b.k, b.def); if n < 1 || n > b.max`, so the second column of
+ * their tables is the fallback for a missing or non-numeric value, not a floor:
+ * every field is accepted from 1 up to its own max. Declaring anything else is
+ * not a passive hint - Mantine NumberInput defaults to clampBehavior "blur" and
+ * moves the typed value to the declared bound, so the form used to walk the
+ * operator up to a max_concurrency of 20 or a max_requests of 1000 and only
+ * answer with the server's 400 after the save. Decimals are locked out because
+ * the resource write handler decodes with json.NewDecoder and no UseNumber
+ * (internal/app/server.go:129) and number() (internal/app/domain.go:115)
+ * returns int(n), which both validators then write back with m[b.k] = n: a
+ * submitted 2.7 is stored as 2 without a word, and anything below 1 truncates to
+ * 0 and is refused for a floor it never looked like it crossed.
+ */
+export const resourceNumberBounds = {
+  scopes: {
+    max_rps: { min: 1, max: 5, integer: true },
+    max_requests: { min: 1, max: 100, integer: true },
+    timeout_seconds: { min: 1, max: 300, integer: true },
+  },
+  policies: {
+    max_rps: { min: 1, max: 5, integer: true },
+    max_concurrency: { min: 1, max: 1, integer: true },
+    max_requests: { min: 1, max: 100, integer: true },
+    timeout_seconds: { min: 1, max: 300, integer: true },
+  },
+} as const;
+
 /** Reset only declared relationships when their parent service/profile changes. */
 export function changeResourceField(
   values: Values,

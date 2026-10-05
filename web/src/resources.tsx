@@ -81,6 +81,7 @@ import {
   resourceSubmitBody,
   withEditRevision,
   resourceDetailPath,
+  resourceNumberBounds,
 } from "./resource-form-state";
 import {
   useListView,
@@ -117,6 +118,8 @@ export type Field = {
   default?: any;
   min?: number;
   max?: number;
+  /** Lock a number field to whole values; the server truncates decimals. */
+  integer?: boolean;
   admin?: boolean;
 };
 type Config = {
@@ -354,32 +357,28 @@ const configs: Record<string, Config> = {
         label: "초당 최대 요청 수",
         type: "number",
         default: 1,
-        min: 0.1,
-        max: 100,
+        ...resourceNumberBounds.policies.max_rps,
       },
       {
         key: "max_concurrency",
         label: "동시 실행 상한",
         type: "number",
         default: 1,
-        min: 1,
-        max: 20,
+        ...resourceNumberBounds.policies.max_concurrency,
       },
       {
         key: "max_requests",
         label: "최대 요청 수",
         type: "number",
         default: 20,
-        min: 1,
-        max: 1000,
+        ...resourceNumberBounds.policies.max_requests,
       },
       {
         key: "timeout_seconds",
         label: "실행 제한 시간 (초)",
         type: "number",
         default: 30,
-        min: 1,
-        max: 600,
+        ...resourceNumberBounds.policies.timeout_seconds,
       },
       {
         key: "allowed_methods",
@@ -484,24 +483,21 @@ const configs: Record<string, Config> = {
         label: "초당 최대 요청 수",
         type: "number",
         default: 1,
-        min: 0.1,
-        max: 100,
+        ...resourceNumberBounds.scopes.max_rps,
       },
       {
         key: "max_requests",
         label: "최대 요청 수",
         type: "number",
         default: 20,
-        min: 1,
-        max: 1000,
+        ...resourceNumberBounds.scopes.max_requests,
       },
       {
         key: "timeout_seconds",
         label: "실행 제한 시간 (초)",
         type: "number",
         default: 30,
-        min: 1,
-        max: 600,
+        ...resourceNumberBounds.scopes.timeout_seconds,
       },
     ],
   },
@@ -1023,6 +1019,7 @@ export function FieldForm({
                   value={values[f.key]}
                   min={f.min ?? 0}
                   max={f.max}
+                  allowDecimal={f.integer !== true}
                   onChange={(v) => change(f.key, v)}
                 />
               );
