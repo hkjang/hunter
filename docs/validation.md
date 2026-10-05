@@ -1,5 +1,24 @@
 # Hunter 검증 기록
 
+## v1.23.0 진단 허용 범위·실행 정책 숫자 칸의 서버 허용 범위 선언
+
+2026년 10월 6일, 진단 허용 범위와 실행 정책의 숫자 칸 일곱 개가 `internal/app/policy.go` 의 `validateScope`·`validatePolicy` 와 어긋난 `min`·`max` 를 선언하던 것을 고쳐, 상한·하한·정수 잠금을 `web/src/resource-form-state.ts` 의 공유 표 `resourceNumberBounds` 하나에서 가져오게 했습니다. Mantine `NumberInput` 의 `clampBehavior` 기본값이 `"blur"` 이므로 선언한 경계는 타이핑한 값을 실제로 옮깁니다. 서버 계약과 일곱 필드의 API 형식, 권한 검사·감사 기록은 바꾸지 않았고 범위 안의 값이 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `web/src/resource-form-state.ts`·`web/src/resources.tsx` 둘이며 Go 프로덕션 변경은 없습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm --prefix web test` 가 `web/tests` 의 20개 파일에서 113개 검사를 실행해 모두 통과, 실패·건너뜀 0개. `npm --prefix web run build`(tsc 포함) 통과 |
+| 실패 경로 | 수정 전 선언(초당 최대 요청 수 `min 0.1`·`max 100`, 동시 실행 상한 `max 20`, 최대 요청 수 `max 1000`, 실행 제한 시간 `max 600`, `integer: false`)으로 되돌리면 새 화면 시험 두 개(`the form number bounds table is the range the server accepts`, `the fields the server truncates are declared integer-only`)만 실패해 111통과/2실패였습니다. 나머지 111개는 수정 전후 모두 통과합니다 |
+| 서버 범위 증명 | 같은 되돌림에서 Go 시험은 계속 통과합니다. `go test -run 'ResourceNumberBounds' -count=1 ./internal/app` 통과(`TestResourceNumberBoundsAreTheServerAcceptedRange` 는 벡터의 `min`·`max` 로 탐침을 만들어 실제 `validateScope`·`validatePolicy` 에 넣고, `TestResourceNumberBoundsTruncateSubmittedDecimals` 는 소수점 제출이 잘려 저장되는 것을 같은 검증기로 확인). Go 가 화면 표 대신 서버 검증에서 판정을 얻으므로 벡터의 두 칸이 서버의 실제 허용 범위임이 확정됩니다 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과. `scripts/release-notes.py` 를 `v1.23.0` 으로 실제 실행해 새 본문 블록이, `v1.22.0` 으로 실행해 이전 블록이 그대로 나오는지 확인 |
+| 라이선스 고지 | 새 빈 디렉터리에 `go run ./scripts/license-notices`와 `node scripts/collect-web-licenses.mjs` 수집 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이며 Go 프로덕션 변경이 없으므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 NumberInput 을 직접 타이핑하고 칸을 떠나 clamp 동작을 눈으로 확인하지는 않았습니다. 선언한 경계가 값을 옮긴다는 것은 Mantine `NumberInput` 의 `clampBehavior` 기본값을 설치된 패키지에서 읽어 확인했고, PostgreSQL 이 붙은 서버에 실제로 저장해 재현하지는 않았습니다. 이전 버전에서 서버 범위를 벗어난 상한까지 올라갔다 잃은 입력과 소수점이 잘려 저장된 과거 값을 되돌리는 자료 이전은 이 변경에 포함되지 않습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.23.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.23.0)에 실제 완료 후 기록합니다.
+
 ## v1.22.0 공통 자원 폼 JSON 칸의 선언한 그릇 제출
 
 2026년 10월 5일, 공통 자원 폼의 JSON 칸을 비웠을 때 모든 칸이 똑같이 객체 `{}` 를 제출하던 동작을 고쳐, 칸이 선언한 `default` 의 그릇을 제출하고 선언과 다른 그릇·맨 스칼라·`null` 은 칸 이름이 붙은 한국어 안내로 거절하게 했습니다. 서버 계약과 두 JSON 필드의 API 형식, 권한 검사·감사 기록은 바꾸지 않았고 유효한 JSON 입력이 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `web/src/resource-form-state.ts` 하나이며 Go 변경은 없습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
