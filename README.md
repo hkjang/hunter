@@ -71,6 +71,8 @@ v1.20.0은 **발견 건 일괄 변경**의 조치 기한 폼이 서버가 읽을
 
 v1.21.0은 같은 날짜 직렬화 문제를 **공통 자원 폼**의 일시 칸 네 곳에서 막습니다. `resources.tsx` 의 `formBody` 는 `new Date(value).toISOString()` 결과를 검사 없이 요청 본문에 넣었고, 서버의 네 읽기 경로는 모두 `time.Parse(time.RFC3339, s)`, 즉 부호 없는 네 자리 연도만 받습니다. 그래서 타이핑할 수 있는 평범한 `datetime-local` 값 `9999-12-31T23:59` 이 UTC 서쪽 시간대에서 확장 연도로 직렬화되면 발견 건 조치 기한·위험 수용 만료 일시, 예약의 첫 실행 일시, 범위의 만료 일시가 모두 `400` 으로 돌아가 입력한 값을 잃었습니다. ECMAScript 시간 값 범위를 벗어나는 입력은 `toISOString` 이 `RangeError` 를 던져 번역되지 않은 "Invalid time value" 가 그대로 보였습니다. 이제 제출 본문을 만드는 함수가 `web/src/resource-form-state.ts` 의 `resourceSubmitBody` 로 옮겨져, 타이핑한 값이 아니라 **실제로 보내는 문자열**이 네 자리 연도인지 확인하고 아니면 해당 칸 이름과 함께 한국어로 안내합니다. 범위 안의 일시가 만드는 요청 본문은 한 글자도 달라지지 않습니다. 새 공유 벡터 `internal/app/testdata/resource-datetime.json` 은 (시간대, 입력) 쌍마다 보내는 문자열과 하나의 판정을 적어, Go 가 `validateFindingOpsResource`·`validateSchedule`·`validateScope` 로, 화면이 `resourceSubmitBody` 로 같은 판정에 이르는지 확인합니다. 서버 API·권한·감사 기록과 네 환경변수·서비스 이미지 하나의 배포 조건은 달라지지 않습니다. [릴리즈 노트](docs/release-v1.21.0.md)를 참고하세요.
 
+v1.22.0은 **공통 자원 폼**의 JSON 칸을 비웠을 때 그 칸이 선언한 그릇을 제출하게 고칩니다. 제출 본문을 만드는 `resourceSubmitBody`(`web/src/resource-form-state.ts`)는 JSON 칸마다 `JSON.parse(values[f.key] || "{}")` 를 썼으므로, 비워서 제출한 값은 칸의 선언과 무관하게 객체 `{}` 였습니다. 서비스의 추가 공격 표면(`targets`)은 `default: []` 로 선언하고 자료형을 확인하는 서버 검증이 없어 그 `{}` 는 그대로 저장됐습니다. `internal/app/domain.go` 는 그 값을 `s["targets"].([]any)` 로 읽으므로 타입 단정이 조용히 실패해 그 서비스의 추가 공격 표면이 안내 없이 그려지지 않았고, 같은 파일의 재승인 비교에는 `[]` → `{}` 가 **변경된 값**이어서 그 서비스의 진단 대상 승인까지 함께 해제됐습니다. 이제 JSON 분기가 `resourceJSONWire` 를 지나 빈 입력에 선언한 그릇의 새 복제본(`default` 가 배열이면 `[]`, 아니면 `{}`)을 제출하고, 선언과 다른 그릇이나 맨 스칼라·`null` 은 요청을 만들지 않고 칸 이름과 함께 한국어로 안내합니다. JSON 이 아닌 글에는 기존 형식 오류 문구가 그대로 남아 두 문제를 구분할 수 있고, 유효한 입력이 만드는 요청 본문은 한 글자도 달라지지 않습니다. 서버 API·권한·감사 기록과 네 환경변수·서비스 이미지 하나의 배포 조건은 달라지지 않으며, 이전 버전에서 이미 `{}` 로 저장된 값과 그때 해제된 승인은 자동으로 되돌리지 않습니다. [릴리즈 노트](docs/release-v1.22.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -78,7 +80,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.21.0.tar.gz
+docker load -i hunter-v1.22.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -196,13 +198,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.21.0 예시 |
+| 항목 | 형식 | v1.22.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.21.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.21.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.22.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.22.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.21.0
+bash scripts/release.sh 1.22.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.
