@@ -1,0 +1,128 @@
+{
+  "note": "Shared by Go (internal/app/resource_number_bounds_test.go) and TS (web/tests/resource-number-bounds.test.mjs) for the seven number fields the common resource form in web/src/resources.tsx declares under kinds \"scopes\" and \"policies\". The server tables that judge them are the two literals in internal/app/policy.go: validateScope ({{\"max_rps\", 1, 5}, {\"max_requests\", 10, 100}, {\"timeout_seconds\", 30, 300}}) and validatePolicy ({{\"max_rps\", 1, 5}, {\"max_concurrency\", 1, 1}, {\"max_requests\", 10, 100}, {\"timeout_seconds\", 30, 300}}), whose struct is {k string; def, max int} and whose check is `n := number(m, b.k, b.def); if n < 1 || n > b.max`. So the second column is a fallback for a missing or non-numeric value, NOT a floor: the accepted range is 1..max for every one of the seven. \"min\" and \"max\" here are that accepted range, and the Go side proves it from the validators rather than restating it - min is accepted, min-1 is rejected, max is accepted, and max+1 is rejected with the server's own message. The form must not let a Mantine NumberInput carry the operator outside it, because clampBehavior defaults to \"blur\" and so the declared min/max actively move the typed value to a bound the server may refuse.",
+  "integerNote": "\"integer\" is true for all seven because the server stores a truncated integer whatever it is sent. The resource write handler decodes the body with json.NewDecoder (internal/app/server.go:129) and no UseNumber, so a JSON number reaches validateScope/validatePolicy as float64 and number() (internal/app/domain.go:115) returns int(n). Both validators then write that int back with m[b.k] = n, so a submitted 2.7 is accepted and silently stored as 2 while a submitted 0.5 truncates to 0 and is rejected for being below the floor. The form therefore has to refuse decimals at the input instead of letting either outcome happen, and max_rps in particular cannot keep its old declared min of 0.1 - every value below 1 truncates to 0 and earns a 400.",
+  "bounds": [
+    {
+      "kind": "scopes",
+      "field": "max_rps",
+      "min": 1,
+      "max": 5,
+      "integer": true
+    },
+    {
+      "kind": "scopes",
+      "field": "max_requests",
+      "min": 1,
+      "max": 100,
+      "integer": true
+    },
+    {
+      "kind": "scopes",
+      "field": "timeout_seconds",
+      "min": 1,
+      "max": 300,
+      "integer": true
+    },
+    {
+      "kind": "policies",
+      "field": "max_rps",
+      "min": 1,
+      "max": 5,
+      "integer": true
+    },
+    {
+      "kind": "policies",
+      "field": "max_concurrency",
+      "min": 1,
+      "max": 1,
+      "integer": true
+    },
+    {
+      "kind": "policies",
+      "field": "max_requests",
+      "min": 1,
+      "max": 100,
+      "integer": true
+    },
+    {
+      "kind": "policies",
+      "field": "timeout_seconds",
+      "min": 1,
+      "max": 300,
+      "integer": true
+    }
+  ],
+  "decimalsNote": "Each row below is a decimal the old form declaration allowed an operator to type, paired with what the server does to it. \"stored\" is the integer the validator writes back into the resource data when it accepts; it is absent when the value is rejected. These are the two silent outcomes the integer lock removes.",
+  "decimals": [
+    {
+      "name": "scopes-max-rps-just-under-the-declared-ceiling",
+      "kind": "scopes",
+      "field": "max_rps",
+      "value": 2.7,
+      "accepted": true,
+      "stored": 2
+    },
+    {
+      "name": "scopes-max-rps-below-one-truncates-to-zero",
+      "kind": "scopes",
+      "field": "max_rps",
+      "value": 0.5,
+      "accepted": false
+    },
+    {
+      "name": "scopes-max-requests-fraction-loses-the-remainder",
+      "kind": "scopes",
+      "field": "max_requests",
+      "value": 99.9,
+      "accepted": true,
+      "stored": 99
+    },
+    {
+      "name": "scopes-timeout-fraction-loses-the-remainder",
+      "kind": "scopes",
+      "field": "timeout_seconds",
+      "value": 30.5,
+      "accepted": true,
+      "stored": 30
+    },
+    {
+      "name": "policies-max-rps-at-the-ceiling-plus-a-fraction-still-fits",
+      "kind": "policies",
+      "field": "max_rps",
+      "value": 5.9,
+      "accepted": true,
+      "stored": 5
+    },
+    {
+      "name": "policies-max-concurrency-fraction-truncates-to-the-only-value",
+      "kind": "policies",
+      "field": "max_concurrency",
+      "value": 1.5,
+      "accepted": true,
+      "stored": 1
+    },
+    {
+      "name": "policies-max-concurrency-below-one-truncates-to-zero",
+      "kind": "policies",
+      "field": "max_concurrency",
+      "value": 0.9,
+      "accepted": false
+    },
+    {
+      "name": "policies-max-requests-fraction-loses-the-remainder",
+      "kind": "policies",
+      "field": "max_requests",
+      "value": 20.25,
+      "accepted": true,
+      "stored": 20
+    },
+    {
+      "name": "policies-timeout-fraction-loses-the-remainder",
+      "kind": "policies",
+      "field": "timeout_seconds",
+      "value": 299.99,
+      "accepted": true,
+      "stored": 299
+    }
+  ]
+}
