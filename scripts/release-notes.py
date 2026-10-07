@@ -17,7 +17,23 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 23, 0):
+if version >= (1, 24, 0):
+    features = """### 기여 점수 — 어디서 읽어도 같은 하나의 값으로 저장합니다
+
+- **한 발견 건의 점수가 화면마다 달랐습니다**: 자원 저장 처리기는 `json.NewDecoder` 로 `UseNumber` 없이 본문을 읽으므로 JSON 숫자는 `float64` 로 도착하고 `number()`(`internal/app/domain.go:115`)가 `int(n)` 을 돌려줍니다. `validateScope`·`validatePolicy`·`validateSchedule` 은 그 잘린 정수를 자원 자료에 되쓰는데 발견 건 분기만 검사하고 되쓰지 않아, 제출한 `7.5` 는 검사만 `7` 로 통과하고 저장에는 `7.5` 가 남았습니다. 대시보드의 기여 집계와 보고서 내보내기 CSV 의 기여 점수 열은 `7`(`number()`·`strconv.Itoa`)을, 저장된 JSON 을 그대로 받는 **보안 기여** 화면(`web/src/pages.tsx`)은 `Number()` 로 `7.5` 를 보여 줬습니다. `openapi.json` 은 그 필드를 양쪽에 `"type": "integer"` 로 선언합니다.
+- **0.5 는 한 화면에만 있었습니다**: 대시보드 집계는 `if points := number(f, "contribution_points", 0); points > 0` 으로 거르므로 저장된 `0.5` 는 `0` 이 되어 빠지고, **보안 기여** 화면은 `Number(r.contribution_points) > 0` 으로 거르므로 같은 발견 건이 그 화면에는 올라왔습니다. 같은 점수가 한 곳에서는 인정된 기여, 다른 곳에서는 없는 기여였습니다.
+- **폼이 상한 없이 관리자를 서버 바깥으로 데려갔습니다**: 기여 점수 칸은 `min: 0` 만 선언하고 `max` 가 없었습니다. Mantine `NumberInput` 의 `clampBehavior` 기본값은 `"blur"` 이므로 선언한 경계는 칸을 떠날 때 타이핑한 값을 실제로 옮기는 동작인데, 상한이 없는 칸은 서버가 받는 `10000` 위로 그냥 올려 보낸 뒤 저장 다음에야 `400` 을 보여 줬습니다. 예약의 **실행 간격 (분)** 과 함께 두 칸 모두 선언에 `integer` 가 없어 소수점도 막지 않았고, `validateSchedule` 은 되쓰므로 제출한 `1440.5` 가 안내 없이 `1440` 으로 저장되고 `4.5` 는 `4` 로 잘려 넘은 것처럼 보이지 않는 하한 `5` 를 넘었다는 이유로 거절됐습니다.
+- **되쓰는 함수 하나로 모았습니다**: 발견 건 분기에 흩어져 있던 범위 검사가 `validateContributionPoints`(`internal/app/domain.go`)로 모였고 형제 검증들과 같게 `m["contribution_points"] = points` 로 정수를 되씁니다. 저장되는 값이 하나이므로 세 읽는 쪽이 같은 수를 봅니다.
+- **아홉 칸이 공유 표 하나를 씁니다**: `web/src/resource-form-state.ts` 의 `resourceNumberBounds` 에 `findings.contribution_points`(`0`~`10000`)와 `schedules.interval_minutes`(`5`~`10080`)가 더해져 v1.23.0 의 일곱 칸과 함께 아홉 칸이 되고 각 선언이 그것을 펼쳐 씁니다. 하한은 모두 서버의 실제 하한이며 공유 벡터 `internal/app/testdata/resource-number-bounds.json` 이 그 칸으로 탐침을 만들어 실제 검증 네 개에 넣습니다.
+
+서버 계약은 바꾸지 않았습니다. 기여 점수 `0`~`10000`, 실행 간격 `5`~`10080` 과 두 필드의 API 형식·권한 검사·감사 기록, 기여 점수를 관리자·팀장만 설정하는 규칙, 일반 자원 수정의 `expected_updated_at` 비교와 409 입력 보존 규칙도 그대로입니다. 프로덕션 변경은 `internal/app/domain.go` 와 화면 파일 두 개이며 범위 안의 정수가 만드는 요청 본문은 한 글자도 달라지지 않습니다. 이전 버전에서 소수점으로 저장된 점수는 자동으로 정리되지 않고 해당 발견 건을 다시 저장할 때 정수가 되므로, 대시보드 집계와 **보안 기여** 화면의 수가 다른 건은 다시 확인해야 합니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.24.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 23, 0):
     features = """### 진단 허용 범위·실행 정책 — 숫자 칸이 서버가 받는 범위를 선언합니다
 
 - **폼이 조작자를 서버가 거절하는 값으로 데려갔습니다**: 두 자원의 숫자 칸 일곱 개는 Mantine `NumberInput` 이고 이 컨트롤의 `clampBehavior` 기본값은 `"blur"` 입니다. 선언한 `min`·`max` 는 참고 문구가 아니라 칸을 떠날 때 타이핑한 값을 그 경계로 옮기는 동작입니다. 그런데 선언한 상한은 `internal/app/policy.go` 의 `validateScope`·`validatePolicy` 가 판정하는 표와 달라, 폼이 동시 실행 상한 `20`(서버는 `1`), 최대 요청 수 `1000`(서버는 `100`), 실행 제한 시간 `600`(서버는 `300`), 초당 최대 요청 수 `100`(서버는 `5`)까지 올려 준 뒤 저장한 다음에야 `400` 이 돌아왔습니다.

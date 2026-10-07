@@ -75,6 +75,8 @@ v1.22.0은 **공통 자원 폼**의 JSON 칸을 비웠을 때 그 칸이 선언�
 
 v1.23.0은 **진단 허용 범위**와 **실행 정책**의 숫자 칸 일곱 개가 서버가 실제로 받는 범위를 선언하게 고칩니다. 이 칸은 Mantine `NumberInput` 이고 `clampBehavior` 기본값이 `"blur"` 이므로 선언한 `min`·`max` 는 참고 문구가 아니라 **칸을 떠날 때 타이핑한 값을 그 경계로 옮기는 동작**입니다. 그런데 선언한 상한은 `internal/app/policy.go` 의 `validateScope`·`validatePolicy` 가 판정하는 표와 달라, 폼이 조작자를 동시 실행 상한 `20`(서버는 `1`), 최대 요청 수 `1000`(서버는 `100`), 실행 제한 시간 `600`(서버는 `300`), 초당 최대 요청 수 `100`(서버는 `5`)까지 데려간 뒤 저장한 다음에야 `400` 을 보여 줬습니다. 자원 저장 처리기는 `json.NewDecoder` 로 `UseNumber` 없이 읽고 `number()`(`internal/app/domain.go:115`)가 `int(n)` 을 돌려주므로, 초당 최대 요청 수의 옛 하한 `0.1` 부터 `0.9` 까지는 `0` 으로 잘려 넘은 것처럼 보이지 않는 하한을 넘었다는 이유로 거절됐고, 두 검증이 잘린 정수를 `m[b.k] = n` 으로 되쓰므로 제출한 `2.7` 은 안내 없이 `2` 로 저장됐습니다. 이제 상한·하한·정수 잠금이 `web/src/resource-form-state.ts` 의 `resourceNumberBounds` 공유 표 하나에서 오고 각 선언이 그것을 펼쳐 쓰며, 정수 전용 칸은 입력에서 소수점을 막습니다. 하한은 서버 표 둘째 칸이 아니라 실제 하한인 `1` 로 둡니다. 그 칸은 값이 없거나 숫자가 아닐 때의 대체값이고 검사는 `n < 1 || n > b.max` 이므로, 하한을 올리면 서버가 받는 더 안전한 쪽 값을 폼이 거절하고 이미 저장된 작은 값이 칸을 지나가는 것만으로 올라갑니다. 새 공유 벡터 `internal/app/testdata/resource-number-bounds.json` 은 Go 쪽에서 그 두 칸으로 탐침을 만들어 실제 검증에 넣어 허용 범위임을 증명하고, 화면 쪽은 같은 벡터로 공유 표와 일곱 선언이 일치하는지 단언합니다. 범위 안의 값이 만드는 요청 본문과 서버 API·권한·감사 기록, 네 환경변수·서비스 이미지 하나의 배포 조건은 달라지지 않습니다. [릴리즈 노트](docs/release-v1.23.0.md)를 참고하세요.
 
+v1.24.0은 발견 건의 **기여 점수**를 어디서 읽어도 같은 하나의 값으로 저장하고, 그 칸과 예약의 **실행 간격 (분)** 이 서버가 받는 범위를 선언하게 고칩니다. 자원 저장 처리기는 `json.NewDecoder` 로 `UseNumber` 없이 본문을 읽으므로 JSON 숫자는 `float64` 로 도착하고 `number()`(`internal/app/domain.go:115`)가 `int(n)` 을 돌려주는데, `validateScope`·`validatePolicy`·`validateSchedule` 과 달리 발견 건 분기는 그 잘린 정수를 자원 자료에 **되쓰지 않았습니다**. 그래서 제출한 `7.5` 는 검사만 `7` 로 통과하고 저장에는 `7.5` 가 남아, 대시보드의 기여 집계와 보고서 내보내기 CSV 의 기여 점수 열은 `7` 을, 저장된 JSON 을 그대로 받는 **보안 기여** 화면(`web/src/pages.tsx`)은 `7.5` 를 보여 줬습니다. 저장된 `0.5` 는 집계에서 `0` 으로 잘려 빠지면서 그 화면에는 올라왔고, `openapi.json` 은 그 필드를 양쪽에 `"type": "integer"` 로 선언합니다. 거기에 기여 점수 칸은 `max` 를 선언하지 않아 Mantine `NumberInput` 의 `clampBehavior` 기본값 `"blur"` 가 관리자를 서버 상한 `10000` 위로 그냥 올려 보낸 뒤 저장 다음에야 `400` 을 보여 줬고, 두 칸 모두 선언에 `integer` 가 없어 소수점을 막지 않았습니다. 이제 범위 검사가 되쓰는 `validateContributionPoints` 한 곳으로 모여 `m["contribution_points"] = points` 로 정수를 되쓰고, 상한·하한·정수 잠금은 `web/src/resource-form-state.ts` 의 `resourceNumberBounds` 공유 표에서 와 v1.23.0 의 일곱 칸과 함께 아홉 칸이 됩니다. 하한은 모두 서버의 실제 하한(기여 점수 `0`, 실행 간격 `5`)입니다. 공유 벡터 `internal/app/testdata/resource-number-bounds.json` 은 Go 쪽에서 그 두 칸으로 탐침을 만들어 실제 검증 네 개에 넣고, 새 시험은 수락된 소수점이 저장될 값을 다시 직렬화해 브라우저와 서버가 같은 수를 읽는지 단언합니다. 범위 안의 정수가 만드는 요청 본문과 서버 API·권한·감사 기록, 네 환경변수·서비스 이미지 하나의 배포 조건은 달라지지 않으며, 이전 버전에서 소수점으로 저장된 점수는 자동으로 정리되지 않고 해당 발견 건을 다시 저장할 때 정수가 됩니다. [릴리즈 노트](docs/release-v1.24.0.md)를 참고하세요.
+
 ## 오프라인 설치
 
 PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈 첨부 자산은 **Hunter 서비스 이미지 하나**이며 PostgreSQL·외부 진단 엔진·문서 압축 파일을 함께 첨부하지 않습니다.
@@ -82,7 +84,7 @@ PostgreSQL은 조직의 사내 서비스를 별도로 준비합니다. 릴리즈
 알림을 사용하려면 사내 SMTP 릴레이 또는 조직이 허용한 문자·알림톡 API 경로가 필요합니다. 별도 환경변수나 필수 메시지 브로커는 추가하지 않습니다. 외부 통신이 차단된 망에서는 승인된 사내 중계 서비스를 통해 연결합니다.
 
 ~~~sh
-docker load -i hunter-v1.23.0.tar.gz
+docker load -i hunter-v1.24.0.tar.gz
 cp .env.example .env
 chmod 600 .env
 openssl rand -base64 32
@@ -200,13 +202,13 @@ node scripts/check-docs.mjs
 
 버전은 `VERSION`에서 관리합니다. 이미지 태그와 압축 파일은 다음 형식을 따릅니다.
 
-| 항목 | 형식 | v1.23.0 예시 |
+| 항목 | 형식 | v1.24.0 예시 |
 | --- | --- | --- |
-| Docker 이미지 | hunter:v버전 | hunter:v1.23.0 |
-| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.23.0.tar.gz |
+| Docker 이미지 | hunter:v버전 | hunter:v1.24.0 |
+| 유일한 첨부 자산 | hunter-v버전.tar.gz | hunter-v1.24.0.tar.gz |
 
 ~~~sh
-bash scripts/release.sh 1.23.0
+bash scripts/release.sh 1.24.0
 ~~~
 
 GitHub Actions는 버전 태그에서 서비스 이미지를 빌드하고 `docker save | gzip` 압축 파일만 릴리즈에 첨부합니다. SHA-256은 릴리즈 본문에 기록합니다. GitHub가 자동 표시하는 소스 코드 다운로드는 별개입니다.

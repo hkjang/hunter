@@ -1,5 +1,25 @@
 # Hunter 검증 기록
 
+## v1.24.0 기여 점수의 단일 저장 값과 남은 숫자 칸 두 개의 서버 허용 범위 선언
+
+2026년 10월 7일, 발견 건 분기가 `number()` 로 검사한 정수를 자원 자료에 되쓰지 않아 제출한 소수점이 그대로 저장되던 것을 `validateContributionPoints`(`internal/app/domain.go`)로 모아 형제 검증들과 같게 되쓰도록 고쳤습니다. 같은 변경에서 기여 점수(`0`~`10000`)와 예약 실행 간격(`5`~`10080`)의 `min`·`max`·정수 잠금을 `web/src/resource-form-state.ts` 의 공유 표 `resourceNumberBounds` 로 옮겨 v1.23.0 의 일곱 칸과 함께 아홉 칸이 되게 했습니다. Mantine `NumberInput` 의 `clampBehavior` 기본값이 `"blur"` 이므로 선언한 경계는 타이핑한 값을 실제로 옮기며, 기여 점수는 `max` 를 선언하지 않아 관리자를 서버 상한 위로 올려 보냈습니다. 서버 계약과 두 필드의 API 형식, 권한 검사·감사 기록은 바꾸지 않았고 범위 안의 정수가 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `internal/app/domain.go`·`web/src/resource-form-state.ts`·`web/src/resources.tsx` 셋입니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm --prefix web test` 가 `web/tests` 의 20개 파일에서 113개 검사를 실행해 모두 통과, 실패·건너뜀 0개. `npm --prefix web run build`(tsc 포함) 통과 |
+| 실패 경로 (화면) | 수정 전 화면 선언(기여 점수 `min: 0` 만 선언하고 `max` 없음, 실행 간격 `min 5`·`max 10080` 리터럴, 두 칸 모두 정수 잠금 없음)으로 되돌리면 화면 시험 세 개(`the form number bounds table is the range the server accepts`, `every bounded number field spreads the shared bounds`, `the fields the server truncates are declared integer-only`)만 실패해 110통과/3실패였습니다. 나머지 110개는 수정 전후 모두 통과합니다 |
+| 실패 경로 (저장 값) | `validateContributionPoints` 에서 되쓰기 한 줄(`m["contribution_points"] = points`)만 지우면 `go test -run 'ResourceNumberBounds\|ContributionPoints' -count=1 ./internal/app` 이 `TestContributionPointsStoredValueReadsTheSameEverywhere` 에서 "the browser is handed 7.5 while the leaderboard and the CSV read 7"·"0.5 … read 0" 으로 실패했습니다. 같은 되돌림에서 화면 시험은 모두 통과하므로, 되쓰기가 화면 선언과 별개의 저장 측 수정임이 확인됩니다 |
+| 서버 범위 증명 | `go test -run 'ResourceNumberBounds\|ContributionPoints' -count=1 ./internal/app` 통과. `TestResourceNumberBoundsAreTheServerAcceptedRange` 는 벡터의 `min`·`max` 로 탐침을 만들어 실제 `validateScope`·`validatePolicy`·`validateContributionPoints`·`validateSchedule` 에 넣어 아홉 칸 모두 `min`·`max` 통과와 `min-1`·`max+1` 의 서버 자신의 문구 거절을 확인하고, `TestResourceNumberBoundsTruncateSubmittedDecimals` 는 소수점 13개의 저장·거절을 같은 검증기로 확인합니다 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과. `scripts/release-notes.py` 를 `v1.24.0` 으로 실제 실행해 새 본문 블록이, `v1.23.0` 으로 실행해 이전 블록이 그대로 나오는지 확인 |
+| 라이선스 고지 | 새 빈 디렉터리에 `go run ./scripts/license-notices`와 `node scripts/collect-web-licenses.mjs` 수집 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+브라우저에서 NumberInput 을 직접 타이핑하고 칸을 떠나 clamp 동작을 눈으로 확인하지는 않았습니다. 선언한 경계가 값을 옮긴다는 것은 Mantine `NumberInput` 의 `clampBehavior` 기본값을 설치된 패키지에서 읽어 확인했습니다. PostgreSQL 이 붙은 서버에 소수점 기여 점수를 실제로 저장해 대시보드 집계와 **보안 기여** 화면의 차이를 재현하지는 않았고, 두 읽는 쪽의 판정 차이는 저장될 값을 검증기에서 얻어 다시 직렬화하는 Go 시험으로 확인했습니다. 이미 소수점으로 저장된 점수를 정리하는 자료 이전은 이 변경에 포함되지 않습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.24.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.24.0)에 실제 완료 후 기록합니다.
+
 ## v1.23.0 진단 허용 범위·실행 정책 숫자 칸의 서버 허용 범위 선언
 
 2026년 10월 6일, 진단 허용 범위와 실행 정책의 숫자 칸 일곱 개가 `internal/app/policy.go` 의 `validateScope`·`validatePolicy` 와 어긋난 `min`·`max` 를 선언하던 것을 고쳐, 상한·하한·정수 잠금을 `web/src/resource-form-state.ts` 의 공유 표 `resourceNumberBounds` 하나에서 가져오게 했습니다. Mantine `NumberInput` 의 `clampBehavior` 기본값이 `"blur"` 이므로 선언한 경계는 타이핑한 값을 실제로 옮깁니다. 서버 계약과 일곱 필드의 API 형식, 권한 검사·감사 기록은 바꾸지 않았고 범위 안의 값이 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `web/src/resource-form-state.ts`·`web/src/resources.tsx` 둘이며 Go 프로덕션 변경은 없습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
