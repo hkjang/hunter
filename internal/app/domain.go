@@ -396,6 +396,25 @@ func (a *App) persistResource(ctx context.Context, v *domainResource) error {
 	return err
 }
 
+// The reviewed contribution score a finding carries, kept apart from the rest
+// of the findings branch so internal/app/testdata/resource-number-bounds.json
+// can assert the range the common resource form declares against the range
+// accepted here. The checked int is written back the way validateScope,
+// validatePolicy and validateSchedule write theirs back: the body is decoded
+// without UseNumber, so a submitted 7.5 arrives as float64 and number() reads it
+// as 7, and leaving the float in the stored data gives the score two different
+// values - 7 to the leaderboard sum and the CSV column here, 7.5 to
+// web/src/pages.tsx, which is handed the stored JSON - while openapi.json
+// declares the field an integer to both.
+func validateContributionPoints(m map[string]any) error {
+	points := number(m, "contribution_points", 0)
+	if points < 0 || points > 10000 {
+		return errors.New("기여 점수는 0~10000 범위입니다")
+	}
+	m["contribution_points"] = points
+	return nil
+}
+
 func (a *App) validateResource(ctx context.Context, u User, v *domainResource, old map[string]any, update bool) error {
 	m := v.Data
 	for _, key := range []string{"name", "title", "description", "evidence", "remediation"} {
@@ -497,8 +516,8 @@ func (a *App) validateResource(ctx context.Context, u User, v *domainResource, o
 		if !managerial(u) {
 			m["contribution_points"] = old["contribution_points"]
 		}
-		if number(m, "contribution_points", 0) < 0 || number(m, "contribution_points", 0) > 10000 {
-			return errors.New("기여 점수는 0~10000 범위입니다")
+		if err := validateContributionPoints(m); err != nil {
+			return err
 		}
 	case "scopes":
 		return validateScope(m)

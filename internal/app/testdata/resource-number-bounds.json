@@ -1,58 +1,81 @@
 {
-  "note": "Shared by Go (internal/app/resource_number_bounds_test.go) and TS (web/tests/resource-number-bounds.test.mjs) for the seven number fields the common resource form in web/src/resources.tsx declares under kinds \"scopes\" and \"policies\". The server tables that judge them are the two literals in internal/app/policy.go: validateScope ({{\"max_rps\", 1, 5}, {\"max_requests\", 10, 100}, {\"timeout_seconds\", 30, 300}}) and validatePolicy ({{\"max_rps\", 1, 5}, {\"max_concurrency\", 1, 1}, {\"max_requests\", 10, 100}, {\"timeout_seconds\", 30, 300}}), whose struct is {k string; def, max int} and whose check is `n := number(m, b.k, b.def); if n < 1 || n > b.max`. So the second column is a fallback for a missing or non-numeric value, NOT a floor: the accepted range is 1..max for every one of the seven. \"min\" and \"max\" here are that accepted range, and the Go side proves it from the validators rather than restating it - min is accepted, min-1 is rejected, max is accepted, and max+1 is rejected with the server's own message. The form must not let a Mantine NumberInput carry the operator outside it, because clampBehavior defaults to \"blur\" and so the declared min/max actively move the typed value to a bound the server may refuse.",
-  "integerNote": "\"integer\" is true for all seven because the server stores a truncated integer whatever it is sent. The resource write handler decodes the body with json.NewDecoder (internal/app/server.go:129) and no UseNumber, so a JSON number reaches validateScope/validatePolicy as float64 and number() (internal/app/domain.go:115) returns int(n). Both validators then write that int back with m[b.k] = n, so a submitted 2.7 is accepted and silently stored as 2 while a submitted 0.5 truncates to 0 and is rejected for being below the floor. The form therefore has to refuse decimals at the input instead of letting either outcome happen, and max_rps in particular cannot keep its old declared min of 0.1 - every value below 1 truncates to 0 and earns a 400.",
+  "note": "Shared by Go (internal/app/resource_number_bounds_test.go) and TS (web/tests/resource-number-bounds.test.mjs) for the nine number fields the common resource form in web/src/resources.tsx declares under kinds \"scopes\", \"policies\", \"findings\" and \"schedules\". \"min\" and \"max\" are the range the server accepts and the Go side proves it from the real validators rather than restating it: min is accepted, min-1 is rejected, max is accepted, and max+1 is rejected with the server's own message, carried here as \"reject\" only so an unrelated refusal cannot be mistaken for a bound. The judges are validateScope and validatePolicy (internal/app/policy.go), whose tables are {k string; def, max int} checked with `n := number(m, b.k, b.def); if n < 1 || n > b.max` - so their second column is the fallback for a missing or non-numeric value, NOT a floor, and all seven of those fields are accepted from 1 up; validateContributionPoints (internal/app/domain.go), which accepts 0~10000; and validateSchedule (internal/app/domain_schedules.go), which accepts 5~10080. The form must not let a Mantine NumberInput carry the operator outside the accepted range, because clampBehavior defaults to \"blur\" and so the declared min/max actively move the typed value - and a field that declares no max at all, as findings contribution_points used to, lets the operator walk past the ceiling and only learn of it from the save.",
+  "integerNote": "\"integer\" is true for all nine because the server stores a truncated integer whatever it is sent. The resource write handler decodes the body with json.NewDecoder (internal/app/server.go:129) and no UseNumber, so a JSON number reaches these validators as float64 and number() (internal/app/domain.go:115) returns int(n). Each validator writes that int back - m[b.k] = n in policy.go, m[\"interval_minutes\"] = interval in domain_schedules.go, m[\"contribution_points\"] = points in domain.go - so a submitted 2.7 is accepted and silently stored as 2 while a submitted 0.5 may truncate to 0 and be refused for a floor it never looked like it crossed. The form therefore has to refuse decimals at the input instead of letting either outcome happen, and max_rps in particular cannot keep its old declared min of 0.1. Without the write-back the stored value is worse than truncated, it is inconsistent: openapi.json declares contribution_points as an integer, internal/app/domain.go sums the contribution leaderboard and writes the CSV column through number(), and web/src/pages.tsx sums and prints the raw Number(r.contribution_points), so a stored 7.5 is 7 points on the server and 7.5 in the browser and a stored 0.5 is on the leaderboard in one and absent from the other.",
   "bounds": [
     {
       "kind": "scopes",
       "field": "max_rps",
       "min": 1,
       "max": 5,
-      "integer": true
+      "integer": true,
+      "reject": "max_rps 값은 1~5 범위입니다"
     },
     {
       "kind": "scopes",
       "field": "max_requests",
       "min": 1,
       "max": 100,
-      "integer": true
+      "integer": true,
+      "reject": "max_requests 값은 1~100 범위입니다"
     },
     {
       "kind": "scopes",
       "field": "timeout_seconds",
       "min": 1,
       "max": 300,
-      "integer": true
+      "integer": true,
+      "reject": "timeout_seconds 값은 1~300 범위입니다"
     },
     {
       "kind": "policies",
       "field": "max_rps",
       "min": 1,
       "max": 5,
-      "integer": true
+      "integer": true,
+      "reject": "max_rps 값은 1~5 범위입니다"
     },
     {
       "kind": "policies",
       "field": "max_concurrency",
       "min": 1,
       "max": 1,
-      "integer": true
+      "integer": true,
+      "reject": "max_concurrency 값은 1~1 범위입니다"
     },
     {
       "kind": "policies",
       "field": "max_requests",
       "min": 1,
       "max": 100,
-      "integer": true
+      "integer": true,
+      "reject": "max_requests 값은 1~100 범위입니다"
     },
     {
       "kind": "policies",
       "field": "timeout_seconds",
       "min": 1,
       "max": 300,
-      "integer": true
+      "integer": true,
+      "reject": "timeout_seconds 값은 1~300 범위입니다"
+    },
+    {
+      "kind": "findings",
+      "field": "contribution_points",
+      "min": 0,
+      "max": 10000,
+      "integer": true,
+      "reject": "기여 점수는 0~10000 범위입니다"
+    },
+    {
+      "kind": "schedules",
+      "field": "interval_minutes",
+      "min": 5,
+      "max": 10080,
+      "integer": true,
+      "reject": "예약 간격은 5~10080분입니다"
     }
   ],
-  "decimalsNote": "Each row below is a decimal the old form declaration allowed an operator to type, paired with what the server does to it. \"stored\" is the integer the validator writes back into the resource data when it accepts; it is absent when the value is rejected. These are the two silent outcomes the integer lock removes.",
+  "decimalsNote": "Each row below is a decimal the form declaration allowed an operator to type, paired with what the server does to it. \"stored\" is the integer the validator writes back into the resource data when it accepts; it is absent when the value is rejected. These are the two silent outcomes the integer lock removes.",
   "decimals": [
     {
       "name": "scopes-max-rps-just-under-the-declared-ceiling",
@@ -123,6 +146,37 @@
       "value": 299.99,
       "accepted": true,
       "stored": 299
+    },
+    {
+      "name": "findings-contribution-points-fraction-loses-the-remainder",
+      "kind": "findings",
+      "field": "contribution_points",
+      "value": 7.5,
+      "accepted": true,
+      "stored": 7
+    },
+    {
+      "name": "findings-contribution-points-below-one-truncates-to-zero",
+      "kind": "findings",
+      "field": "contribution_points",
+      "value": 0.5,
+      "accepted": true,
+      "stored": 0
+    },
+    {
+      "name": "schedules-interval-minutes-fraction-loses-the-remainder",
+      "kind": "schedules",
+      "field": "interval_minutes",
+      "value": 1440.5,
+      "accepted": true,
+      "stored": 1440
+    },
+    {
+      "name": "schedules-interval-minutes-below-the-floor-truncates-under-it",
+      "kind": "schedules",
+      "field": "interval_minutes",
+      "value": 4.5,
+      "accepted": false
     }
   ]
 }

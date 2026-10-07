@@ -283,7 +283,7 @@ const configs: Record<string, Config> = {
         label: "기여 점수",
         type: "number",
         default: 0,
-        min: 0,
+        ...resourceNumberBounds.findings.contribution_points,
         admin: true,
         description: "검토한 유효 기여에 한해 관리자가 설정합니다.",
       },
@@ -426,8 +426,7 @@ const configs: Record<string, Config> = {
         label: "실행 간격 (분)",
         type: "number",
         default: 1440,
-        min: 5,
-        max: 10080,
+        ...resourceNumberBounds.schedules.interval_minutes,
         required: true,
       },
       {
