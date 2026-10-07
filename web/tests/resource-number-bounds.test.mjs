@@ -18,12 +18,14 @@ const resourcesSource = readFileSync(
 
 // The Go half of this fixture (internal/app/resource_number_bounds_test.go)
 // derives its probes from the same min/max columns and runs them through the
-// real validateScope and validatePolicy, so these columns are the range the
-// server accepts rather than a second opinion about it. Asserting the shared
-// table against them is what keeps the declarations from drifting back: a
-// Mantine NumberInput clamps the typed value to its declared min/max on blur,
-// so a bound the server refuses is not merely unhelpful, it moves the operator's
-// value for them.
+// real validateScope, validatePolicy, validateContributionPoints and
+// validateSchedule, so these columns are the range the server accepts rather
+// than a second opinion about it. Asserting the shared table against them is
+// what keeps the declarations from drifting back: a Mantine NumberInput clamps
+// the typed value to its declared min/max on blur, so a bound the server refuses
+// is not merely unhelpful, it moves the operator's value for them - and a field
+// that declares no max at all, as findings contribution_points did, lets the
+// operator past the ceiling and answers only with the save's 400.
 test("the form number bounds table is the range the server accepts", () => {
   const expected = {};
   for (const b of fixture.bounds) {
@@ -45,7 +47,7 @@ test("the form number bounds table is the range the server accepts", () => {
 // because Node only strips types from .ts. Reading the source keeps the table
 // from being exported but unused: every field has to spread it instead of
 // restating a literal bound beside it.
-test("every scopes and policies number field spreads the shared bounds", () => {
+test("every bounded number field spreads the shared bounds", () => {
   for (const b of fixture.bounds) {
     assert.ok(
       resourcesSource.includes(`...resourceNumberBounds.${b.kind}.${b.field}`),
@@ -77,8 +79,8 @@ test("the fields the server truncates are declared integer-only", () => {
     "every bounded field needs a decimal case",
   );
   // The lock has to be read off the declaration rather than hardcoded into the
-  // branch, which every kind shares: findings contribution_points and schedules
-  // interval_minutes declare no bound here and must keep their own behaviour.
+  // branch, which every kind shares - settings.tsx renders its own number fields
+  // through the same FieldForm and declares no integer lock on them.
   assert.ok(
     /allowDecimal=\{[^}]*f\.integer[^}]*\}/.test(resourcesSource),
     "the number renderer does not take allowDecimal from the field declaration",

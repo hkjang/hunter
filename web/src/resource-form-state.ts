@@ -11,22 +11,26 @@ type SubmitField = {
 
 /**
  * The min, max and integer lock of every number field the common resource form
- * declares under "scopes" and "policies" - the range internal/app/policy.go
- * accepts, kept here rather than beside each declaration in resources.tsx so
+ * declares - the range the server accepts, kept here rather than beside each
+ * declaration in resources.tsx so
  * internal/app/testdata/resource-number-bounds.json can assert both halves.
- * validateScope and validatePolicy range-check these with
- * `n := number(m, b.k, b.def); if n < 1 || n > b.max`, so the second column of
- * their tables is the fallback for a missing or non-numeric value, not a floor:
- * every field is accepted from 1 up to its own max. Declaring anything else is
- * not a passive hint - Mantine NumberInput defaults to clampBehavior "blur" and
- * moves the typed value to the declared bound, so the form used to walk the
- * operator up to a max_concurrency of 20 or a max_requests of 1000 and only
- * answer with the server's 400 after the save. Decimals are locked out because
- * the resource write handler decodes with json.NewDecoder and no UseNumber
- * (internal/app/server.go:129) and number() (internal/app/domain.go:115)
- * returns int(n), which both validators then write back with m[b.k] = n: a
- * submitted 2.7 is stored as 2 without a word, and anything below 1 truncates to
- * 0 and is refused for a floor it never looked like it crossed.
+ * validateScope and validatePolicy (internal/app/policy.go) range-check their
+ * seven with `n := number(m, b.k, b.def); if n < 1 || n > b.max`, so the second
+ * column of their tables is the fallback for a missing or non-numeric value, not
+ * a floor: every one is accepted from 1 up to its own max. validateSchedule
+ * takes 5~10080 and validateContributionPoints 0~10000, both of which
+ * openapi.json also declares. Declaring anything else is not a passive hint -
+ * Mantine NumberInput defaults to clampBehavior "blur" and moves the typed value
+ * to the declared bound, so the form used to walk the operator up to a
+ * max_concurrency of 20 or a max_requests of 1000 and only answer with the
+ * server's 400 after the save; a field declaring no max at all, as findings
+ * contribution_points did, lets the operator past the ceiling for the same 400.
+ * Decimals are locked out because the resource write handler decodes with
+ * json.NewDecoder and no UseNumber (internal/app/server.go:129) and number()
+ * (internal/app/domain.go:115) returns int(n), which every one of these
+ * validators then writes back: a submitted 2.7 is stored as 2 without a word,
+ * and a value below the floor truncates under it and is refused for a floor it
+ * never looked like it crossed.
  */
 export const resourceNumberBounds = {
   scopes: {
@@ -39,6 +43,12 @@ export const resourceNumberBounds = {
     max_concurrency: { min: 1, max: 1, integer: true },
     max_requests: { min: 1, max: 100, integer: true },
     timeout_seconds: { min: 1, max: 300, integer: true },
+  },
+  findings: {
+    contribution_points: { min: 0, max: 10000, integer: true },
+  },
+  schedules: {
+    interval_minutes: { min: 5, max: 10080, integer: true },
   },
 } as const;
 
