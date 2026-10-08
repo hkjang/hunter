@@ -62,6 +62,69 @@ func TestFindingOpsParsingAndValidation(t *testing.T) {
 	}
 }
 
+func TestFindingOpsSettingsNumericContract(t *testing.T) {
+	fields := []struct {
+		group, key string
+		min, max   float64
+	}{
+		{"sla", "critical_days", 0, 3650},
+		{"sla", "high_days", 0, 3650},
+		{"sla", "medium_days", 0, 3650},
+		{"sla", "low_days", 0, 3650},
+		{"sla", "info_days", 0, 3650},
+		{"sla", "due_soon_days", 0, 3650},
+		{"risk", "kev_boost", 0, 100},
+		{"risk", "epss_boost", 0, 100},
+		{"risk", "stale_after_days", 1, 3650},
+	}
+	for _, field := range fields {
+		t.Run(field.group+"/"+field.key, func(t *testing.T) {
+			for _, tc := range []struct {
+				name     string
+				value    float64
+				accepted bool
+			}{
+				{"fraction", 1.5, false},
+				{"minimum", field.min, true},
+				{"maximum", field.max, true},
+				{"below_minimum", field.min - 1, false},
+				{"above_maximum", field.max + 1, false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					values := findingOpsDefaultSettings()[field.group]
+					values[field.key] = tc.value
+					err := validateFindingOpsSettings(field.group, values)
+					if (err == nil) != tc.accepted {
+						t.Fatalf("%s.%s=%g: accepted=%t, error=%v", field.group, field.key, tc.value, tc.accepted, err)
+					}
+				})
+			}
+		})
+	}
+	t.Run("risk/epss_threshold", func(t *testing.T) {
+		for _, tc := range []struct {
+			value    float64
+			accepted bool
+		}{
+			{0, true},
+			{0.1, true},
+			{0.125, true},
+			{1, true},
+			{-0.1, false},
+			{1.1, false},
+		} {
+			t.Run(fmt.Sprintf("%g", tc.value), func(t *testing.T) {
+				values := findingOpsDefaultSettings()["risk"]
+				values["epss_threshold"] = tc.value
+				err := validateFindingOpsSettings("risk", values)
+				if (err == nil) != tc.accepted {
+					t.Fatalf("epss_threshold=%g: accepted=%t, error=%v", tc.value, tc.accepted, err)
+				}
+			})
+		}
+	})
+}
+
 func TestFindingQueueIncludesOldRecordsAndRestrictsOwnership(t *testing.T) {
 	a, base, ops := findingOpsTestApp(t)
 	ctx := context.Background()
