@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 func findingOpsDefaultSettings() map[string]map[string]any {
@@ -76,6 +77,44 @@ func validateFindingOpsResource(values map[string]any) error {
 			}
 		}
 	}
+	return nil
+}
+
+// Three paths write data->>'assignee' and only two used to check it: the bulk
+// change in finding_bulk.go and the ITSM import, which spends workflowText(s,200)
+// on the same two conditions. Saving one finding never read the field, so the
+// form and the API could store a name the other two reject. That split shows up
+// twice downstream: the stored string leaves through the CSV export, GraphQL and
+// the finding.assignee notification variable, and a blank-but-not-empty name is
+// counted as unassigned by the queue SQL in this file, which compares
+// btrim(coalesce(data->>'assignee', empty)) against the empty string, while the
+// detail view and the recipient match in
+// notification_automation_recipients.go read it as assigned, so one finding is
+// two different findings to two counters. 200 is a byte budget, not a rune one,
+// because len() is what the bulk path has always measured.
+//
+// An assignee already stored outside the rule must stay editable: saveDomain
+// merges the request body over the existing data before validating, so a PUT
+// that leaves the field alone arrives equal to old and is skipped here rather
+// than turning every later edit of that row into a 400.
+func validateFindingAssignee(m, old map[string]any) error {
+	value, ok := m["assignee"]
+	if !ok || value == nil {
+		return nil
+	}
+	if old != nil {
+		if previous, exists := old["assignee"]; exists && value == previous {
+			return nil
+		}
+	}
+	name, ok := value.(string)
+	// The message is the fixed sentence the bulk change already reports. It never
+	// quotes the submitted name back, because the rejected value is the protected
+	// one and the error text is echoed into responses.
+	if !ok || len(name) > 200 || strings.ContainsFunc(name, unicode.IsControl) {
+		return errors.New("조치 담당자는 줄바꿈 없이 UTF-8 200바이트 이하로 입력하세요")
+	}
+	m["assignee"] = strings.TrimSpace(name)
 	return nil
 }
 

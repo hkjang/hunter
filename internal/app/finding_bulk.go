@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -59,11 +58,17 @@ func validateFindingBulk(in *findingBulkRequest) (map[string]time.Time, error) {
 	for field, value := range in.Patch {
 		switch field {
 		case "assignee":
-			name, ok := value.(string)
-			if !ok || len(name) > 200 || strings.ContainsFunc(name, unicode.IsControl) {
-				return nil, bad("조치 담당자는 줄바꿈 없이 UTF-8 200바이트 이하로 입력하세요")
+			// The same rule saving one finding applies, from the one place that
+			// holds it. There is no previous value to compare against here: a bulk
+			// change is always a new assignee for every selected finding. A null
+			// is rejected rather than skipped, because naming the field in a patch
+			// is not the "field was not submitted" case the save path passes over.
+			if value == nil {
+				return nil, bad("조치 담당자에는 이름 또는 빈 문자열을 입력하세요")
 			}
-			in.Patch[field] = strings.TrimSpace(name)
+			if err := validateFindingAssignee(in.Patch, nil); err != nil {
+				return nil, bad(err.Error())
+			}
 		case "due_date":
 			if err := validateFindingOpsResource(map[string]any{field: value}); err != nil {
 				return nil, bad(err.Error())
