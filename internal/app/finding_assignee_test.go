@@ -156,6 +156,91 @@ func TestFindingAssigneeIsWiredIntoResourceValidation(t *testing.T) {
 	}
 }
 
+// Nothing type-checked data->>'assignee' before this rule existed, so a row can
+// hold a JSON object or array: domain.go type-checks only name/title/
+// description/evidence/remediation, and the findings branch never read the
+// field. Those rows still have to be editable. saveDomain merges the body over
+// the stored data and hands over the pre-merge copy, so a PUT that leaves the
+// field alone arrives with the same object on both sides - and `==` on two `any`
+// holding a map or a slice panics with "comparing uncomparable type" rather than
+// reporting a difference, which server.go turns into a 500 for every later edit
+// of that row.
+func TestFindingAssigneeToleratesUncomparableStoredValues(t *testing.T) {
+	object := map[string]any{"team": "보안", "members": []any{"김보안"}}
+	array := []any{"김보안", "이진단"}
+	for _, c := range []struct {
+		name string
+		// shared is the value saveDomain's shallow cloneMap leaves on both sides
+		// when the field is untouched; resubmitted is the equal-but-distinct value
+		// a client sends when it echoes the row back unchanged.
+		shared      any
+		resubmitted any
+	}{
+		{name: "object", shared: object, resubmitted: map[string]any{"team": "보안", "members": []any{"김보안"}}},
+		{name: "array", shared: array, resubmitted: []any{"김보안", "이진단"}},
+		{name: "nested array of objects", shared: []any{map[string]any{"a": 1.0}}, resubmitted: []any{map[string]any{"a": 1.0}}},
+	} {
+		t.Run(c.name+" left alone by a PUT that does not touch it", func(t *testing.T) {
+			m := map[string]any{"assignee": c.shared, "title": "제목"}
+			if err := validateFindingAssignee(m, map[string]any{"assignee": c.shared}); err != nil {
+				t.Fatalf("validateFindingAssignee rejected an untouched stored value: %v", err)
+			}
+			if got, want := m["assignee"], c.shared; !sameJSONValue(got, want) {
+				t.Fatalf("an untouched assignee was rewritten to %#v, want %#v", got, want)
+			}
+		})
+		t.Run(c.name+" resubmitted unchanged", func(t *testing.T) {
+			m := map[string]any{"assignee": c.resubmitted}
+			if err := validateFindingAssignee(m, map[string]any{"assignee": c.shared}); err != nil {
+				t.Fatalf("validateFindingAssignee rejected an unchanged resubmission: %v", err)
+			}
+		})
+	}
+	// The carve-out is only for values that really are unchanged. Writing a new
+	// object over a stored one is a change, and the rule rejects it like any
+	// other non-string.
+	for _, c := range []struct {
+		name      string
+		submitted any
+		old       any
+	}{
+		{name: "new object over a stored object", submitted: map[string]any{"team": "다른팀"}, old: object},
+		{name: "new array over a stored array", submitted: []any{"다른이름"}, old: array},
+		{name: "object over a stored string", submitted: map[string]any{"team": "보안"}, old: "김보안"},
+		{name: "object on a creation with no stored row", submitted: map[string]any{"team": "보안"}, old: nil},
+	} {
+		t.Run(c.name+" is rejected", func(t *testing.T) {
+			var old map[string]any
+			if c.old != nil {
+				old = map[string]any{"assignee": c.old}
+			}
+			err := validateFindingAssignee(map[string]any{"assignee": c.submitted}, old)
+			if err == nil || err.Error() != findingAssigneeMessage {
+				t.Fatalf("validateFindingAssignee(%#v, old=%#v) err = %v, want %q", c.submitted, c.old, err, findingAssigneeMessage)
+			}
+		})
+	}
+	// And the same vector through the call the HTTP handler makes: an edit of a
+	// row whose stored assignee is an object must get past the assignee check
+	// instead of panicking. validateResource reports the missing service next,
+	// which is how we know it ran the whole findings branch.
+	t.Run("validateResource survives an untouched object assignee", func(t *testing.T) {
+		stored := map[string]any{"team": "보안"}
+		v := domainResource{Kind: "findings", Data: map[string]any{
+			"title":    "새 제목",
+			"severity": "high",
+			"assignee": stored,
+		}}
+		err := (&App{}).validateResource(context.Background(), User{}, &v, map[string]any{"assignee": stored}, true)
+		if err != nil && err.Error() == findingAssigneeMessage {
+			t.Fatal("validateResource rejected an edit that never touched the stored assignee")
+		}
+		if v.Data["assignee"] == nil {
+			t.Fatal("validateResource dropped the stored assignee")
+		}
+	})
+}
+
 // Acceptance criterion 4: the bulk path reports the rule through the same
 // helper, so there is one sentence and one set of conditions in the tree.
 func TestFindingAssigneeBulkUsesTheSameRule(t *testing.T) {

@@ -96,14 +96,20 @@ func validateFindingOpsResource(values map[string]any) error {
 // An assignee already stored outside the rule must stay editable: saveDomain
 // merges the request body over the existing data before validating, so a PUT
 // that leaves the field alone arrives equal to old and is skipped here rather
-// than turning every later edit of that row into a 400.
+// than turning every later edit of that row into a 400. The two are compared on
+// their JSON form, the way changed targets are compared in domain.go, because a
+// stored assignee is not necessarily a string: nothing type-checked the field
+// before this rule existed, so a row can hold an object or an array, and `==`
+// on two `any` holding those panics with "comparing uncomparable type" instead
+// of reporting a difference. Only a value that really differs from the stored
+// one is held to the rule below.
 func validateFindingAssignee(m, old map[string]any) error {
 	value, ok := m["assignee"]
 	if !ok || value == nil {
 		return nil
 	}
 	if old != nil {
-		if previous, exists := old["assignee"]; exists && value == previous {
+		if previous, exists := old["assignee"]; exists && sameJSONValue(previous, value) {
 			return nil
 		}
 	}
@@ -116,6 +122,23 @@ func validateFindingAssignee(m, old map[string]any) error {
 	}
 	m["assignee"] = strings.TrimSpace(name)
 	return nil
+}
+
+// Two decoded JSON values are the same value when they marshal to the same
+// bytes. Object keys are emitted in sorted order, so the result is stable, and
+// no dynamic type can make this panic the way `==` on two `any` does. A value
+// that cannot be marshalled counts as different, never as equal, so it stays
+// subject to whichever rule asked.
+func sameJSONValue(a, b any) bool {
+	left, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	right, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(left) == string(right)
 }
 
 func (a *App) initFindingOps(ctx context.Context) error {
