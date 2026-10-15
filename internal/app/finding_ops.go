@@ -80,18 +80,34 @@ func validateFindingOpsResource(values map[string]any) error {
 	return nil
 }
 
-// Three paths write data->>'assignee' and only two used to check it: the bulk
-// change in finding_bulk.go and the ITSM import, which spends workflowText(s,200)
-// on the same two conditions. Saving one finding never read the field, so the
-// form and the API could store a name the other two reject. That split shows up
-// twice downstream: the stored string leaves through the CSV export, GraphQL and
-// the finding.assignee notification variable, and a blank-but-not-empty name is
-// counted as unassigned by the queue SQL in this file, which compares
-// btrim(coalesce(data->>'assignee', empty)) against the empty string, while the
-// detail view and the recipient match in
-// notification_automation_recipients.go read it as assigned, so one finding is
-// two different findings to two counters. 200 is a byte budget, not a rune one,
-// because len() is what the bulk path has always measured.
+// Four paths write data->>'assignee' and only two used to check it: the bulk
+// change in finding_bulk.go and the ITSM sync in automation_workflows_tickets.go,
+// which spends workflowText(s,200)+TrimSpace on the same two conditions. Saving
+// one finding (domain.go, through validateResource) never read the field, so the
+// form and the API could store a name those two reject; this rule closes that
+// path. The fourth writer is the generic scanner import at imports.go, which
+// takes `assignee` straight from the uploaded JSON through str() and hands it to
+// ingestFindings, which marshals the row into its own INSERT/UPDATE without ever
+// calling validateResource. That path is deliberately left outside this rule and
+// is a follow-up, not a covered case: wiring it needs a decision on whether a
+// bad name should fail a whole import batch, and rejecting one is not the same
+// as rejecting an interactive save. Two consequences to keep in view until that
+// follow-up lands - the import keeps minting out-of-rule assignees after this
+// ships, and because the skip below exempts any value equal to the stored one,
+// every imported name stays exempt on each later PUT of that finding.
+//
+// The split this rule closes shows up downstream: the stored string leaves
+// through the CSV export, GraphQL and the finding.assignee notification
+// variable, and a blank-but-not-empty name is counted as unassigned by the queue
+// SQL in this file, which compares btrim(coalesce(data->>'assignee', empty))
+// against the empty string, while the detail view (web/src/triage.tsx, where any
+// non-empty string is truthy) shows it as assigned, so one finding is two
+// different findings to two counters. The recipient match in
+// notification_automation_recipients.go is not a third reading: it compares the
+// raw string against u.ID and u.Username, so a whitespace-only name matches no
+// user and behaves as unassigned, the same direction as the queue SQL. 200 is a
+// byte budget, not a rune one, because len() is what the bulk path has always
+// measured.
 //
 // An assignee already stored outside the rule must stay editable: saveDomain
 // merges the request body over the existing data before validating, so a PUT

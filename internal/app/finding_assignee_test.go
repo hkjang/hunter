@@ -76,8 +76,9 @@ func TestFindingAssigneeRule(t *testing.T) {
 			}
 			// The write-back is what makes the stored value the one the queue SQL
 			// counts: finding_ops.go reads btrim(data->>'assignee')='' as
-			// unassigned, while the detail view, the CSV export and the recipient
-			// match in notification_automation_recipients.go read the raw string.
+			// unassigned, while the detail view in web/src/triage.tsx shows any
+			// non-empty string as assigned. The CSV export and the GraphQL field
+			// hand out the raw string either way.
 			if got := m["assignee"]; got != c.want {
 				t.Fatalf("validateFindingAssignee stored %#v, want %#v", got, c.want)
 			}
@@ -85,8 +86,9 @@ func TestFindingAssigneeRule(t *testing.T) {
 	}
 }
 
-// An assignee that predates the rule - stored through ITSM import or an older
-// API - must not freeze every later edit of that finding. saveDomain hands the
+// An assignee stored outside the rule - through an older API, or through the
+// generic scanner import at imports.go, which still bypasses this rule - must
+// not freeze every later edit of that finding. saveDomain hands the
 // validator the merged data and the pre-merge copy, so a PUT that does not touch
 // the field, or resubmits it unchanged, compares equal and is skipped.
 func TestFindingAssigneeKeepsExistingValuesEditable(t *testing.T) {
