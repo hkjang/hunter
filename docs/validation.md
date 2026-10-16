@@ -1,5 +1,26 @@
 # Hunter 검증 기록
 
+## v1.25.0 발견 건 조치 담당자 규칙의 단일 함수화와 저장 경로 적용
+
+2026년 10월 16일, `data->>'assignee'` 를 쓰는 네 경로 가운데 일괄 변경(`internal/app/finding_bulk.go:60`)과 ITSM 동기화(`internal/app/automation_workflows_tickets.go:50-62`)만 UTF-8 200바이트·제어문자 금지·양끝 공백 제거를 적용하고, 발견 건 하나를 저장하는 `validateResource`(`internal/app/domain.go:468`)의 발견 건 분기는 이 칸을 읽지도 않던 것을 고쳤습니다. 규칙을 자유 함수 `validateFindingAssignee`(`internal/app/finding_ops.go`) 하나에 모아 저장 경로와 일괄 변경이 함께 호출하며, `finding_bulk.go` 의 인라인 조건과 복제된 문구는 제거했습니다. 저장된 값과 같은 값이 도착하면 규칙을 건너뛰어 규칙 이전 담당자가 그 행의 이후 수정을 400 으로 바꾸지 않게 하고, 그 비교는 저장된 값이 객체·배열일 수 있으므로 `==` 가 아닌 JSON 직렬화 형태로 합니다. 네 번째 경로인 스캐너 결과 수입(`internal/app/imports.go:102`, `ingestFindings` 의 직접 INSERT/UPDATE)은 묶음 실패 여부를 결정해야 하므로 이번 범위에서 제외하고 후속 작업으로 기록했습니다. 서버 API 경로·권한 검사·감사 기록은 바꾸지 않았고 규칙을 통과하는 이름이 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `internal/app/finding_ops.go`·`internal/app/domain.go`·`internal/app/finding_bulk.go` 와 `internal/app/openapi.json` 의 선언이며 화면 변경은 없습니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.
+
+| 검증 | 결과 |
+| --- | --- |
+| 규칙 단위 | `go test -run Assignee -count=1 ./internal/app` 통과. `internal/app/finding_assignee_test.go` 의 시험 다섯 개가 `TestFindingAssigneeRule` 16건(200바이트 경계·201바이트·200룬/200바이트 초과·멀티바이트 경계·줄바꿈·탭·NUL·비문자열·트림·공백만), `TestFindingAssigneeKeepsExistingValuesEditable` 7건, `TestFindingAssigneeToleratesUncomparableStoredValues` 10건, `TestFindingAssigneeIsWiredIntoResourceValidation`, `TestFindingAssigneeBulkUsesTheSameRule` 을 실행 |
+| 실패 경로 (저장 경로 연결) | `internal/app/domain.go` 의 `validateFindingAssignee(m, old)` 호출 세 줄을 지우면 `TestFindingAssigneeIsWiredIntoResourceValidation` 이 `err = 발견 제목과 서비스가 필요합니다, want "조치 담당자는 줄바꿈 없이 UTF-8 200바이트 이하로 입력하세요"` 로 실패했습니다. 복원 후 다시 통과 |
+| 실패 경로 (JSON 비교) | `sameJSONValue(previous, value)` 를 `previous == value` 로 되돌리면 `TestFindingAssigneeToleratesUncomparableStoredValues/object_left_alone_by_a_PUT_that_does_not_touch_it` 이 `panic: runtime error: comparing uncomparable type map[string]interface {}` 로 죽었습니다. 복원 후 다시 통과. 두 되돌림이 각각 다른 시험을 깨뜨리므로 호출 연결과 비교 방식이 서로 독립한 수정임이 확인됩니다 |
+| 일괄 변경 회귀 | `go test -run Bulk -count=1 ./internal/app` 통과. `TestFindingAssigneeBulkUsesTheSameRule`·`TestFindingBulkAssigneeSharedVectors`·`TestFindingBulkDueDateSharedVectors` 가 모두 통과해 공유 벡터 판정이 함수 이전 뒤에도 같습니다 |
+| 프런트엔드 | `npm --prefix web ci` 후 `npm --prefix web test` 가 `web/tests` 의 20개 파일에서 113개 검사를 실행해 모두 통과, 실패·건너뜀 0개. `npm --prefix web run build`(tsc 포함) 통과. 화면 코드는 이번 변경에 없으므로 검사 수는 v1.24.0 과 같습니다 |
+| Go 회귀 | 프런트엔드 빌드 결과를 `internal/webassets/dist` 에 반영한 뒤 `go vet ./...`·`go build ./cmd/hunter` 통과 |
+| 문서·배포 스크립트 | `node scripts/render-guides.mjs`로 가이드 HTML·PDF 재생성, `node scripts/check-docs.mjs` 링크·JSON-LD·PDF 2개·실제 화면 확인. `bash -n scripts/release.sh`·`python3 -m py_compile scripts/release-notes.py`·`node scripts/verify-pentagi.mjs`(원본312파일) 통과. `scripts/release-notes.py` 를 `v1.25.0` 으로 실제 실행해 새 본문 블록이, `v1.24.0` 으로 실행해 이전 블록이 그대로 나오는지 확인 |
+| 라이선스 고지 | 새 빈 디렉터리에 `go run ./scripts/license-notices`와 `node scripts/collect-web-licenses.mjs` 수집 통과 |
+| 전체 Go 테스트 | 이번 릴리즈 커밋에서는 PostgreSQL 이 필요한 `go test -race ./...` 전체를 실행하지 않았습니다. `HUNTER_TEST_DSN` 이 없는 환경이므로 태그 푸시 후 GitHub Actions 의 PostgreSQL 회귀 결과로 확인합니다 |
+| 런타임 이미지 | 이번 릴리즈 커밋에서는 서비스 이미지 빌드와 오프라인 반입 시험을 재실행하지 않았습니다. 태그 푸시 후 GitHub Actions 의 `scripts/release.sh` 결과로 확인합니다 |
+
+PostgreSQL 이 붙은 서버에 공백만인 담당자를 저장해 조치함 집계와 상세 화면이 같은 발견 건을 다르게 세는 것을 재현하지는 않았습니다. 두 판정의 방향은 집계 SQL(`internal/app/finding_ops.go:246`, `btrim(coalesce(data->>'assignee',''))=''`)과 화면(`web/src/triage.tsx:425`, `item.assignee || "미지정"`)을 직접 읽어 확인했고, 알림 수신자 매칭(`internal/app/notification_automation_recipients.go:78`)이 원문을 `u.ID`·`u.Username` 과 비교해 집계 SQL 과 같은 방향으로 동작한다는 것도 같은 방식으로 확인했습니다. 이미 저장된 규칙 밖 담당자를 정리하는 자료 이전은 이 변경에 포함되지 않습니다. 프런트엔드 검사는 Node.js 22.23.1 한 런타임에서 실행했고 Go 는 1.26.7 입니다.
+
+최종 게시 커밋의 CI와 공개 릴리즈 아카이브 다운로드 검증 결과는 [v1.25.0 릴리즈](https://github.com/hkjang/hunter/releases/tag/v1.25.0)에 실제 완료 후 기록합니다.
+
 ## v1.24.0 기여 점수의 단일 저장 값과 남은 숫자 칸 두 개의 서버 허용 범위 선언
 
 2026년 10월 7일, 발견 건 분기가 `number()` 로 검사한 정수를 자원 자료에 되쓰지 않아 제출한 소수점이 그대로 저장되던 것을 `validateContributionPoints`(`internal/app/domain.go`)로 모아 형제 검증들과 같게 되쓰도록 고쳤습니다. 같은 변경에서 기여 점수(`0`~`10000`)와 예약 실행 간격(`5`~`10080`)의 `min`·`max`·정수 잠금을 `web/src/resource-form-state.ts` 의 공유 표 `resourceNumberBounds` 로 옮겨 v1.23.0 의 일곱 칸과 함께 아홉 칸이 되게 했습니다. Mantine `NumberInput` 의 `clampBehavior` 기본값이 `"blur"` 이므로 선언한 경계는 타이핑한 값을 실제로 옮기며, 기여 점수는 `max` 를 선언하지 않아 관리자를 서버 상한 위로 올려 보냈습니다. 서버 계약과 두 필드의 API 형식, 권한 검사·감사 기록은 바꾸지 않았고 범위 안의 정수가 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `internal/app/domain.go`·`web/src/resource-form-state.ts`·`web/src/resources.tsx` 셋입니다. 화면 캡처와 v1.9.0의 검증 기록·후보 이미지 시험은 그대로 보존합니다.

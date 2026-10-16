@@ -17,7 +17,26 @@ tick = chr(96)
 fence = tick * 3
 version = tuple(int(part) for part in tag[1:].split("-", 1)[0].split("."))
 features = ""
-if version >= (1, 24, 0):
+if version >= (1, 25, 0):
+    features = """### 발견 건 조치 담당자 — 한 규칙이 저장하는 모든 경로에 적용됩니다
+
+- **같은 이름을 한 경로는 거절하고 다른 경로는 저장했습니다**: `data->>'assignee'` 를 쓰는 경로는 네 개인데 검사하는 쪽은 둘뿐이었습니다. 일괄 변경(`internal/app/finding_bulk.go:60`)과 ITSM 동기화(`internal/app/automation_workflows_tickets.go:50-62`)는 UTF-8 200바이트 초과와 제어문자를 거절하고 양끝 공백을 제거해 저장했지만, 발견 건 하나를 저장하는 `validateResource`(`internal/app/domain.go:468`)의 발견 건 분기는 이 칸을 읽지도 않았습니다. 상세 폼과 자원 API 는 다른 두 경로가 거절하는 이름을 그대로 저장할 수 있었습니다.
+- **검사받지 않은 문자열이 그대로 나갔습니다**: 저장된 담당자는 발견 건 CSV 내보내기, 조회 GraphQL 과 알림 본문의 `finding.assignee` 변수로 나갑니다. 저장 시점에 거르지 않으면 그 세 출구에 한도를 넘는 문자열과 제어문자가 그대로 실립니다.
+- **공백만인 이름이 같은 발견 건을 둘로 갈랐습니다**: 조치함 집계 SQL(`internal/app/finding_ops.go:246`)은 `btrim(coalesce(data->>'assignee',''))` 를 빈 문자열과 비교해 미배정으로 세는데, 상세 화면(`web/src/triage.tsx:425`)은 `item.assignee || "미지정"` 이라 비어 있지 않은 문자열을 배정됨으로 보여 줍니다. 알림 수신자 매칭(`internal/app/notification_automation_recipients.go:78`)은 원문을 `u.ID`·`u.Username` 과 비교하므로 어떤 사용자와도 맞지 않아 집계 SQL 과 같은 방향입니다.
+- **규칙이 자유 함수 하나로 모였습니다**: `validateFindingAssignee`(`internal/app/finding_ops.go`)를 발견 건 저장 경로와 일괄 변경이 함께 호출하고, `finding_bulk.go` 의 인라인 조건과 복제된 문구는 사라졌습니다. 오류 문구는 일괄 변경이 이미 쓰던 한 문장이며 제출한 이름을 따라 적지 않습니다. 200은 일괄 변경이 처음부터 `len()` 으로 재 온 바이트 예산입니다.
+- **이미 저장된 값은 계속 편집할 수 있습니다**: `saveDomain` 은 요청 본문을 기존 자료 위에 병합한 뒤 검증하므로 이 칸을 건드리지 않은 `PUT` 은 저장된 값과 같게 도착하고, 그때는 규칙을 건너뜁니다. 비교는 `==` 가 아니라 JSON 직렬화 형태로 합니다. 형 검사가 없던 시절의 행에는 객체나 배열이 들어 있을 수 있고 그런 `any` 두 개의 `==` 는 "comparing uncomparable type" 으로 패닉해 저장 경로를 죽입니다. 일괄 변경의 `null` 은 그대로 거절합니다. 패치에 필드를 적는 것은 저장 경로가 지나치는 "제출하지 않음" 이 아닙니다.
+- **계약 문서가 실제 한도를 적습니다**: `internal/app/openapi.json` 의 발견 건 스키마 두 곳에 `maxLength: 200`·`x-max-bytes: 200` 과 200바이트·제어문자 금지·양끝 공백 제거·빈 문자열의 담당자 해제를 설명하는 한국어 문구가 들어갔습니다.
+
+네 번째 쓰는 쪽인 스캐너 결과 수입은 이번 범위에 들어 있지 않습니다. `internal/app/imports.go:102` 는 올려받은 JSON 의 `assignee` 를 `str()` 로 꺼내 `ingestFindings` 에 넘기고 그 함수는 행을 직접 `INSERT`/`UPDATE` 하므로 `validateResource` 를 거치지 않습니다. 이름 하나가 수입 묶음 전체를 실패시켜야 하는지가 대화형 저장 한 건을 거절하는 것과 다른 결정이라 후속 작업으로 기록합니다. 그때까지 그 경로는 규칙 밖 이름을 계속 만들고, 같은 값 건너뛰기 때문에 그렇게 들어온 이름은 이후 `PUT` 마다 면제됩니다.
+
+서버 API 경로·권한 검사·감사 기록은 바꾸지 않았고 규칙을 통과하는 이름이 만드는 요청 본문도 달라지지 않습니다. 프로덕션 변경은 `internal/app/finding_ops.go`·`internal/app/domain.go`·`internal/app/finding_bulk.go` 와 `openapi.json` 의 선언이며 화면 변경은 없습니다. 이미 저장된 규칙 밖 담당자는 자동으로 정리되지 않고 해당 발견 건의 담당자를 다시 입력할 때 규칙이 적용되므로, 조치함 집계와 상세 화면의 배정 수가 다른 건은 다시 확인해야 합니다.
+
+네 환경변수, 일반 PostgreSQL과 서비스 Docker 이미지 하나의 배포 조건을 유지합니다. 최종 게시 커밋의 CI·공개 파일 검증 결과는 실제 완료 후 이 본문에 별도로 기록합니다.
+
+[릴리즈 노트](https://github.com/hkjang/hunter/blob/main/docs/release-v1.25.0.md) · [검증 기록](https://github.com/hkjang/hunter/blob/main/docs/validation.md)
+
+"""
+elif version >= (1, 24, 0):
     features = """### 기여 점수 — 어디서 읽어도 같은 하나의 값으로 저장합니다
 
 - **한 발견 건의 점수가 화면마다 달랐습니다**: 자원 저장 처리기는 `json.NewDecoder` 로 `UseNumber` 없이 본문을 읽으므로 JSON 숫자는 `float64` 로 도착하고 `number()`(`internal/app/domain.go:115`)가 `int(n)` 을 돌려줍니다. `validateScope`·`validatePolicy`·`validateSchedule` 은 그 잘린 정수를 자원 자료에 되쓰는데 발견 건 분기만 검사하고 되쓰지 않아, 제출한 `7.5` 는 검사만 `7` 로 통과하고 저장에는 `7.5` 가 남았습니다. 대시보드의 기여 집계와 보고서 내보내기 CSV 의 기여 점수 열은 `7`(`number()`·`strconv.Itoa`)을, 저장된 JSON 을 그대로 받는 **보안 기여** 화면(`web/src/pages.tsx`)은 `Number()` 로 `7.5` 를 보여 줬습니다. `openapi.json` 은 그 필드를 양쪽에 `"type": "integer"` 로 선언합니다.
