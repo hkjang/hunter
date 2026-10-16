@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 func findingOpsDefaultSettings() map[string]map[string]any {
@@ -77,6 +78,83 @@ func validateFindingOpsResource(values map[string]any) error {
 		}
 	}
 	return nil
+}
+
+// Four paths write data->>'assignee' and only two used to check it: the bulk
+// change in finding_bulk.go and the ITSM sync in automation_workflows_tickets.go,
+// which spends workflowText(s,200)+TrimSpace on the same two conditions. Saving
+// one finding (domain.go, through validateResource) never read the field, so the
+// form and the API could store a name those two reject; this rule closes that
+// path. The fourth writer is the generic scanner import at imports.go, which
+// takes `assignee` straight from the uploaded JSON through str() and hands it to
+// ingestFindings, which marshals the row into its own INSERT/UPDATE without ever
+// calling validateResource. That path is deliberately left outside this rule and
+// is a follow-up, not a covered case: wiring it needs a decision on whether a
+// bad name should fail a whole import batch, and rejecting one is not the same
+// as rejecting an interactive save. Two consequences to keep in view until that
+// follow-up lands - the import keeps minting out-of-rule assignees after this
+// ships, and because the skip below exempts any value equal to the stored one,
+// every imported name stays exempt on each later PUT of that finding.
+//
+// The split this rule closes shows up downstream: the stored string leaves
+// through the CSV export, GraphQL and the finding.assignee notification
+// variable, and a blank-but-not-empty name is counted as unassigned by the queue
+// SQL in this file, which compares btrim(coalesce(data->>'assignee', empty))
+// against the empty string, while the detail view (web/src/triage.tsx, where any
+// non-empty string is truthy) shows it as assigned, so one finding is two
+// different findings to two counters. The recipient match in
+// notification_automation_recipients.go is not a third reading: it compares the
+// raw string against u.ID and u.Username, so a whitespace-only name matches no
+// user and behaves as unassigned, the same direction as the queue SQL. 200 is a
+// byte budget, not a rune one, because len() is what the bulk path has always
+// measured.
+//
+// An assignee already stored outside the rule must stay editable: saveDomain
+// merges the request body over the existing data before validating, so a PUT
+// that leaves the field alone arrives equal to old and is skipped here rather
+// than turning every later edit of that row into a 400. The two are compared on
+// their JSON form, the way changed targets are compared in domain.go, because a
+// stored assignee is not necessarily a string: nothing type-checked the field
+// before this rule existed, so a row can hold an object or an array, and `==`
+// on two `any` holding those panics with "comparing uncomparable type" instead
+// of reporting a difference. Only a value that really differs from the stored
+// one is held to the rule below.
+func validateFindingAssignee(m, old map[string]any) error {
+	value, ok := m["assignee"]
+	if !ok || value == nil {
+		return nil
+	}
+	if old != nil {
+		if previous, exists := old["assignee"]; exists && sameJSONValue(previous, value) {
+			return nil
+		}
+	}
+	name, ok := value.(string)
+	// The message is the fixed sentence the bulk change already reports. It never
+	// quotes the submitted name back, because the rejected value is the protected
+	// one and the error text is echoed into responses.
+	if !ok || len(name) > 200 || strings.ContainsFunc(name, unicode.IsControl) {
+		return errors.New("조치 담당자는 줄바꿈 없이 UTF-8 200바이트 이하로 입력하세요")
+	}
+	m["assignee"] = strings.TrimSpace(name)
+	return nil
+}
+
+// Two decoded JSON values are the same value when they marshal to the same
+// bytes. Object keys are emitted in sorted order, so the result is stable, and
+// no dynamic type can make this panic the way `==` on two `any` does. A value
+// that cannot be marshalled counts as different, never as equal, so it stays
+// subject to whichever rule asked.
+func sameJSONValue(a, b any) bool {
+	left, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	right, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(left) == string(right)
 }
 
 func (a *App) initFindingOps(ctx context.Context) error {
