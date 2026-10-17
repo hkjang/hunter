@@ -260,9 +260,13 @@ func validateSettings(group string, v map[string]any) error {
 			return fmt.Errorf("SSO 발급자 주소, Client ID, Client Secret을 입력해 주세요")
 		}
 	case "ai":
-		if asInt(v["max_tokens"]) < 1 || asInt(v["max_tokens"]) > 262144 || asInt(v["context_window"]) < 1024 || asInt(v["context_window"]) > 262144 || asInt(v["max_tokens"]) > asInt(v["context_window"]) {
+		// Store the integer the enforcers read, so the saved row, the admin screen
+		// and the immutable run snapshot cannot carry a limit nobody applies.
+		maxTokens, contextWindow := asInt(v["max_tokens"]), asInt(v["context_window"])
+		if maxTokens < 1 || maxTokens > 262144 || contextWindow < 1024 || contextWindow > 262144 || maxTokens > contextWindow {
 			return fmt.Errorf("최대 토큰과 컨텍스트는 262144 이하이며 최대 토큰은 컨텍스트 이하여야 합니다")
 		}
+		v["max_tokens"], v["context_window"] = maxTokens, contextWindow
 		if asBool(v["enabled"]) && (!validURL(asString(v["base_url"])) || asString(v["model"]) == "") {
 			return fmt.Errorf("AI API 기본 주소와 모델을 입력해 주세요")
 		}
@@ -272,6 +276,7 @@ func validateSettings(group string, v map[string]any) error {
 			if n < limit[0] || n > limit[1] {
 				return fmt.Errorf("%s 값은 %d~%d 범위여야 합니다", key, limit[0], limit[1])
 			}
+			v[key] = n
 		}
 	case "workflow":
 		if _, ok := v["approval_enabled"].(bool); !ok {
@@ -283,9 +288,11 @@ func validateSettings(group string, v map[string]any) error {
 				return fmt.Errorf("유효한 PEM CA 인증서를 입력해 주세요")
 			}
 		}
-		if asInt(v["session_hours"]) < 1 || asInt(v["session_hours"]) > 168 || asInt(v["key_max_days"]) < 1 || asInt(v["key_max_days"]) > 365 {
+		sessionHours, keyMaxDays := asInt(v["session_hours"]), asInt(v["key_max_days"])
+		if sessionHours < 1 || sessionHours > 168 || keyMaxDays < 1 || keyMaxDays > 365 {
 			return fmt.Errorf("세션은 1~168시간, 키 유효기간은 1~365일로 입력해 주세요")
 		}
+		v["session_hours"], v["key_max_days"] = sessionHours, keyMaxDays
 	case "roles":
 		for role, scopes := range v {
 			if role == "admin" {
